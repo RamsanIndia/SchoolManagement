@@ -43,6 +43,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.API", "Sch
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "schoolmanagement.ui", "SchoolManagement.UI\schoolmanagement.ui.esproj", "{B347F06D-3E67-164D-CB21-5D2E53FBE57B}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{75E4EB6E-88E9-4D5E-9875-FA1846AC9468}"
+	ProjectSection(SolutionItems) = preProject
+		..\Docs\Business Requirements Document.docx = ..\Docs\Business Requirements Document.docx
+		..\Docs\System-Architecture.md = ..\Docs\System-Architecture.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
