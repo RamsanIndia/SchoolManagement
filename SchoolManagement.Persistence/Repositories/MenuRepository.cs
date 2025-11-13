@@ -18,12 +18,24 @@ namespace SchoolManagement.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<Menu> GetByIdAsync(Guid id)
+        //public async Task<Menu> GetByIdAsync(Guid id)
+        //{
+        //    return await _context.Menus
+        //        .Include(m => m.ParentMenu)
+        //        .Include(m => m.SubMenus)
+        //        .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
+        //}
+
+        public async Task<IEnumerable<Menu>> GetByIdAsync(Guid roleId)
         {
             return await _context.Menus
                 .Include(m => m.ParentMenu)
                 .Include(m => m.SubMenus)
-                .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
+                .Where(m => !m.IsDeleted)
+                .Where(m => m.RoleMenuPermissions.Any(rmp => rmp.RoleId == roleId && rmp.CanView))
+                .OrderBy(m => m.SortOrder)
+                .ToListAsync();
+
         }
 
         public async Task<IEnumerable<Menu>> GetAllAsync()
@@ -70,7 +82,9 @@ namespace SchoolManagement.Persistence.Repositories
 
         public async Task DeleteAsync(Guid id)
         {
-            var menu = await GetByIdAsync(id);
+            var menu = await _context.Menus
+                .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
+
             if (menu != null)
             {
                 menu.MarkAsDeleted();

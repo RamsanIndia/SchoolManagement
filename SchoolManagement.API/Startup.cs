@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ using SchoolManagement.API.Authorization;
 using SchoolManagement.API.Middleware;
 using SchoolManagement.Application.Auth.Handler;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Mappings;
 using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Students.Commands;
 using SchoolManagement.Application.Validators;
@@ -37,7 +39,18 @@ namespace SchoolManagement.API
 
         public void ConfigureServices(IServiceCollection services)
         {
-            // Controllers - MOVE THIS TO THE TOP
+            // --- AUTO MAPPER (correct DI registration) ---
+            // Ensure you have the NuGet package:
+            // AutoMapper.Extensions.Microsoft.DependencyInjection
+            services.AddAutoMapper(typeof(MappingProfile).Assembly);
+
+            // Optional: validate mapping configuration at startup (will throw if invalid)
+            // Note: building a temporary provider for validation is acceptable here.
+            var spForValidation = services.BuildServiceProvider();
+            var mapper = spForValidation.GetService<IMapper>();
+            mapper?.ConfigurationProvider.AssertConfigurationIsValid();
+
+            // --- MVC / JSON ---
             services.AddControllers()
                 .AddJsonOptions(options =>
                 {
@@ -118,7 +131,6 @@ namespace SchoolManagement.API
             //services.AddSingleton<INotificationQueue, InMemoryNotificationQueue>();
             //services.AddHostedService<NotificationProcessorService>();
 
-
             // MediatR for CQRS
             services.AddMediatR(typeof(CreateStudentCommand).Assembly);
             if (typeof(LoginCommandHandler).Assembly != typeof(CreateStudentCommand).Assembly)
@@ -182,7 +194,7 @@ namespace SchoolManagement.API
             services.Configure<NotificationSettings>(Configuration.GetSection("NotificationSettings"));
             services.Configure<AttendanceSettings>(Configuration.GetSection("AttendanceSettings"));
 
-            // SWAGGER CONFIGURATION - FIXED
+            // SWAGGER CONFIGURATION
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo
@@ -304,16 +316,6 @@ namespace SchoolManagement.API
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "School Management System API V1");
-                c.RoutePrefix = "swagger"; // This sets the URL to /swagger instead of root
-                c.DisplayRequestDuration();
-                c.EnableTryItOutByDefault();
-                c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-            });
-
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -324,10 +326,8 @@ namespace SchoolManagement.API
                 app.UseHsts();
             }
 
-            // Middleware Pipeline
             app.UseHttpsRedirection();
 
-            // Custom middleware (only if classes exist)
             if (HasMiddleware<ErrorHandlingMiddleware>())
             {
                 app.UseMiddleware<ErrorHandlingMiddleware>();
@@ -338,9 +338,22 @@ namespace SchoolManagement.API
                 app.UseMiddleware<RateLimitingMiddleware>();
             }
 
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "School Management System API V1");
+                c.RoutePrefix = "swagger"; // URL: /swagger
+                c.DisplayRequestDuration();
+                c.EnableTryItOutByDefault();
+                c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+            });
+
             app.UseCors("AllowReactApp");
+
             app.UseRateLimiter();
+
             app.UseRouting();
+
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -349,7 +362,6 @@ namespace SchoolManagement.API
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
 
-                // Add a default route for root
                 endpoints.MapGet("/", async context =>
                 {
                     await context.Response.WriteAsync("School Management System API is running! Go to /swagger to view API documentation.");

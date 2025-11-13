@@ -9,9 +9,16 @@ namespace SchoolManagement.Domain.Enums
     public enum UserType
     {
         Admin = 1,
-        Staff = 2,
+        SuperAdmin = 2,
         Student = 3,
         Parent = 4,
-        Guest = 5
+        Teacher = 5,
+        Accountant = 6,
+        Receptionist = 7,
+        Principal = 8,
+        HRManager = 9,
+        DepartmentHead = 10,
+        Staff = 11,
+        Guest = 12
     }
 }

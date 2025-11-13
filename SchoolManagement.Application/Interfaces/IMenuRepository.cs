@@ -9,13 +9,14 @@ namespace SchoolManagement.Application.Interfaces
 {
     public interface IMenuRepository
     {
-        Task<Menu> GetByIdAsync(Guid id);
+        Task<IEnumerable<Menu>> GetByIdAsync(Guid id);
         Task<IEnumerable<Menu>> GetAllAsync();
         Task<IEnumerable<Menu>> GetActiveMenusAsync();
         Task<IEnumerable<Menu>> GetMenusByParentAsync(Guid? parentId);
         Task<Menu> CreateAsync(Menu menu);
         Task<Menu> UpdateAsync(Menu menu);
         Task DeleteAsync(Guid id);
+
         Task<IEnumerable<Menu>> GetMenuHierarchyAsync();
     }
 }

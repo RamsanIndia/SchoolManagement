@@ -70,16 +70,16 @@ namespace SchoolManagement.Application.Students.Handler.Commands
                 );
 
                 // Save
-                var createdStudent = await _studentRepository.CreateAsync(student);
+                var createdStudent = await _unitOfWork.StudentRepository.CreateAsync(student);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await _unitOfWork.CommitTransactionAsync();
 
                 // Send notification
-                //if (!string.IsNullOrEmpty(request.Phone))
-                //{
-                //    await _notificationService.SendSMSAsync(request.Phone,
-                //        $"Welcome to our school! Student ID: {createdStudent.StudentId}");
-                //}
+                if (!string.IsNullOrEmpty(request.Phone))
+                {
+                    await _notificationService.SendSMSAsync(request.Phone,
+                        $"Welcome to our school! Student ID: {createdStudent.StudentId}");
+                }
 
                 return new CreateStudentResponse
                 {

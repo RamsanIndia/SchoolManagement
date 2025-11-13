@@ -20,6 +20,7 @@ namespace SchoolManagement.Persistence.Repositories
         private IRoleMenuPermissionRepository _roleMenuPermissionRepository;
         private IStudentRepository _studentRepository;
         private IAttendanceRepository _attendanceRepository;
+        private IMenuRepository _menuRepository;
         // Add other repositories as needed
         private IUserRoleRepository _userRoleRepository;
 
@@ -52,6 +53,8 @@ namespace SchoolManagement.Persistence.Repositories
 
         public IUserRoleRepository UserRoleRepository =>
             _userRoleRepository ??= new UserRoleRepository(_context);
+        public IMenuRepository MenuRepository =>
+            _menuRepository ??= new MenuRepository(_context);
 
         #endregion
 

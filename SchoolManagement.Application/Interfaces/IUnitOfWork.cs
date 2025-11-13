@@ -12,6 +12,7 @@ namespace SchoolManagement.Application.Interfaces
         IEmployeeRepository EmployeeRepository { get; }
         IUserRepository UserRepository { get; }
         IRoleRepository RoleRepository { get; }
+        IMenuRepository MenuRepository { get; }
         IUserRoleRepository UserRoleRepository { get; }
         IStudentRepository StudentRepository { get; }
         IAttendanceRepository AttendanceRepository { get; }

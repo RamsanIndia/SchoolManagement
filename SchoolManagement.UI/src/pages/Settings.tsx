@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,18 +11,37 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, School, Bell, Shield, Database, Mail } from "lucide-react";
 
+// 🧩 Define a safe type for your user roles
+type UserRole = string | string[] | undefined;
+
 export default function Settings() {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user?: { roles?: UserRole } };
+
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [academicYear, setAcademicYear] = useState("2024-2025");
   const [schoolName, setSchoolName] = useState("Modern School Management System");
   const [timeZone, setTimeZone] = useState("UTC");
 
-  if (!user || user.role !== "admin") {
+  // Safe role-based access check
+  const hasAdminAccess = useMemo(() => {
+    if (!user?.roles) return false;
+
+    const rolesArray = Array.isArray(user.roles)
+      ? user.roles
+      : [user.roles];
+
+    return rolesArray.some(
+      (r) => typeof r === "string" && r.toLowerCase() === "admin"
+    );
+  }, [user]);
+
+  if (!hasAdminAccess) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Access denied. This page is only available to administrators.</p>
+        <p className="text-muted-foreground">
+          Access denied. This page is only available to administrators.
+        </p>
       </div>
     );
   }

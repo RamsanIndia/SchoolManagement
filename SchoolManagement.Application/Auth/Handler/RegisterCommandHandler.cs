@@ -55,7 +55,7 @@ namespace SchoolManagement.Application.Auth.Handler
 
             //user.AddRefreshToken(refreshToken);
 
-            //await _unitOfWork.AuthRepository.AddAsync(user);
+            await _unitOfWork.AuthRepository.AddAsync(user);
             //await _unitOfWork.AuthRepository.SaveRefreshTokenAsync(refreshToken);
             await _unitOfWork.SaveChangesAsync();
 

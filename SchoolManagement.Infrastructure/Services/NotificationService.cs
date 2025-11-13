@@ -122,9 +122,5 @@ namespace SchoolManagement.Infrastructure.Services
             await Task.WhenAll(tasks);
         }
 
-        //public async Task SendBulkNotificationAsync(IEnumerable<string> recipients, string message, NotificationType type)
-        //{
-        //    throw new NotImplementedException();
-        //}
     }
 }

@@ -52,7 +52,7 @@ namespace SchoolManagement.API.Controllers
         /// Get menu hierarchy
         /// </summary>
         [HttpGet("hierarchy")]
-        [Authorize(Roles = "Admin,SuperAdmin")]
+        //[Authorize(Roles = "Admin,SuperAdmin")]
         public async Task<ActionResult<IEnumerable<MenuDto>>> GetMenuHierarchy()
         {
             var query = new GetAllMenusQuery();
@@ -77,9 +77,7 @@ namespace SchoolManagement.API.Controllers
             return BadRequest(response);
         }
 
-        /// <summary>
-        /// Get menu by ID
-        /// </summary>
+        // Existing method
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,SuperAdmin")]
         public async Task<ActionResult<MenuDto>> GetMenu(Guid id)
@@ -92,6 +90,21 @@ namespace SchoolManagement.API.Controllers
 
             return Ok(menu);
         }
+
+        // Rename route for role-based fetch
+        [HttpGet("role/{id}")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult<MenuDto>> GetMenuByRoleId(Guid id)
+        {
+            var query = new GetMenuByIdQuery { Id = id };
+            var menu = await _mediator.Send(query);
+
+            if (menu == null)
+                return NotFound();
+
+            return Ok(menu);
+        }
+
 
         /// <summary>
         /// Update menu

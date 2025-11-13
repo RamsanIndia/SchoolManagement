@@ -110,13 +110,13 @@ export default function Students() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
-  if (!user || !["admin", "teacher"].includes(user.role)) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Access denied. This page is only available to administrators and teachers.</p>
-      </div>
-    );
-  }
+  // if (!user || !["admin", "teacher"].includes(user.roles)) {
+  //   return (
+  //     <div className="flex items-center justify-center h-64">
+  //       <p className="text-muted-foreground">Access denied. This page is only available to administrators and teachers.</p>
+  //     </div>
+  //   );
+  // }
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {

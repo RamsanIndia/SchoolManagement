@@ -1,20 +1,14 @@
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Users,
-  Calendar,
-  BookOpen,
-  DollarSign,
-  UserCheck,
-  Bell,
-  Settings,
-  BarChart3,
-  GraduationCap,
   ChevronDown,
   ChevronRight,
+  GraduationCap,
+  Circle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   Sidebar,
   SidebarContent,
@@ -24,63 +18,76 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
+import { MenuItem, getMenus } from "@/services/MenuService";
+import { buildMenuTree } from "@/utils/menuUtils";
+import * as LucideIcons from "lucide-react";
 
-interface NavItem {
-  title: string;
-  url: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles: UserRole[];
-  children?: NavItem[];
+function getIconByName(name?: string): React.ComponentType<{ className?: string }> {
+  if (!name) return Circle;
+  const formattedName = name
+    .replace(/[-_ ](\w)/g, (_, c) => c.toUpperCase())
+    .replace(/^(\w)/, (_, c) => c.toUpperCase());
+  const icon = (LucideIcons as any)[formattedName];
+  return icon || Circle;
 }
 
-const navigationItems: NavItem[] = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: BarChart3,
-    roles: ["admin", "teacher", "student", "hr", "accountant"],
-  },
-  // ... your other navigation items
-];
+interface NavItemProps {
+  item: MenuItem;
+  level?: number;
+}
 
-function NavItem({ item, level = 0 }: { item: NavItem; level?: number }) {
-  const { user } = useAuth();
+function NavItemComponent({ item, level = 0 }: NavItemProps) {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const Icon = getIconByName(item.icon);
 
-  if (!user || !item.roles.includes(user.roles[0] as UserRole)) {
-    return null;
-  }
+  const isActive = location.pathname === item.route;
+  const isChildActive =
+    Array.isArray(item.children) &&
+    item.children.some((child) => location.pathname.startsWith(child.route ?? ""));
 
-  const isActive = location.pathname === item.url;
-  const hasChildren = item.children && item.children.length > 0;
+  const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+
+  useEffect(() => {
+    if (isChildActive) {
+      setIsOpen(true);
+    }
+  }, [isChildActive]);
+
+  const sortedSubMenus = hasChildren
+    ? [...item.children!].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : [];
 
   if (hasChildren) {
     return (
       <SidebarMenuItem>
         <SidebarMenuButton
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => setIsOpen((prev) => !prev)}
           className={cn(
-            "w-full justify-between",
-            isActive && "bg-brand-primary text-white"
+            "w-full justify-between transition-colors rounded-md",
+            (isActive || isChildActive) && "bg-brand-primary text-white"
           )}
         >
           <div className="flex items-center">
-            <item.icon className="mr-3 h-4 w-4" />
-            {!isCollapsed && <span>{item.title}</span>}
+            <Icon
+              className={cn(
+                "mr-3 h-4 w-4 shrink-0 transition-colors",
+                (isActive || isChildActive) && "text-white"
+              )}
+            />
+            {!isCollapsed && <span>{item.displayName}</span>}
           </div>
-          {!isCollapsed && (
-            isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-          )}
+          {!isCollapsed &&
+            (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
         </SidebarMenuButton>
+
         {isOpen && !isCollapsed && (
           <div className="ml-4 mt-1 space-y-1">
-            {item.children!.map(child => (
-              <NavItem key={child.url} item={child} level={level + 1} />
+            {sortedSubMenus.map((child) => (
+              <NavItemComponent key={child.id} item={child} level={level + 1} />
             ))}
           </div>
         )}
@@ -92,18 +99,25 @@ function NavItem({ item, level = 0 }: { item: NavItem; level?: number }) {
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
         <NavLink
-          to={item.url}
-          className={({ isActive }) =>
+          to={item.route ?? "#"}
+          className={({ isActive: linkActive }) =>
             cn(
               "flex items-center w-full px-3 py-2 text-sm rounded-lg transition-colors",
-              isActive
-                ? "bg-brand-primary text-white"
-                : "text-foreground hover:bg-muted"
+              linkActive ? "bg-brand-primary text-white" : "text-foreground hover:bg-muted"
             )
           }
         >
-          <item.icon className="mr-3 h-4 w-4" />
-          {!isCollapsed && <span>{item.title}</span>}
+          {({ isActive: linkActive }) => (
+            <>
+              <Icon
+                className={cn(
+                  "mr-3 h-4 w-4 shrink-0 transition-colors",
+                  linkActive && "text-white"
+                )}
+              />
+              {!isCollapsed && <span>{item.displayName}</span>}
+            </>
+          )}
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -114,6 +128,24 @@ export function AppSidebar() {
   const { user } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMenus = async () => {
+      try {
+        const flatMenus = await getMenus();
+        // Build sorted tree structure; the response already has nested children
+        const treeMenus = buildMenuTree(flatMenus);
+        setMenus(treeMenus);
+      } catch (error) {
+        console.error("Failed to load menus:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMenus();
+  }, []);
 
   if (!user) return null;
 
@@ -122,7 +154,7 @@ export function AppSidebar() {
       <SidebarContent>
         <div className="p-4 border-b">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
             {!isCollapsed && (
@@ -135,12 +167,14 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigationItems.map((item) => (
-                <NavItem key={item.url} item={item} />
-              ))}
+              {loading ? (
+                <div className="text-sm text-muted-foreground px-3 py-2">Loading menus...</div>
+              ) : (
+                menus.map((item) => <NavItemComponent key={item.id} item={item} />)
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

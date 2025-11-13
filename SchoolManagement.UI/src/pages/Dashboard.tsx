@@ -331,21 +331,25 @@ export default function Dashboard() {
   if (!user) return null;
 
   const renderDashboard = () => {
-    switch (user.role) {
-      case 'admin':
-        return <AdminDashboard />;
-      case 'teacher':
-        return <TeacherDashboard />;
-      case 'student':
-        return <StudentDashboard />;
-      case 'hr':
-        return <AdminDashboard />; // HR can use admin dashboard for now
-      case 'accountant':
-        return <AdminDashboard />; // Accountant can use admin dashboard for now
-      default:
-        return <AdminDashboard />;
-    }
-  };
+  if (user.roles.includes("admin")) {
+    return <AdminDashboard />;
+  }
+  if (user.roles.includes("teacher")) {
+    return <TeacherDashboard />;
+  }
+  if (user.roles.includes("student")) {
+    return <StudentDashboard />;
+  }
+  if (user.roles.includes("hr")) {
+    return <AdminDashboard />; // HR can use admin dashboard for now
+  }
+  if (user.roles.includes("accountant")) {
+    return <AdminDashboard />; // Accountant can use admin dashboard for now
+  }
+
+  // Default fallback
+  return <AdminDashboard />;
+};
 
   return (
     <div className="space-y-8">
@@ -355,7 +359,7 @@ export default function Dashboard() {
             Dashboard
           </h1>
           <p className="text-lg text-muted-foreground">
-            Welcome to your {user.role} dashboard, {user.name.split(' ')[0]} ✨
+            Welcome to your {user.roles} dashboard, {user.firstName.split(' ')[0]} ✨
           </p>
         </div>
         <div className="flex gap-3">
