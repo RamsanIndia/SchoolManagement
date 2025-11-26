@@ -18,8 +18,9 @@ namespace SchoolManagement.Application.Interfaces
         IAttendanceRepository AttendanceRepository { get; }
         IRoleMenuPermissionRepository RoleMenuPermissionRepository { get; } // <-- Add this line
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-        Task BeginTransactionAsync();
-        Task CommitTransactionAsync();
-        Task RollbackTransactionAsync();
+        IPermissionRepository Permissions { get; }
+        Task BeginTransactionAsync(CancellationToken cancellationToken);
+        Task CommitTransactionAsync(CancellationToken cancellationToken);
+        Task RollbackTransactionAsync(CancellationToken cancellationToken);
     }
 }

@@ -30,7 +30,7 @@ namespace SchoolManagement.Application.Students.Handler.Commands
         {
             try
             {
-                await _unitOfWork.BeginTransactionAsync();
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
                 // Create Address value object
                 var address = new Address(
@@ -72,7 +72,7 @@ namespace SchoolManagement.Application.Students.Handler.Commands
                 // Save
                 var createdStudent = await _unitOfWork.StudentRepository.CreateAsync(student);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
-                await _unitOfWork.CommitTransactionAsync();
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
                 // Send notification
                 if (!string.IsNullOrEmpty(request.Phone))
@@ -91,7 +91,7 @@ namespace SchoolManagement.Application.Students.Handler.Commands
             }
             catch (Exception ex)
             {
-                await _unitOfWork.RollbackTransactionAsync();
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                 return new CreateStudentResponse
                 {
                     Message = $"Error creating student: {ex.Message}",

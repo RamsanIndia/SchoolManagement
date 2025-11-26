@@ -9,7 +9,13 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Queries
 {
-    public class GetMenuHierarchyQuery : IRequest<Result<MenuDto>>
+    public class GetMenusByRoleQuery : IRequest<Result<List<MenuDto>>>
     {
+        public string RoleId { get; }
+
+        public GetMenusByRoleQuery(string roleId)
+        {
+            RoleId = roleId;
+        }
     }
 }

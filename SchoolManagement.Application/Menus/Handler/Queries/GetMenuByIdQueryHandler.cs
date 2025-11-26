@@ -3,15 +3,14 @@ using MediatR;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Queries;
+using SchoolManagement.Application.Models;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Handler.Queries
 {
-    public class GetMenuByIdQueryHandler : IRequestHandler<GetMenuByIdQuery, IEnumerable<MenuDto>>
+    public class GetMenuByIdQueryHandler : IRequestHandler<GetMenuByIdQuery, Result<MenuDto>>
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
@@ -22,18 +21,20 @@ namespace SchoolManagement.Application.Menus.Handler.Queries
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        public async Task<IEnumerable<MenuDto>> Handle(GetMenuByIdQuery request, CancellationToken cancellationToken)
+        public async Task<Result<MenuDto>> Handle(GetMenuByIdQuery request, CancellationToken cancellationToken)
         {
-            // Fetch list of menus (filtered by role ID)
-            var menus = await _unitOfWork.MenuRepository.GetByIdAsync(request.Id);
+            // Fetch single menu by ID
+            var menu = await _unitOfWork.MenuRepository.GetByIdAsync(request.Id, cancellationToken);
 
-            if (menus == null || !menus.Any())
-                return Enumerable.Empty<MenuDto>();
+            if (menu == null)
+            {
+                return Result<MenuDto>.Failure("Menu not found", "The requested menu does not exist.");
+            }
 
-            // Map list of Menu → list of MenuDto
-            var menuDtos = _mapper.Map<IEnumerable<MenuDto>>(menus);
+            // Map Menu entity to MenuDto
+            var menuDto = _mapper.Map<MenuDto>(menu);
 
-            return menuDtos;
+            return Result<MenuDto>.Success(menuDto, "Menu retrieved successfully");
         }
     }
 }

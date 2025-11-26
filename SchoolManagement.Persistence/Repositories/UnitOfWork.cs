@@ -23,6 +23,7 @@ namespace SchoolManagement.Persistence.Repositories
         private IMenuRepository _menuRepository;
         // Add other repositories as needed
         private IUserRoleRepository _userRoleRepository;
+        private IPermissionRepository _permissionRepository;
 
         public UnitOfWork(SchoolManagementDbContext context)
         {
@@ -56,6 +57,9 @@ namespace SchoolManagement.Persistence.Repositories
         public IMenuRepository MenuRepository =>
             _menuRepository ??= new MenuRepository(_context);
 
+        public IPermissionRepository Permissions =>
+            _permissionRepository ??= new PermissionRepository(_context);
+
         #endregion
 
         #region SaveChanges (with safe error handling)
@@ -81,7 +85,7 @@ namespace SchoolManagement.Persistence.Repositories
         #endregion
 
         #region Transaction Handling
-        public async Task BeginTransactionAsync()
+        public async Task BeginTransactionAsync(CancellationToken cancellationToken)
         {
             if (_transaction != null)
                 return; // Prevent nested transactions
@@ -89,7 +93,7 @@ namespace SchoolManagement.Persistence.Repositories
             _transaction = await _context.Database.BeginTransactionAsync();
         }
 
-        public async Task CommitTransactionAsync()
+        public async Task CommitTransactionAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -101,7 +105,7 @@ namespace SchoolManagement.Persistence.Repositories
             }
             catch
             {
-                await RollbackTransactionAsync();
+                await RollbackTransactionAsync(cancellationToken);
                 throw;
             }
             finally
@@ -114,7 +118,7 @@ namespace SchoolManagement.Persistence.Repositories
             }
         }
 
-        public async Task RollbackTransactionAsync()
+        public async Task RollbackTransactionAsync(CancellationToken cancellationToken)
         {
             if (_transaction != null)
             {

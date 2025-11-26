@@ -1,19 +1,15 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Auth.Commands;
-using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Auth.Handler
 {
-    public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, AuthResponseDto>
+    public class RefreshTokenCommandHandler
+        : IRequestHandler<RefreshTokenCommand, Result<object>>
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITokenService _tokenService;
@@ -26,15 +22,15 @@ namespace SchoolManagement.Application.Auth.Handler
             _tokenService = tokenService;
         }
 
-        public async Task<AuthResponseDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
+        public async Task<Result<object>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
         {
             var refreshToken = await _unitOfWork.AuthRepository.GetRefreshTokenAsync(request.RefreshToken);
             if (refreshToken == null || !refreshToken.IsActive)
-                throw new AuthenticationException("Invalid refresh token");
+                return Result<object>.Failure("Invalid refresh token");
 
             var user = await _unitOfWork.AuthRepository.GetByIdAsync(refreshToken.UserId);
             if (user == null || !user.IsActive)
-                throw new AuthenticationException("User not found or inactive");
+                return Result<object>.Failure("User not found or inactive");
 
             // Revoke old refresh token
             refreshToken.Revoke();
@@ -47,7 +43,8 @@ namespace SchoolManagement.Application.Auth.Handler
             var newRefreshToken = new RefreshToken(
                 newRefreshTokenValue,
                 DateTime.UtcNow.AddDays(7),
-                user.Id);
+                user.Id
+            );
 
             user.AddRefreshToken(newRefreshToken);
             user.RecordLogin();
@@ -55,23 +52,27 @@ namespace SchoolManagement.Application.Auth.Handler
             await _unitOfWork.AuthRepository.SaveRefreshTokenAsync(newRefreshToken);
             await _unitOfWork.AuthRepository.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
-            string roleName = Enum.IsDefined(typeof(UserType), user.UserType)
-            ? ((UserType)user.UserType).ToString()
-            : "Unknown";
 
-            return new AuthResponseDto
+            string roleName = Enum.IsDefined(typeof(UserType), user.UserType)
+                ? ((UserType)user.UserType).ToString()
+                : "Unknown";
+
+            // 👉 Direct object return (NO DTO)
+            var response = new
             {
-                AccessToken = accessToken,
-                RefreshToken = newRefreshTokenValue,
-                User = new UserDto
+                accessToken = accessToken,
+                refreshToken = newRefreshTokenValue,
+                user = new
                 {
-                    Id = user.Id.ToString(),
-                    Email = user.Email,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    Roles = new List<string> { roleName }
+                    id = user.Id.ToString(),
+                    email = user.Email,
+                    firstName = user.FirstName,
+                    lastName = user.LastName,
+                    roles = new List<string> { roleName }
                 }
             };
+
+            return Result<object>.Success(response);
         }
     }
 }

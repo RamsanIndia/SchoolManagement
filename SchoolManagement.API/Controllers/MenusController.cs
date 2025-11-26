@@ -6,8 +6,12 @@ using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
 using SchoolManagement.Application.Menus.Queries;
-using SchoolManagement.Domain.Entities;
+using SchoolManagement.Application.Models;
+using System;
+using System.Collections.Generic;
 using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SchoolManagement.API.Controllers
 {
@@ -29,7 +33,7 @@ namespace SchoolManagement.API.Controllers
         /// Get user's accessible menus with permissions
         /// </summary>
         [HttpGet("user-menus")]
-        public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetUserMenus()
+        public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetUserMenus(CancellationToken cancellationToken)
         {
             var userId = GetCurrentUserId();
             var menus = await _menuPermissionService.GetUserMenusAsync(userId);
@@ -41,23 +45,63 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<IEnumerable<MenuDto>>> GetAllMenus()
+        public async Task<ActionResult> GetAllMenus(CancellationToken cancellationToken)
         {
             var query = new GetAllMenusQuery();
-            var menus = await _mediator.Send(query);
-            return Ok(menus);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
         }
 
         /// <summary>
         /// Get menu hierarchy
         /// </summary>
         [HttpGet("hierarchy")]
-        //[Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<IEnumerable<MenuDto>>> GetMenuHierarchy()
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult> GetMenuHierarchy(CancellationToken cancellationToken)
         {
-            var query = new GetAllMenusQuery();
-            var menus = await _mediator.Send(query);
-            return Ok(menus);
+            var query = new GetMenuHierarchyQuery();
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get menu by ID
+        /// </summary>
+        [HttpGet("{id:guid}")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult> GetMenu(Guid id, CancellationToken cancellationToken)
+        {
+            var query = new GetMenuByIdQuery { Id = id };
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.Status)
+                return NotFound(result);
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get menus by role ID
+        /// </summary>
+        [HttpGet("role/{roleId:guid}")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult> GetMenusByRole(Guid roleId, CancellationToken cancellationToken)
+        {
+            var query = new GetMenusByRoleQuery(roleId.ToString());
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
         }
 
         /// <summary>
@@ -65,83 +109,58 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<CreateMenuResponse>> CreateMenu(CreateMenuCommand command)
+        public async Task<ActionResult> CreateMenu([FromBody] CreateMenuCommand command, CancellationToken cancellationToken)
         {
-            var response = await _mediator.Send(command);
+            var result = await _mediator.Send(command, cancellationToken);
 
-            if (response.Success)
-            {
-                return CreatedAtAction(nameof(GetMenu), new { id = response.Id }, response);
-            }
+            if (!result.Status)
+                return BadRequest(result);
 
-            return BadRequest(response);
+            return CreatedAtAction(
+                nameof(GetMenu),
+                new { id = result.Data.Id },
+                result
+            );
         }
-
-        // Existing method
-        [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<MenuDto>> GetMenu(Guid id)
-        {
-            var query = new GetMenuByIdQuery { Id = id };
-            var menu = await _mediator.Send(query);
-
-            if (menu == null)
-                return NotFound();
-
-            return Ok(menu);
-        }
-
-        // Rename route for role-based fetch
-        [HttpGet("role/{id}")]
-        [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<MenuDto>> GetMenuByRoleId(Guid id)
-        {
-            var query = new GetMenuByIdQuery { Id = id };
-            var menu = await _mediator.Send(query);
-
-            if (menu == null)
-                return NotFound();
-
-            return Ok(menu);
-        }
-
 
         /// <summary>
         /// Update menu
         /// </summary>
-        [HttpPut("{id}")]
+        [HttpPut("{id:guid}")]
         [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<UpdateMenuResponse>> UpdateMenu(Guid id, UpdateMenuCommand command)
+        public async Task<ActionResult> UpdateMenu(Guid id, [FromBody] UpdateMenuCommand command, CancellationToken cancellationToken)
         {
-            command.Id = id;
-            var response = await _mediator.Send(command);
+            if (id != command.Id)
+                return BadRequest(Result.Failure("ID mismatch", "The ID in the URL does not match the ID in the request body."));
 
-            if (response.Success)
-                return Ok(response);
+            var result = await _mediator.Send(command, cancellationToken);
 
-            return BadRequest(response);
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
         }
 
         /// <summary>
         /// Delete menu
         /// </summary>
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:guid}")]
         [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<DeleteMenuResponse>> DeleteMenu(Guid id)
+        public async Task<ActionResult> DeleteMenu(Guid id, CancellationToken cancellationToken)
         {
             var command = new DeleteMenuCommand { Id = id };
-            var response = await _mediator.Send(command);
+            var result = await _mediator.Send(command, cancellationToken);
 
-            if (response.Success)
-                return Ok(response);
+            if (!result.Success)
+                return BadRequest(result);
 
-            return BadRequest(response);
+            return Ok(result);
         }
 
         /// <summary>
         /// Check user's access to specific menu
         /// </summary>
-        [HttpGet("{menuId}/access")]
+        [HttpGet("{menuId:guid}/access")]
         public async Task<ActionResult<MenuAccessDto>> CheckMenuAccess(Guid menuId)
         {
             var userId = GetCurrentUserId();

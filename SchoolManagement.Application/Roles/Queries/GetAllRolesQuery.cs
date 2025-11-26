@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Roles.Queries
 {
-    public class GetAllRolesQuery : IRequest<IEnumerable<RoleDto>>
+    public class GetAllRolesQuery : IRequest<Result<IEnumerable<RoleDto>>>
     {
     }
 }

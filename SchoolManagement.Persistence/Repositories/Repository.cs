@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,19 +40,22 @@ namespace SchoolManagement.Persistence.Repositories
             return await _dbSet.FirstOrDefaultAsync(predicate, cancellationToken);
         }
 
-        public virtual void Add(T entity)
+        public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
         {
-            _dbSet.Add(entity);
+            await _dbSet.AddAsync(entity, cancellationToken);
+            return entity;
         }
 
-        public virtual void Update(T entity)
+        public virtual Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default)
         {
             _dbSet.Update(entity);
+            return Task.FromResult(entity);
         }
 
-        public virtual void Remove(T entity)
+        public virtual Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
         {
             _dbSet.Remove(entity);
+            return Task.CompletedTask;
         }
     }
 }

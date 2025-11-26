@@ -1,4 +1,6 @@
 ﻿using MediatR;
+using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Commands
 {
-    public class CreateMenuCommand : IRequest<CreateMenuResponse>
+    public class CreateMenuCommand : IRequest<Result<MenuDto>>
     {
         public string Name { get; set; }
         public string DisplayName { get; set; }

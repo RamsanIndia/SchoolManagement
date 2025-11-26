@@ -4,7 +4,8 @@ using SchoolManagement.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Persistence.Repositories
@@ -18,10 +19,10 @@ namespace SchoolManagement.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<Permission> GetByIdAsync(Guid id)
+        public async Task<Permission> GetByIdAsync(Guid id, CancellationToken cancellationToken)
         {
             return await _context.Permissions
-                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
         }
 
         public async Task<Permission> GetByNameAsync(string name)
@@ -30,13 +31,13 @@ namespace SchoolManagement.Persistence.Repositories
                 .FirstOrDefaultAsync(p => p.Name == name && !p.IsDeleted);
         }
 
-        public async Task<IEnumerable<Permission>> GetAllAsync()
+        public async Task<IEnumerable<Permission>> GetAllAsync(CancellationToken cancellationToken)
         {
             return await _context.Permissions
                 .Where(p => !p.IsDeleted)
                 .OrderBy(p => p.Module)
                 .ThenBy(p => p.Action)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         public async Task<IEnumerable<Permission>> GetByModuleAsync(string module)
@@ -47,26 +48,43 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Permission> CreateAsync(Permission permission)
+        public async Task<Permission> AddAsync(Permission permission, CancellationToken cancellationToken)
         {
-            _context.Permissions.Add(permission);
+            await _context.Permissions.AddAsync(permission, cancellationToken);
             return permission;
         }
 
-        public async Task<Permission> UpdateAsync(Permission permission)
+        public Task<Permission> UpdateAsync(Permission permission, CancellationToken cancellationToken)
         {
             _context.Permissions.Update(permission);
-            return permission;
+            return Task.FromResult(permission);
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
         {
-            var permission = await GetByIdAsync(id);
+            var permission = await GetByIdAsync(id, cancellationToken);
             if (permission != null && !permission.IsSystemPermission)
             {
                 permission.MarkAsDeleted();
                 _context.Permissions.Update(permission);
             }
+        }
+
+        public async Task<bool> ExistsAsync(Expression<Func<Permission, bool>> predicate, CancellationToken cancellationToken = default)
+        {
+            return await _context.Permissions
+                .Where(p => !p.IsDeleted)
+                .AnyAsync(predicate, cancellationToken);
+        }
+
+        public Task<Permission> GetByNameAsync(string name, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<IEnumerable<Permission>> GetByModuleAsync(string module, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

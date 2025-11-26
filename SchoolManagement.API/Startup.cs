@@ -14,6 +14,8 @@ using SchoolManagement.API.Middleware;
 using SchoolManagement.Application.Auth.Handler;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Mappings;
+using SchoolManagement.Application.Permissions.Commands;
+using SchoolManagement.Application.Permissions.Handler.Commands;
 using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Students.Commands;
 using SchoolManagement.Application.Validators;
@@ -137,6 +139,9 @@ namespace SchoolManagement.API
             {
                 services.AddMediatR(typeof(LoginCommandHandler).Assembly);
             }
+
+            services.AddMediatR(typeof(UpdatePermissionCommandHandler).Assembly);
+            services.AddMediatR(typeof(CreatePermissionCommandHandler).Assembly);
 
             // FluentValidation
             services.AddValidatorsFromAssembly(typeof(CreateStudentCommandValidator).Assembly);

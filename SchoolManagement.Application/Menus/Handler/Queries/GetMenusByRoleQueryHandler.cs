@@ -3,30 +3,31 @@ using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Queries;
 using SchoolManagement.Application.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Handler.Queries
 {
-    public class GetAllMenusQueryHandler : IRequestHandler<GetAllMenusQuery, Result<List<MenuDto>>>
+    public class GetMenusByRoleQueryHandler : IRequestHandler<GetMenusByRoleQuery, Result<List<MenuDto>>>
     {
         private readonly IMenuRepository _menuRepository;
 
-        public GetAllMenusQueryHandler(IMenuRepository menuRepository)
+        public GetMenusByRoleQueryHandler(IMenuRepository menuRepository)
         {
             _menuRepository = menuRepository;
         }
 
-        public async Task<Result<List<MenuDto>>> Handle(GetAllMenusQuery request, CancellationToken cancellationToken)
+        public async Task<Result<List<MenuDto>>> Handle(GetMenusByRoleQuery request, CancellationToken cancellationToken)
         {
-            var menus = await _menuRepository.GetAllAsync();
+            var menus = await _menuRepository.GetMenusByRoleAsync(request.RoleId);
 
             if (menus == null || !menus.Any())
-                return Result<List<MenuDto>>.Failure("No menus found.");
+                return Result<List<MenuDto>>.Failure("No menus found for this role.");
 
-            var menuList = menus.Select(m => new MenuDto
+            var list = menus.Select(m => new MenuDto
             {
                 Id = m.Id,
                 Name = m.Name,
@@ -43,7 +44,7 @@ namespace SchoolManagement.Application.Menus.Handler.Queries
                 ParentMenuName = m.ParentMenu?.DisplayName
             }).ToList();
 
-            return Result<List<MenuDto>>.Success(menuList, "Menus retrieved successfully.");
+            return Result<List<MenuDto>>.Success(list, "Menus fetched successfully.");
         }
     }
 }

@@ -2,8 +2,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.UserRoles.Commands;
 using SchoolManagement.Application.UserRoles.Queries;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SchoolManagement.API.Controllers
 {
@@ -23,60 +27,62 @@ namespace SchoolManagement.API.Controllers
         /// Get user's roles
         /// </summary>
         [HttpGet("{userId}/roles")]
-        public async Task<ActionResult<IEnumerable<UserRoleDto>>> GetUserRoles(Guid userId)
+        public async Task<IActionResult> GetUserRoles(Guid userId)
         {
             var query = new GetUserRolesQuery { UserId = userId };
-            var roles = await _mediator.Send(query);
-            return Ok(roles);
+            var result = await _mediator.Send(query);
+
+            if (!result.Status)
+                return BadRequest(new { result.Errors });
+
+            return Ok(result.Data);
         }
 
         /// <summary>
         /// Assign role to user
         /// </summary>
         [HttpPost("{userId}/roles")]
-        public async Task<ActionResult<AssignRoleToUserResponse>> AssignRoleToUser(
-            Guid userId, AssignRoleToUserCommand command)
+        public async Task<IActionResult> AssignRoleToUser(Guid userId, AssignRoleToUserCommand command)
         {
             command.UserId = userId;
-            var response = await _mediator.Send(command);
+            var result = await _mediator.Send(command);
 
-            if (response.Success)
-                return Ok(response);
+            // If you refactor AssignRoleToUserCommandHandler to return Result<bool>
+            if (!result.Status)
+                return BadRequest(new { result.Errors });
 
-            return BadRequest(response);
+            return Ok(result);
         }
 
         /// <summary>
         /// Revoke role from user
         /// </summary>
         [HttpDelete("{userId}/roles/{roleId}")]
-        public async Task<ActionResult<RevokeRoleFromUserResponse>> RevokeRoleFromUser(
-            Guid userId, Guid roleId)
+        public async Task<IActionResult> RevokeRoleFromUser(Guid userId, Guid roleId)
         {
             var command = new RevokeRoleFromUserCommand { UserId = userId, RoleId = roleId };
-            var response = await _mediator.Send(command);
+            var result = await _mediator.Send(command);
 
-            if (response.Success)
-                return Ok(response);
+            if (!result.Status)
+                return BadRequest(new { result.Errors });
 
-            return BadRequest(response);
+            return Ok(result);
         }
 
         /// <summary>
         /// Update user role (extend expiry, activate/deactivate)
         /// </summary>
         [HttpPut("{userId}/roles/{roleId}")]
-        public async Task<ActionResult<UpdateUserRoleResponse>> UpdateUserRole(
-            Guid userId, Guid roleId, UpdateUserRoleCommand command)
+        public async Task<IActionResult> UpdateUserRole(Guid userId, Guid roleId, UpdateUserRoleCommand command)
         {
             command.UserId = userId;
             command.RoleId = roleId;
-            var response = await _mediator.Send(command);
+            var result = await _mediator.Send(command);
 
-            if (response.Success)
-                return Ok(response);
+            if (!result.Status)
+                return BadRequest(new { result.Errors });
 
-            return BadRequest(response);
+            return Ok(result);
         }
     }
 }

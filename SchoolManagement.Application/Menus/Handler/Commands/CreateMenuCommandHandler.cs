@@ -1,17 +1,17 @@
 ﻿using MediatR;
+using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Handler.Commands
 {
-    public class CreateMenuCommandHandler : IRequestHandler<CreateMenuCommand, CreateMenuResponse>
+    public class CreateMenuCommandHandler : IRequestHandler<CreateMenuCommand, Result<MenuDto>>
     {
         private readonly IMenuRepository _menuRepository;
         private readonly IUnitOfWork _unitOfWork;
@@ -22,10 +22,28 @@ namespace SchoolManagement.Application.Menus.Handler.Commands
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<CreateMenuResponse> Handle(CreateMenuCommand request, CancellationToken cancellationToken)
+        public async Task<Result<MenuDto>> Handle(CreateMenuCommand request, CancellationToken cancellationToken)
         {
             try
             {
+                // Validate parent menu exists if ParentMenuId is provided
+                if (request.ParentMenuId.HasValue)
+                {
+                    var parentMenu = await _menuRepository.GetByIdAsync(request.ParentMenuId.Value, cancellationToken);
+                    if (parentMenu == null)
+                    {
+                        return Result<MenuDto>.Failure("Parent menu not found", "The specified parent menu does not exist.");
+                    }
+                }
+
+                // Check for duplicate menu name
+                var existingMenu = await _menuRepository.GetByNameAsync(request.Name, cancellationToken);
+                if (existingMenu != null)
+                {
+                    return Result<MenuDto>.Failure("Duplicate menu", $"A menu with the name '{request.Name}' already exists.");
+                }
+
+                // Create new menu
                 var menu = new Menu(
                     request.Name,
                     request.DisplayName,
@@ -33,27 +51,34 @@ namespace SchoolManagement.Application.Menus.Handler.Commands
                     (MenuType)request.Type,
                     request.Icon,
                     request.Description,
-                    request.ParentMenuId);
+                    request.ParentMenuId
+                );
 
                 menu.SetSortOrder(request.SortOrder);
 
-                var createdMenu = await _menuRepository.CreateAsync(menu);
+                var createdMenu = await _menuRepository.CreateAsync(menu, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                return new CreateMenuResponse
+                // Map to DTO
+                var menuDto = new MenuDto
                 {
                     Id = createdMenu.Id,
-                    Message = "Menu created successfully",
-                    Success = true
+                    Name = createdMenu.Name,
+                    DisplayName = createdMenu.DisplayName,
+                    Route = createdMenu.Route,
+                    Type = createdMenu.Type.ToString(),
+                    Icon = createdMenu.Icon,
+                    Description = createdMenu.Description,
+                    ParentMenuId = createdMenu.ParentMenuId,
+                    SortOrder = createdMenu.SortOrder,
+                    IsActive = createdMenu.IsActive
                 };
+
+                return Result<MenuDto>.Success(menuDto, "Menu created successfully");
             }
             catch (Exception ex)
             {
-                return new CreateMenuResponse
-                {
-                    Message = $"Error creating menu: {ex.Message}",
-                    Success = false
-                };
+                return Result<MenuDto>.Failure("Menu creation failed", $"An error occurred while creating the menu: {ex.Message}");
             }
         }
     }

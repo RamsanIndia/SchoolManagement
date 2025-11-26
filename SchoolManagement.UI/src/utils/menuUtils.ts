@@ -1,65 +1,59 @@
 import { MenuItem } from "@/services/MenuService";
 
 /**
- * Recursively sorts children menus by displayName.
+ * Recursively sorts menus and their children by sortOrder and displayName.
  */
-function processChildren(menu: MenuItem): void {
-  if (menu.children && menu.children.length > 0) {
-    menu.children.forEach((child: MenuItem) => {
-      processChildren(child);
+function sortMenusRecursively(menus: MenuItem[]): MenuItem[] {
+  return menus
+    .map(menu => ({
+      ...menu,
+      children: menu.children ? sortMenusRecursively(menu.children) : []
+    }))
+    .sort((a, b) => {
+      const orderA = a.sortOrder ?? 0;
+      const orderB = b.sortOrder ?? 0;
+
+      if (orderA === orderB) {
+        return a.displayName.localeCompare(b.displayName);
+      }
+      return orderA - orderB;
     });
-    menu.children.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }
 }
 
 /**
- * Builds a hierarchical menu tree from a flat list.
- * Links parent-child using parentMenuId and sorts nodes recursively.
- * @param flatMenus - flat array of MenuItem objects
- * @returns nested array of root MenuItems, each with children populated
+ * Builds a hierarchical menu tree.
+ * Works for both flat (with parentMenuId) and nested (with children) structures.
  */
 export function buildMenuTree(flatMenus: MenuItem[]): MenuItem[] {
-  const menuMap = new Map<string, MenuItem>();
+  if (!flatMenus || flatMenus.length === 0) return [];
 
-  // Populate map of id to menu item
+  // If data is already nested (children exist), just sort recursively.
+  const isNested = flatMenus.some(m => Array.isArray(m.children) && m.children.length > 0);
+  if (isNested) {
+    return sortMenusRecursively(flatMenus);
+  }
+
+  // Otherwise, handle flat list using parentMenuId
+  const menuMap = new Map<string, MenuItem>();
   flatMenus.forEach(menu => {
+    menu.children = [];
     menuMap.set(menu.id, menu);
   });
 
   const rootMenus: MenuItem[] = [];
 
-  // Link children to parents
   flatMenus.forEach(menu => {
     if (menu.parentMenuId) {
       const parent = menuMap.get(menu.parentMenuId);
       if (parent) {
-        if (!parent.children) parent.children = [];
-        parent.children.push(menu);
+        parent.children!.push(menu);
       } else {
-        // parentMenuId provided but parent not found; treat as root to avoid data loss
         rootMenus.push(menu);
       }
     } else {
-      // No parentMenuId means root level
       rootMenus.push(menu);
     }
   });
 
-  // Recursively sort children by displayName
-  rootMenus.forEach(menu => {
-    processChildren(menu);
-  });
-
-  // Sort roots by sortOrder or displayName
-  rootMenus.sort((a, b) => {
-    const orderA = a.sortOrder ?? 0;
-    const orderB = b.sortOrder ?? 0;
-
-    if (orderA === orderB) {
-      return a.displayName.localeCompare(b.displayName);
-    }
-    return orderA - orderB;
-  });
-
-  return rootMenus;
+  return sortMenusRecursively(rootMenus);
 }

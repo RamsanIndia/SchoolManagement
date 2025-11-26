@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Auth.Commands
 {
-    public class RefreshTokenCommand : IRequest<AuthResponseDto>
+    public class RefreshTokenCommand : IRequest<Result<object>>
     {
         public string RefreshToken { get; set; }
     }

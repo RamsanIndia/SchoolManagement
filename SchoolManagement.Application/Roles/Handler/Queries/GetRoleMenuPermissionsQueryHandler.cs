@@ -1,16 +1,16 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.Roles.Queries;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Roles.Handler.Queries
 {
-    public class GetRoleMenuPermissionsQueryHandler : IRequestHandler<GetRoleMenuPermissionsQuery, IEnumerable<RoleMenuPermissionDto>>
+    public class GetRoleMenuPermissionsQueryHandler : IRequestHandler<GetRoleMenuPermissionsQuery, Result<IEnumerable<RoleMenuPermissionDto>>>
     {
         private readonly IUnitOfWork _unitOfWork;
 
@@ -19,11 +19,12 @@ namespace SchoolManagement.Application.Roles.Handler.Queries
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<IEnumerable<RoleMenuPermissionDto>> Handle(GetRoleMenuPermissionsQuery request, CancellationToken cancellationToken)
+        public async Task<Result<IEnumerable<RoleMenuPermissionDto>>> Handle(GetRoleMenuPermissionsQuery request, CancellationToken cancellationToken)
         {
             // Get role entity
             var role = await _unitOfWork.RoleRepository.GetByIdAsync(request.RoleId);
-            if (role == null) return Enumerable.Empty<RoleMenuPermissionDto>();
+            if (role == null)
+                return Result<IEnumerable<RoleMenuPermissionDto>>.Failure("Role not found");
 
             // Get menu permissions for the role
             var roleMenuPermissions = await _unitOfWork.RoleMenuPermissionRepository.GetByRoleAsync(request.RoleId);
@@ -35,10 +36,10 @@ namespace SchoolManagement.Application.Roles.Handler.Queries
                 RoleName = role.Name,
                 MenuId = p.MenuId,
                 MenuName = p.Menu?.Name ?? string.Empty,
-                Permissions = p.GetPermissions() 
+                Permissions = p.GetPermissions()
             });
 
-            return result;
+            return Result<IEnumerable<RoleMenuPermissionDto>>.Success(result);
         }
     }
 }

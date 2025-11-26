@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.Entities;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Roles.Queries
 {
-    public class GetRoleByIdQuery : IRequest<RoleDto>
+    public class GetRoleByIdQuery : IRequest<Result<RoleDto>>
     {
         public Guid Id { get; set; }
 

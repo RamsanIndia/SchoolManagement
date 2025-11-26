@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Roles.Queries
 {
-    public class GetRoleMenuPermissionsQuery : IRequest<IEnumerable<RoleMenuPermissionDto>>
+    public class GetRoleMenuPermissionsQuery : IRequest<Result<IEnumerable<RoleMenuPermissionDto>>>
     {
         public Guid RoleId { get; set; }
 
