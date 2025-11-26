@@ -2,11 +2,6 @@
 using SchoolManagement.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.Entities
 {
@@ -20,15 +15,15 @@ namespace SchoolManagement.Domain.Entities
         public string Phone { get; private set; }
         public DateTime DateOfBirth { get; private set; }
         public Gender Gender { get; private set; }
-        public Address Address { get; private set; }
+        public Address Address { get; private set; }   // Value Object
         public DateTime JoiningDate { get; private set; }
         public Guid DepartmentId { get; private set; }
         public Guid DesignationId { get; private set; }
         public EmployeeStatus Status { get; private set; }
         public EmploymentType EmploymentType { get; private set; }
-        public Salary SalaryInfo { get; private set; }
+        public Salary SalaryInfo { get; private set; }  // Value Object
         public string PhotoUrl { get; private set; }
-        public BiometricInfo BiometricInfo { get; private set; }
+        public BiometricInfo BiometricInfo { get; private set; }  // Value Object
 
         // Navigation Properties
         public virtual Department Department { get; private set; }
@@ -38,11 +33,19 @@ namespace SchoolManagement.Domain.Entities
         public virtual ICollection<PerformanceReview> PerformanceReviews { get; private set; }
         public virtual ICollection<PayrollRecord> PayrollRecords { get; private set; }
 
-        private Employee() { } // EF Constructor
+        private Employee()
+        {
+            // EF Core constructor – initialize collections
+            Attendances = new List<EmployeeAttendance>();
+            LeaveApplications = new List<LeaveApplication>();
+            PerformanceReviews = new List<PerformanceReview>();
+            PayrollRecords = new List<PayrollRecord>();
+        }
 
         public Employee(string firstName, string lastName, string email,
-                       DateTime dateOfBirth, Gender gender, Guid departmentId,
-                       Guid designationId, EmploymentType employmentType)
+                        DateTime dateOfBirth, Gender gender, Guid departmentId,
+                        Guid designationId, EmploymentType employmentType)
+            : this() // call private ctor to init collections
         {
             FirstName = firstName ?? throw new ArgumentNullException(nameof(firstName));
             LastName = lastName ?? throw new ArgumentNullException(nameof(lastName));
@@ -55,21 +58,16 @@ namespace SchoolManagement.Domain.Entities
             JoiningDate = DateTime.UtcNow;
             Status = EmployeeStatus.Active;
             EmployeeId = GenerateEmployeeId();
-
-            Attendances = new List<EmployeeAttendance>();
-            LeaveApplications = new List<LeaveApplication>();
-            PerformanceReviews = new List<PerformanceReview>();
-            PayrollRecords = new List<PayrollRecord>();
         }
 
         public void UpdatePersonalInfo(string firstName, string lastName, string middleName,
-                                     string phone, Address address)
+                                       string phone, Address address)
         {
             FirstName = firstName ?? throw new ArgumentNullException(nameof(firstName));
             LastName = lastName ?? throw new ArgumentNullException(nameof(lastName));
             MiddleName = middleName;
             Phone = phone;
-            Address = address;
+            Address = address ?? throw new ArgumentNullException(nameof(address));
         }
 
         public void UpdateJobInfo(Guid departmentId, Guid designationId, EmploymentType employmentType)

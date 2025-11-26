@@ -15,8 +15,9 @@ namespace SchoolManagement.Domain.Entities
         public bool IsActive { get; private set; }
 
         // Navigation Properties
-        public virtual ICollection<Student> Students { get; private set; }
-        public virtual ICollection<Section> Sections { get; private set; }
+        public virtual ICollection<Student> Students { get; private set; } = new List<Student>();
+        public virtual ICollection<Section> Sections { get; private set; } = new List<Section>();
+
 
         private Class()
         {

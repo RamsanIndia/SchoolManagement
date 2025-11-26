@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Domain.Entities;
+using SchoolManagement.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +16,11 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NotificationProcessorService> _logger;
-        private readonly TimeSpan _processInterval = TimeSpan.FromSeconds(30);
+        private readonly TimeSpan _processingInterval = TimeSpan.FromSeconds(5);
 
-        public NotificationProcessorService(IServiceProvider serviceProvider, ILogger<NotificationProcessorService> logger)
+        public NotificationProcessorService(
+            IServiceProvider serviceProvider,
+            ILogger<NotificationProcessorService> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
@@ -29,52 +34,115 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
             {
                 try
                 {
-                    using var scope = _serviceProvider.CreateScope();
-                    await ProcessNotificationQueue(scope.ServiceProvider);
+                    await ProcessNotificationQueue(stoppingToken);
+                    await Task.Delay(_processingInterval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error occurred during notification processing");
+                    _logger.LogError(ex, "Error processing notification queue");
+                    await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
                 }
-
-                await Task.Delay(_processInterval, stoppingToken);
             }
 
             _logger.LogInformation("Notification Processor Service stopped");
         }
 
-        private async Task ProcessNotificationQueue(IServiceProvider serviceProvider)
+        private async Task ProcessNotificationQueue(CancellationToken cancellationToken)
         {
-            var notificationService = serviceProvider.GetRequiredService<INotificationService>();
-            var notificationQueue = serviceProvider.GetRequiredService<INotificationQueue>();
+            using var scope = _serviceProvider.CreateScope();
 
-            var notifications = await notificationQueue.DequeueAsync(10); // Process 10 at a time
-
-            foreach (var notification in notifications)
+            var notificationQueue = scope.ServiceProvider.GetService<INotificationQueue>();
+            if (notificationQueue == null)
             {
-                try
-                {
-                    switch (notification.Type)
-                    {
-                        case NotificationType.SMS:
-                            await notificationService.SendSMSAsync(notification.Recipient, notification.Message);
-                            break;
-                        case NotificationType.Email:
-                            await notificationService.SendEmailAsync(notification.Recipient, notification.Subject, notification.Message);
-                            break;
-                        case NotificationType.Push:
-                            await notificationService.SendPushNotificationAsync(notification.Recipient, notification.Subject, notification.Message);
-                            break;
-                    }
+                _logger.LogWarning("INotificationQueue service not registered. Skipping notification processing.");
+                return;
+            }
 
-                    await notificationQueue.MarkAsProcessedAsync(notification.Id);
-                    _logger.LogInformation($"Processed notification {notification.Id} of type {notification.Type}");
-                }
-                catch (Exception ex)
+            var notificationService = scope.ServiceProvider.GetService<INotificationService>();
+            if (notificationService == null)
+            {
+                _logger.LogWarning("INotificationService not registered. Skipping notification processing.");
+                return;
+            }
+
+            try
+            {
+                //var queueCount = await notificationQueue.GetQueueCountAsync(cancellationToken);
+                //if (queueCount == 0)
+                //{
+                //    return;
+                //}
+
+                //_logger.LogInformation("Processing {Count} notifications from queue", queueCount);
+
+                //// Process in batches
+                //var batchSize = 10;
+                //var notifications = await notificationQueue.DequeueBatchAsync(batchSize, cancellationToken);
+
+                //foreach (var notification in notifications)
+                //{
+                //    try
+                //    {
+                //        await ProcessSingleNotification(notification, notificationService, cancellationToken);
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        _logger.LogError(ex, "Error processing notification {NotificationId}", notification.Id);
+                //    }
+                //}
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in ProcessNotificationQueue");
+            }
+        }
+
+        private async Task ProcessSingleNotification(
+            Notification notification,
+            INotificationService notificationService,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                notification.Status = NotificationStatus.Processing;
+
+                bool success = notification.Type switch
                 {
-                    _logger.LogError(ex, $"Failed to process notification {notification.Id}");
-                    await notificationQueue.MarkAsFailedAsync(notification.Id, ex.Message);
+                    //NotificationType.Email => await notificationService.SendEmailAsync(
+                    //    notification.Recipient,
+                    //    notification.Subject,
+                    //    notification.Message,
+                    //    cancellationToken),
+                    //NotificationType.SMS => await notificationService.SendSMSAsync(
+                    //    notification.Recipient,
+                    //    notification.Message,
+                    //    cancellationToken),
+                    //_ => false
+                };
+
+                if (success)
+                {
+                    notification.Status = NotificationStatus.Sent;
+                    notification.SentAt = DateTime.UtcNow;
+                    _logger.LogInformation("Notification {NotificationId} sent successfully", notification.Id);
                 }
+                else
+                {
+                    notification.Status = NotificationStatus.Failed;
+                    notification.RetryCount++;
+                    _logger.LogWarning("Failed to send notification {NotificationId}", notification.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                notification.Status = NotificationStatus.Failed;
+                notification.ErrorMessage = ex.Message;
+                notification.RetryCount++;
+                _logger.LogError(ex, "Exception while processing notification {NotificationId}", notification.Id);
             }
         }
     }

@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Roles.Commands;
+using SchoolManagement.Application.Roles.Queries;
 
 namespace SchoolManagement.API.Controllers
 {
@@ -34,7 +36,7 @@ namespace SchoolManagement.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<RoleDto>> GetRole(Guid id)
         {
-            var query = new GetRoleByIdQuery { Id = id };
+            var query = new GetRoleByIdQuery(id); 
             var role = await _mediator.Send(query);
 
             if (role == null)

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
@@ -40,6 +40,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserManagement.API", "UserManagement.API\UserManagement.API.csproj", "{BD38F219-7EFE-47ED-BEC5-93C6864C9C04}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.API", "SchoolManagement.API\SchoolManagement.API.csproj", "{1C7BB7F3-E341-4325-A8EC-57BD6738F129}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "schoolmanagement.ui", "SchoolManagement.UI\schoolmanagement.ui.esproj", "{B347F06D-3E67-164D-CB21-5D2E53FBE57B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{75E4EB6E-88E9-4D5E-9875-FA1846AC9468}"
+	ProjectSection(SolutionItems) = preProject
+		..\Docs\Business Requirements Document.docx = ..\Docs\Business Requirements Document.docx
+		..\Docs\System-Architecture.md = ..\Docs\System-Architecture.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -95,6 +103,12 @@ Global
 		{1C7BB7F3-E341-4325-A8EC-57BD6738F129}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1C7BB7F3-E341-4325-A8EC-57BD6738F129}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1C7BB7F3-E341-4325-A8EC-57BD6738F129}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -116,6 +130,7 @@ Global
 		{B1553FF3-A5D5-4386-A37D-9F946731F726} = {00CE6763-98C0-4EA9-B693-30AF1A124DB6}
 		{BD38F219-7EFE-47ED-BEC5-93C6864C9C04} = {00CE6763-98C0-4EA9-B693-30AF1A124DB6}
 		{1C7BB7F3-E341-4325-A8EC-57BD6738F129} = {9101581A-BA39-4050-ABFB-DEFBE54F2B20}
+		{B347F06D-3E67-164D-CB21-5D2E53FBE57B} = {9101581A-BA39-4050-ABFB-DEFBE54F2B20}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {03555C83-0A0F-4303-8794-A118B51941BE}

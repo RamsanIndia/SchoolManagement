@@ -8,8 +8,9 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Queries
 {
-    public class GetMenuByIdQuery : IRequest<MenuDto>
+    public class GetMenuByIdQuery : IRequest<IEnumerable<MenuDto>>
     {
         public Guid Id { get; set; }
     }
+
 }

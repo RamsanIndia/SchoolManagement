@@ -12,6 +12,7 @@ namespace SchoolManagement.Domain.Enums
         Processing = 2,
         Sent = 3,
         Failed = 4,
-        Retry = 5
+        Retry = 5,
+        Pending=6
     }
 }

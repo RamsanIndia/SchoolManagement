@@ -1,4 +1,5 @@
-﻿using SchoolManagement.Application.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using System;
@@ -6,66 +7,63 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
+using UserRoleEntity = SchoolManagement.Domain.Entities.UserRole;
+using UserRoleEnum = SchoolManagement.Domain.Enums.UserRole;
+
 namespace SchoolManagement.Application.Services
 {
     public class UserService : IUserService
     {
-        private readonly SchoolManagementDbContext _context;
-        private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly IAuthRepository _authRepository;
+        private readonly IPasswordService _passwordService;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public UserService(SchoolManagementDbContext context, IPasswordHasher<User> passwordHasher)
+        public UserService(IAuthRepository authRepository, IUnitOfWork unitOfWork, IPasswordService passwordService)
         {
-            _context = context;
-            _passwordHasher = passwordHasher;
+            _authRepository = authRepository;
+            _unitOfWork = unitOfWork;
+            _passwordService = passwordService;
         }
 
-        public async Task<User> GetByIdAsync(Guid id)
-        {
-            return await _context.Users
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted);
-        }
+        public async Task<User> GetByIdAsync(Guid id) => await _authRepository.GetByIdAsync(id);
+
+        public async Task<User> GetByEmailAsync(string email) => await _authRepository.GetByEmailAsync(email);
 
         public async Task<User> GetByUsernameAsync(string username)
         {
-            return await _context.Users
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.Username == username && !u.IsDeleted);
+            var allUsers = await _authRepository.GetAllAsync();
+            return allUsers.FirstOrDefault(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
-        public async Task<User> GetByEmailAsync(string email)
+        public async Task<IEnumerable<User>> GetAllAsync() => await _authRepository.GetAllAsync();
+
+        public async Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType)
         {
-            return await _context.Users
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted);
+            var allUsers = await _authRepository.GetAllAsync();
+            return allUsers.Where(u => u.UserType == userType);
         }
 
         public async Task<User> CreateAsync(User user, string password)
         {
-            // Use the domain method instead of directly setting PasswordHash
-            var hashedPassword = _passwordHasher.HashPassword(user, password);
+            var hashedPassword = _passwordService.HashPassword(password);
             user.UpdatePassword(hashedPassword);
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _authRepository.AddAsync(user);
+            await _unitOfWork.SaveChangesAsync();
             return user;
         }
 
         public async Task<User> CreateAsync(User user)
         {
-            // For users created without password (e.g., external auth)
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _authRepository.AddAsync(user);
+            await _unitOfWork.SaveChangesAsync();
             return user;
         }
 
         public async Task<User> UpdateAsync(User user)
         {
-            _context.Users.Update(user);
-            await _context.SaveChangesAsync();
+            await _authRepository.UpdateAsync(user);
+            await _unitOfWork.SaveChangesAsync();
             return user;
         }
 
@@ -74,8 +72,7 @@ namespace SchoolManagement.Application.Services
             var user = await GetByIdAsync(userId);
             if (user == null) return false;
 
-            var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
-            return result == PasswordVerificationResult.Success;
+            return _passwordService.VerifyPassword(password, user.PasswordHash);
         }
 
         public async Task ChangePasswordAsync(Guid userId, string newPassword)
@@ -84,61 +81,57 @@ namespace SchoolManagement.Application.Services
             if (user == null)
                 throw new ArgumentException("User not found");
 
-            // Use the domain method instead of directly setting PasswordHash
-            var hashedPassword = _passwordHasher.HashPassword(user, newPassword);
+            var hashedPassword = _passwordService.HashPassword(newPassword);
             user.UpdatePassword(hashedPassword);
-
             await UpdateAsync(user);
         }
 
         public async Task AssignRoleAsync(Guid userId, Guid roleId, DateTime? expiresAt = null)
         {
-            var existingUserRole = await _context.UserRoles
-                .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId && !ur.IsDeleted);
+            var user = await GetByIdAsync(userId);
+            if (user == null)
+                throw new ArgumentException("User not found");
 
-            if (existingUserRole != null)
+            var existingRole = user.UserRoles.FirstOrDefault(ur => ur.RoleId == roleId && ur.IsActive);
+            if (existingRole != null)
             {
                 if (expiresAt.HasValue)
-                    existingUserRole.ExtendRole(expiresAt.Value);
-                return;
+                    existingRole.ExtendRole(expiresAt.Value);
+            }
+            else
+            {
+                var newUserRole = new UserRoleEntity(userId, roleId, DateTime.UtcNow, true, expiresAt);
+                user.UserRoles.Add(newUserRole);
             }
 
-            var userRole = new UserRole(userId, roleId, expiresAt);
-            _context.UserRoles.Add(userRole);
-            await _context.SaveChangesAsync();
+            await UpdateAsync(user);
         }
 
         public async Task RevokeRoleAsync(Guid userId, Guid roleId)
         {
-            var userRole = await _context.UserRoles
-                .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId && !ur.IsDeleted);
+            var user = await GetByIdAsync(userId);
+            if (user == null)
+                throw new ArgumentException("User not found");
 
-            if (userRole != null)
+            var role = user.UserRoles.FirstOrDefault(ur => ur.RoleId == roleId && ur.IsActive);
+            if (role != null)
             {
-                userRole.DeactivateRole();
-                _context.UserRoles.Update(userRole);
-                await _context.SaveChangesAsync();
+                role.DeactivateRole();
+                await UpdateAsync(user);
             }
         }
 
         public async Task<IEnumerable<Role>> GetUserRolesAsync(Guid userId)
         {
-            return await _context.UserRoles
-                .Where(ur => ur.UserId == userId && ur.IsActive && !ur.IsExpired() && !ur.IsDeleted)
-                .Include(ur => ur.Role)
-                .Select(ur => ur.Role)
-                .Where(r => r.IsActive)
-                .ToListAsync();
-        }
+            var user = await GetByIdAsync(userId);
+            if (user == null)
+                throw new ArgumentException("User not found");
 
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            var user = await GetByIdAsync(id);
-            if (user == null) return false;
-
-            user.SoftDelete(); // Assuming you have soft delete in BaseEntity
-            await UpdateAsync(user);
-            return true;
+            return user.UserRoles
+                       .Where(ur => ur.IsActive && !ur.IsExpired())
+                       .Select(ur => ur.Role)
+                       .Where(r => r.IsActive)
+                       .ToList();
         }
 
         public async Task<User> ActivateUserAsync(Guid userId)
@@ -147,7 +140,7 @@ namespace SchoolManagement.Application.Services
             if (user == null)
                 throw new ArgumentException("User not found");
 
-            user.SetActive(true);
+            user.Activate();
             await UpdateAsync(user);
             return user;
         }
@@ -158,7 +151,7 @@ namespace SchoolManagement.Application.Services
             if (user == null)
                 throw new ArgumentException("User not found");
 
-            user.SetActive(false);
+            user.Deactivate();
             await UpdateAsync(user);
             return user;
         }
@@ -196,22 +189,14 @@ namespace SchoolManagement.Application.Services
             return user;
         }
 
-        public async Task<IEnumerable<User>> GetAllAsync()
+        public async Task<bool> DeleteAsync(Guid id)
         {
-            return await _context.Users
-                .Where(u => !u.IsDeleted)
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .ToListAsync();
-        }
+            var user = await GetByIdAsync(id);
+            if (user == null) return false;
 
-        public async Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType)
-        {
-            return await _context.Users
-                .Where(u => u.UserType == userType && !u.IsDeleted)
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .ToListAsync();
+            user.Deactivate();
+            await UpdateAsync(user);
+            return true;
         }
     }
 }

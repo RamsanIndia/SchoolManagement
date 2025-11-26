@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.Entities
 {
@@ -12,8 +8,12 @@ namespace SchoolManagement.Domain.Entities
         public DateTime CreatedAt { get; protected set; }
         public DateTime? UpdatedAt { get; protected set; }
         public string CreatedBy { get; protected set; }
-        public string UpdatedBy { get; protected set; }
+        public string? UpdatedBy { get; protected set; }
         public bool IsDeleted { get; protected set; }
+        public string CreatedIP { get; set; }
+
+        // Concurrency token for optimistic concurrency
+        public byte[] RowVersion { get; set; }
 
         protected BaseEntity()
         {
@@ -22,16 +22,29 @@ namespace SchoolManagement.Domain.Entities
             IsDeleted = false;
         }
 
-        public void MarkAsDeleted()
+        public void MarkAsDeleted(string user = "SYSTEM")
         {
             IsDeleted = true;
             UpdatedAt = DateTime.UtcNow;
+            UpdatedBy = user;
         }
 
-        public void Update(string updatedBy)
+        public void SetCreated(string user, string ipAddress)
+        {
+            CreatedAt = DateTime.UtcNow;
+            CreatedBy = user;
+            CreatedIP = ipAddress;
+
+            // Also set Updated fields on insert to avoid SQL NOT NULL errors
+            //UpdatedAt = DateTime.UtcNow;
+            //UpdatedBy = user;
+        }
+
+        public void SetUpdated(string user, string ipAddress)
         {
             UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = updatedBy;
+            UpdatedBy = user;
+            CreatedIP = ipAddress;
         }
     }
 }

@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Menus.Commands;
+using SchoolManagement.Application.RolePermissions.Commands;
+using SchoolManagement.Application.Roles.Queries;
 
 namespace SchoolManagement.API.Controllers
 {
@@ -26,7 +29,7 @@ namespace SchoolManagement.API.Controllers
         [HttpGet("{roleId}/menu-permissions")]
         public async Task<ActionResult<IEnumerable<RoleMenuPermissionDto>>> GetRoleMenuPermissions(Guid roleId)
         {
-            var query = new GetRoleMenuPermissionsQuery { RoleId = roleId };
+            var query = new GetRoleMenuPermissionsQuery(roleId);
             var permissions = await _mediator.Send(query);
             return Ok(permissions);
         }
@@ -36,7 +39,7 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPost("{roleId}/menu-permissions")]
         public async Task<ActionResult<AssignMenuPermissionsResponse>> AssignMenuPermissions(
-            Guid roleId, AssignMenuPermissionsCommand command)
+        Guid roleId,  [FromBody] AssignMenuPermissionsCommand command)
         {
             command.RoleId = roleId;
             var response = await _mediator.Send(command);
@@ -46,6 +49,8 @@ namespace SchoolManagement.API.Controllers
 
             return BadRequest(response);
         }
+
+
 
         /// <summary>
         /// Update specific menu permission for role

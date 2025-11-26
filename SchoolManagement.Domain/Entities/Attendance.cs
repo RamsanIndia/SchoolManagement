@@ -7,7 +7,7 @@ namespace SchoolManagement.Domain.Entities
     {
         public Guid StudentId { get; private set; }
         public DateTime Date { get; private set; }
-        public TimeSpan CheckInTime { get; private set; }
+        public TimeSpan CheckInTime { get; private set; } = TimeSpan.Zero;
         public TimeSpan? CheckOutTime { get; private set; }
         public AttendanceStatus Status { get; private set; }
         public AttendanceMode Mode { get; private set; }

@@ -1,11 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Domain.Entities;
+using SchoolManagement.Application.DTOs;
+using Entities = SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Persistence.Repositories
@@ -19,13 +19,14 @@ namespace SchoolManagement.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<Attendance> CreateAsync(Attendance attendance)
+        public async Task<Entities.Attendance> CreateAsync(Entities.Attendance attendance)
         {
             _context.Attendances.Add(attendance);
+            await _context.SaveChangesAsync(); // Added SaveChanges
             return attendance;
         }
 
-        public async Task<IEnumerable<Attendance>> GetStudentAttendanceAsync(Guid studentId, DateTime fromDate, DateTime toDate)
+        public async Task<IEnumerable<Entities.Attendance>> GetStudentAttendanceAsync(Guid studentId, DateTime fromDate, DateTime toDate)
         {
             return await _context.Attendances
                 .Where(a => a.StudentId == studentId &&
@@ -37,7 +38,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Attendance>> GetClassAttendanceAsync(Guid classId, DateTime date)
+        public async Task<IEnumerable<Entities.Attendance>> GetClassAttendanceAsync(Guid classId, DateTime date)
         {
             return await _context.Attendances
                 .Include(a => a.Student)
@@ -47,7 +48,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Attendance> GetTodayAttendanceAsync(Guid studentId, DateTime date)
+        public async Task<Entities.Attendance> GetTodayAttendanceAsync(Guid studentId, DateTime date)
         {
             return await _context.Attendances
                 .FirstOrDefaultAsync(a => a.StudentId == studentId &&
@@ -71,6 +72,15 @@ namespace SchoolManagement.Persistence.Repositories
                 LateDays = lateDays,
                 AttendancePercentage = totalDays > 0 ? (decimal)presentDays / totalDays * 100 : 0
             };
+        }
+
+        public async Task<IEnumerable<Entities.Attendance>> GetAllAsync()
+        {
+            return await _context.Attendances
+                .Where(a => !a.IsDeleted)
+                .Include(a => a.Student)
+                .OrderByDescending(a => a.Date)
+                .ToListAsync();
         }
     }
 }

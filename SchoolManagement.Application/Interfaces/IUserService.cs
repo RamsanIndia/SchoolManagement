@@ -24,6 +24,7 @@ namespace SchoolManagement.Application.Interfaces
     public interface IUserService
     {
         Task<User> GetByIdAsync(Guid id);
+        Task<IEnumerable<User>> GetAllAsync();
         Task<User> GetByUsernameAsync(string username);
         Task<User> GetByEmailAsync(string email);
         Task<User> CreateAsync(User user, string password);
@@ -40,7 +41,6 @@ namespace SchoolManagement.Application.Interfaces
         Task<User> VerifyEmailAsync(Guid userId);
         Task<User> VerifyPhoneAsync(Guid userId);
         Task<User> UnlockUserAsync(Guid userId);
-        Task<IEnumerable<User>> GetAllAsync();
         Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType);
     }
 }

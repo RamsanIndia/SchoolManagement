@@ -2,14 +2,14 @@
 using SchoolManagement.Application.Attendance.Commands;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Students.Commands;
-using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Services;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Entities = SchoolManagement.Domain.Entities;
 
-namespace SchoolManagement.Application.Attendance.Handler.Commands
+namespace SchoolManagement.Application.Features.Attendance.Handlers.Commands
 {
     public class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanceCommand, MarkAttendanceResponse>
     {
@@ -74,8 +74,8 @@ namespace SchoolManagement.Application.Attendance.Handler.Commands
                     };
                 }
 
-                // Create attendance record
-                var attendance = new Attendance(
+                // Create attendance record using the namespace alias
+                var attendance = new Entities.Attendance(
                     request.StudentId,
                     request.Timestamp.Date,
                     request.Timestamp.TimeOfDay,

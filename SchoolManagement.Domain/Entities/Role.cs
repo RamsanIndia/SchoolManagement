@@ -8,9 +8,9 @@ namespace SchoolManagement.Domain.Entities
 {
     public class Role : BaseEntity
     {
-        public string Name { get; private set; }
-        public string DisplayName { get; private set; }
-        public string Description { get; private set; }
+        public string? Name { get; private set; }
+        public string? DisplayName { get; private set; }
+        public string? Description { get; private set; }
         public bool IsSystemRole { get; private set; }
         public bool IsActive { get; private set; }
         public int Level { get; private set; } // Hierarchy level

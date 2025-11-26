@@ -1,8 +1,11 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolManagement.API.Helpers;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Menus.Commands;
+using SchoolManagement.Application.Menus.Queries;
 using SchoolManagement.Domain.Entities;
 using System.Security.Claims;
 
@@ -49,10 +52,10 @@ namespace SchoolManagement.API.Controllers
         /// Get menu hierarchy
         /// </summary>
         [HttpGet("hierarchy")]
-        [Authorize(Roles = "Admin,SuperAdmin")]
+        //[Authorize(Roles = "Admin,SuperAdmin")]
         public async Task<ActionResult<IEnumerable<MenuDto>>> GetMenuHierarchy()
         {
-            var query = new GetMenuHierarchyQuery();
+            var query = new GetAllMenusQuery();
             var menus = await _mediator.Send(query);
             return Ok(menus);
         }
@@ -74,9 +77,7 @@ namespace SchoolManagement.API.Controllers
             return BadRequest(response);
         }
 
-        /// <summary>
-        /// Get menu by ID
-        /// </summary>
+        // Existing method
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,SuperAdmin")]
         public async Task<ActionResult<MenuDto>> GetMenu(Guid id)
@@ -89,6 +90,21 @@ namespace SchoolManagement.API.Controllers
 
             return Ok(menu);
         }
+
+        // Rename route for role-based fetch
+        [HttpGet("role/{id}")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult<MenuDto>> GetMenuByRoleId(Guid id)
+        {
+            var query = new GetMenuByIdQuery { Id = id };
+            var menu = await _mediator.Send(query);
+
+            if (menu == null)
+                return NotFound();
+
+            return Ok(menu);
+        }
+
 
         /// <summary>
         /// Update menu

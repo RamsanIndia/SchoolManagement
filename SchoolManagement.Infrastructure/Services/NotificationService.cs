@@ -1,6 +1,12 @@
-﻿using System;
+﻿using Microsoft.Extensions.Options;
+using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Domain.Enums;
+using SchoolManagement.Domain.Exceptions;
+using SchoolManagement.Infrastructure.Configuration;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -115,5 +121,6 @@ namespace SchoolManagement.Infrastructure.Services
 
             await Task.WhenAll(tasks);
         }
+
     }
 }

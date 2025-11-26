@@ -1,6 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using FluentValidation;
+using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using SchoolManagement.API.Authorization;
+using SchoolManagement.API.Middleware;
+using SchoolManagement.Application.Auth.Handler;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Mappings;
 using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Students.Commands;
 using SchoolManagement.Application.Validators;
@@ -10,6 +23,8 @@ using SchoolManagement.Infrastructure.Configuration;
 using SchoolManagement.Infrastructure.Services;
 using SchoolManagement.Persistence;
 using SchoolManagement.Persistence.Repositories;
+using System.Text;
+using System.Threading.RateLimiting;
 
 namespace SchoolManagement.API
 {
@@ -24,13 +39,39 @@ namespace SchoolManagement.API
 
         public void ConfigureServices(IServiceCollection services)
         {
+            // --- AUTO MAPPER (correct DI registration) ---
+            // Ensure you have the NuGet package:
+            // AutoMapper.Extensions.Microsoft.DependencyInjection
+            services.AddAutoMapper(typeof(MappingProfile).Assembly);
+
+            // Optional: validate mapping configuration at startup (will throw if invalid)
+            // Note: building a temporary provider for validation is acceptable here.
+            var spForValidation = services.BuildServiceProvider();
+            var mapper = spForValidation.GetService<IMapper>();
+            mapper?.ConfigurationProvider.AssertConfigurationIsValid();
+
+            // --- MVC / JSON ---
+            services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                });
+
+            // API Explorer
+            services.AddEndpointsApiExplorer();
+
             // Database Configuration
             services.AddDbContext<SchoolManagementDbContext>(options =>
-                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"),
+                options.UseSqlServer(Configuration.GetConnectionString("SchoolManagementDbConnectionString"),
                     b => b.MigrationsAssembly("SchoolManagement.API")));
 
-            // Authentication & Authorization
-            var jwtSettings = Configuration.GetSection("JwtSettings");
+            // Memory Cache (required for caching services)
+            services.AddMemoryCache();
+
+            // JWT Authentication Configuration
+            var jwtSettings = Configuration.GetSection("Jwt");
+            var secretKey = jwtSettings["SecretKey"] ?? "DefaultSecretKeyForDevelopment123456789!";
+
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -38,26 +79,24 @@ namespace SchoolManagement.API
             })
             .AddJwtBearer(options =>
             {
+                options.RequireHttpsMetadata = false; // Set to true in production
+                options.SaveToken = true;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings["Issuer"],
-                    ValidAudience = jwtSettings["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey)),
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtSettings["Issuer"] ?? "SchoolManagementSystem",
+                    ValidateAudience = true,
+                    ValidAudience = jwtSettings["Audience"] ?? "SchoolManagementUsers",
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero,
+                    RequireExpirationTime = true
                 };
             });
 
-            services.AddAuthorization(options =>
-            {
-                options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-                options.AddPolicy("StaffAccess", policy => policy.RequireRole("Admin", "Principal", "Teacher"));
-                options.AddPolicy("ParentAccess", policy => policy.RequireRole("Parent"));
-            });
-
             // Dependency Injection
+            services.AddHttpContextAccessor();
 
             // Menu and Permission Services
             services.AddScoped<IMenuRepository, MenuRepository>();
@@ -66,24 +105,38 @@ namespace SchoolManagement.API
             services.AddScoped<IRoleMenuPermissionRepository, RoleMenuPermissionRepository>();
             services.AddScoped<IMenuPermissionService, MenuPermissionService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserRepository, UserRepository>();
 
             // Authorization Handlers
             services.AddScoped<IAuthorizationHandler, MenuPermissionHandler>();
 
-            
-
+            // Repository Services
             services.AddScoped<IStudentRepository, StudentRepository>();
             services.AddScoped<IEmployeeRepository, EmployeeRepository>();
             services.AddScoped<IAttendanceRepository, AttendanceRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+            // Business Services
             services.AddScoped<IBiometricVerificationService, BiometricVerificationService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IAttendanceCalculationService, AttendanceCalculationService>();
             services.AddScoped<ISalaryCalculationService, SalaryCalculationService>();
 
+            // Auth Services
+            services.AddScoped<IAuthRepository, AuthRepository>();
+            services.AddScoped<TokenService>(); // Register concrete class first
+            services.AddScoped<ITokenService, CachedTokenService>(); // Register decorator
+            services.AddScoped<IPasswordService, PasswordService>();
+            services.AddScoped<IAuditService, AuditService>();
+            //services.AddSingleton<INotificationQueue, InMemoryNotificationQueue>();
+            //services.AddHostedService<NotificationProcessorService>();
+
             // MediatR for CQRS
             services.AddMediatR(typeof(CreateStudentCommand).Assembly);
+            if (typeof(LoginCommandHandler).Assembly != typeof(CreateStudentCommand).Assembly)
+            {
+                services.AddMediatR(typeof(LoginCommandHandler).Assembly);
+            }
 
             // FluentValidation
             services.AddValidatorsFromAssembly(typeof(CreateStudentCommandValidator).Assembly);
@@ -91,19 +144,35 @@ namespace SchoolManagement.API
             // HTTP Client Factory
             services.AddHttpClient("SMS", client =>
             {
-                client.BaseAddress = new Uri(Configuration["NotificationSettings:SMS:BaseUrl"]);
+                var smsBaseUrl = Configuration["NotificationSettings:SMS:BaseUrl"];
+                if (!string.IsNullOrEmpty(smsBaseUrl))
+                {
+                    client.BaseAddress = new Uri(smsBaseUrl);
+                }
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
 
             services.AddHttpClient("Email", client =>
             {
-                client.BaseAddress = new Uri(Configuration["NotificationSettings:Email:BaseUrl"]);
+                var emailBaseUrl = Configuration["NotificationSettings:Email:BaseUrl"];
+                if (!string.IsNullOrEmpty(emailBaseUrl))
+                {
+                    client.BaseAddress = new Uri(emailBaseUrl);
+                }
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
 
             // Authorization Policies
             services.AddAuthorization(options =>
             {
+                // Role-based policies
+                options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("TeacherOrAdmin", policy => policy.RequireRole("Teacher", "Admin"));
+                options.AddPolicy("StudentOrParent", policy => policy.RequireRole("Student", "Parent"));
+                options.AddPolicy("StaffAccess", policy => policy.RequireRole("Admin", "Principal", "Teacher"));
+                options.AddPolicy("ParentAccess", policy => policy.RequireRole("Parent"));
+
+                // Permission-based policies
                 options.AddPolicy("StudentManagement", policy =>
                     policy.Requirements.Add(new MenuPermissionAttribute("StudentManagement", "view")));
 
@@ -125,44 +194,124 @@ namespace SchoolManagement.API
             services.Configure<NotificationSettings>(Configuration.GetSection("NotificationSettings"));
             services.Configure<AttendanceSettings>(Configuration.GetSection("AttendanceSettings"));
 
-            // API Documentation
+            // SWAGGER CONFIGURATION
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new() { Title = "School Management System API", Version = "v1" });
-                c.AddSecurityDefinition("Bearer", new()
+                c.SwaggerDoc("v1", new OpenApiInfo
                 {
-                    Description = "JWT Authorization header using the Bearer scheme",
+                    Title = "School Management System API",
+                    Version = "v1",
+                    Description = "Comprehensive School Management System API with Clean Architecture",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Development Team",
+                        Email = "dev@schoolmanagement.com"
+                    }
+                });
+
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token",
                     Name = "Authorization",
-                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey,
                     Scheme = "Bearer"
                 });
+
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+
+                // Include XML comments if available
+                var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                if (File.Exists(xmlPath))
+                {
+                    c.IncludeXmlComments(xmlPath);
+                }
             });
 
-            // CORS
+            // CORS Policy
             services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll", builder =>
+                options.AddPolicy("AllowReactApp", policy =>
                 {
-                    builder.AllowAnyOrigin()
-                           .AllowAnyMethod()
-                           .AllowAnyHeader();
+                    policy.WithOrigins("http://192.168.241.175:8080", "https://localhost:8080", "http://localhost:8080")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials();
                 });
             });
 
-            services.AddControllers();
+            // Health Checks
             services.AddHealthChecks()
-                .AddDbContextCheck<SchoolManagementDbContext>();
+                .AddDbContextCheck<SchoolManagementDbContext>("database");
 
             // Caching
-            services.AddStackExchangeRedisCache(options =>
+            var redisConnectionString = Configuration.GetConnectionString("Redis");
+            if (!string.IsNullOrEmpty(redisConnectionString))
             {
-                options.Configuration = Configuration.GetConnectionString("Redis");
-            });
+                try
+                {
+                    services.AddStackExchangeRedisCache(options =>
+                    {
+                        options.Configuration = redisConnectionString;
+                    });
+                }
+                catch
+                {
+                    services.AddMemoryCache();
+                }
+            }
 
-            // Background Services
+            // Background Services (Optional)
             services.AddHostedService<AttendanceSyncService>();
             services.AddHostedService<NotificationProcessorService>();
+            services.AddHostedService<TokenCleanupService>();
+
+            // Rate Limiting
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.AddFixedWindowLimiter("AuthPolicy", opt =>
+                {
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.PermitLimit = 10;
+                    opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    opt.QueueLimit = 5;
+                });
+
+                options.AddFixedWindowLimiter("GeneralPolicy", opt =>
+                {
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.PermitLimit = 100;
+                    opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    opt.QueueLimit = 10;
+                });
+            });
+
+            // Add logging
+            services.AddLogging(builder =>
+            {
+                builder.AddConsole();
+                builder.AddDebug();
+                if (!builder.Services.Any(x => x.ServiceType == typeof(ILoggerProvider)))
+                {
+                    builder.SetMinimumLevel(LogLevel.Information);
+                }
+            });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -170,13 +319,41 @@ namespace SchoolManagement.API
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                app.UseSwagger();
-                app.UseSwaggerUI();
+            }
+            else
+            {
+                app.UseExceptionHandler("/api/error");
+                app.UseHsts();
             }
 
             app.UseHttpsRedirection();
+
+            if (HasMiddleware<ErrorHandlingMiddleware>())
+            {
+                app.UseMiddleware<ErrorHandlingMiddleware>();
+            }
+
+            if (HasMiddleware<RateLimitingMiddleware>())
+            {
+                app.UseMiddleware<RateLimitingMiddleware>();
+            }
+
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "School Management System API V1");
+                c.RoutePrefix = "swagger"; // URL: /swagger
+                c.DisplayRequestDuration();
+                c.EnableTryItOutByDefault();
+                c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+            });
+
+            app.UseCors("AllowReactApp");
+
+            app.UseRateLimiter();
+
             app.UseRouting();
-            app.UseCors("AllowAll");
+
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -184,7 +361,26 @@ namespace SchoolManagement.API
             {
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
+
+                endpoints.MapGet("/", async context =>
+                {
+                    await context.Response.WriteAsync("School Management System API is running! Go to /swagger to view API documentation.");
+                });
             });
+        }
+
+        // Helper method to check if middleware exists
+        private bool HasMiddleware<T>()
+        {
+            try
+            {
+                var type = typeof(T);
+                return type != null;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

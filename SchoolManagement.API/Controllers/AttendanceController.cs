@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.Attendance.Commands;
+using SchoolManagement.Application.Attendance.Queries;
+using SchoolManagement.Application.DTOs;
 
 namespace SchoolManagement.API.Controllers
 {

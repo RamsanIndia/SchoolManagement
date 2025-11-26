@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.Entities
 {
@@ -18,7 +15,7 @@ namespace SchoolManagement.Domain.Entities
         public virtual Employee HeadOfDepartment { get; private set; }
         public virtual ICollection<Employee> Employees { get; private set; }
 
-        private Department()
+        private Department() // EF Core requires private/protected ctor
         {
             Employees = new List<Employee>();
         }

@@ -41,8 +41,18 @@ namespace SchoolManagement.Domain.Entities
 
         private Student() { } // EF Constructor
 
-        public Student(string firstName, string lastName, string email,
-                      DateTime dateOfBirth, Gender gender, Guid classId, Guid sectionId)
+        public Student(
+        string firstName,
+        string lastName,
+        string email,
+        DateTime dateOfBirth,
+        Gender gender,
+        Guid classId,
+        Guid sectionId,
+        string admissionNumber = null,
+        DateTime? admissionDate = null,
+        StudentStatus status = StudentStatus.Active,
+        string photoUrl = null)
         {
             FirstName = firstName ?? throw new ArgumentNullException(nameof(firstName));
             LastName = lastName ?? throw new ArgumentNullException(nameof(lastName));
@@ -51,9 +61,16 @@ namespace SchoolManagement.Domain.Entities
             Gender = gender;
             ClassId = classId;
             SectionId = sectionId;
-            Status = StudentStatus.Active;
-            AdmissionDate = DateTime.UtcNow;
+
+            // Required DB fields
+            AdmissionNumber = admissionNumber ?? GenerateAdmissionNumber();
+            AdmissionDate = admissionDate ?? DateTime.UtcNow;
+            Status = status;
+            PhotoUrl = photoUrl;
+
             StudentId = GenerateStudentId();
+
+            // Initialize navigation collections
             StudentParents = new List<StudentParent>();
             Attendances = new List<Attendance>();
             FeePayments = new List<FeePayment>();
@@ -89,6 +106,11 @@ namespace SchoolManagement.Domain.Entities
         private string GenerateStudentId()
         {
             return $"STD{DateTime.UtcNow.Year}{DateTime.UtcNow.Month:D2}{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+        }
+
+        private string GenerateAdmissionNumber()
+        {
+            return $"ADM{DateTime.UtcNow:yyyyMMddHHmmss}";
         }
     }
 }

@@ -20,13 +20,13 @@ namespace SchoolManagement.Domain.Entities
 
         private UserRole() { }
 
-        public UserRole(Guid userId, Guid roleId, DateTime? expiresAt = null)
+        public UserRole(Guid userId, Guid roleId, DateTime assignAt,bool isActive, DateTime? expiresAt = null)
         {
             UserId = userId;
             RoleId = roleId;
-            AssignedAt = DateTime.UtcNow;
+            AssignedAt = (DateTime)assignAt;
             ExpiresAt = expiresAt;
-            IsActive = true;
+            IsActive = isActive;
         }
 
         public void DeactivateRole()

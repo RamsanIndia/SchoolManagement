@@ -1,9 +1,5 @@
 ﻿using SchoolManagement.Domain.Enums;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.Entities
 {
@@ -23,13 +19,21 @@ namespace SchoolManagement.Domain.Entities
 
         // Navigation Properties
         public virtual Employee Employee { get; private set; }
+
+        /// <summary>
+        /// Manager/Employee who approved/rejected the leave.
+        /// Self-referencing relationship to Employee.
+        /// </summary>
         public virtual Employee ApprovedByEmployee { get; private set; }
 
-        private LeaveApplication() { }
+        private LeaveApplication() { } // EF Core
 
         public LeaveApplication(Guid employeeId, LeaveType leaveType, DateTime fromDate,
-                              DateTime toDate, string reason, string documentPath = null)
+                                DateTime toDate, string reason, string documentPath = null)
         {
+            if (fromDate > toDate)
+                throw new ArgumentException("FromDate cannot be later than ToDate.");
+
             EmployeeId = employeeId;
             LeaveType = leaveType;
             FromDate = fromDate.Date;

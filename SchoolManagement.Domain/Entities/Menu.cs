@@ -9,12 +9,12 @@ namespace SchoolManagement.Domain.Entities
 {
     public class Menu : BaseEntity
     {
-        public string Name { get; private set; }
-        public string DisplayName { get; private set; }
-        public string Description { get; private set; }
-        public string Icon { get; private set; }
-        public string Route { get; private set; }
-        public string Component { get; private set; }
+        public string? Name { get; private set; }
+        public string? DisplayName { get; private set; }
+        public string? Description { get; private set; }
+        public string? Icon { get; private set; }
+        public string? Route { get; private set; }
+        public string? Component { get; private set; }
         public int SortOrder { get; private set; }
         public bool IsActive { get; private set; }
         public bool IsVisible { get; private set; }

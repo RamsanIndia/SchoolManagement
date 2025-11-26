@@ -12,6 +12,6 @@ namespace SchoolManagement.Application.Interfaces
         Task SendSMSAsync(string phoneNumber, string message);
         Task SendEmailAsync(string email, string subject, string body);
         Task SendPushNotificationAsync(string userId, string title, string message);
-        Task SendBulkNotificationAsync(IEnumerable<string> recipients, string message, NotificationType type);
+        //Task SendBulkNotificationAsync(IEnumerable<string> recipients, string message, NotificationType type);
     }
 }

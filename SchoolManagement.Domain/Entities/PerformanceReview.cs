@@ -1,9 +1,5 @@
 ﻿using SchoolManagement.Domain.Enums;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.Entities
 {
@@ -22,14 +18,17 @@ namespace SchoolManagement.Domain.Entities
         public ReviewStatus Status { get; private set; }
 
         // Navigation Properties
-        public virtual Employee Employee { get; private set; }
-        public virtual Employee Reviewer { get; private set; }
+        public virtual Employee Employee { get; private set; }   // Reviewed employee
+        public virtual Employee Reviewer { get; private set; }   // Manager/reviewer
 
-        private PerformanceReview() { }
+        private PerformanceReview() { } // EF Core
 
         public PerformanceReview(Guid employeeId, Guid reviewerId, DateTime periodStart,
-                               DateTime periodEnd)
+                                 DateTime periodEnd)
         {
+            if (periodStart > periodEnd)
+                throw new ArgumentException("Review start date cannot be after end date.");
+
             EmployeeId = employeeId;
             ReviewerId = reviewerId;
             ReviewPeriodStart = periodStart;
@@ -38,8 +37,11 @@ namespace SchoolManagement.Domain.Entities
         }
 
         public void UpdateReview(decimal overallRating, string goals, string achievements,
-                               string areasOfImprovement, string reviewerComments)
+                                 string areasOfImprovement, string reviewerComments)
         {
+            if (overallRating < 0 || overallRating > 5)
+                throw new ArgumentOutOfRangeException(nameof(overallRating), "Rating must be between 0 and 5.");
+
             OverallRating = overallRating;
             Goals = goals;
             Achievements = achievements;

@@ -1,5 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Students.Commands;
+using SchoolManagement.Application.Students.Queries;
 
 namespace SchoolManagement.API.Controllers
 {
