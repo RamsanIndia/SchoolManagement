@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Attendance.Commands
 {
-    public class ManualAttendanceCommand : IRequest<ManualAttendanceResponse>
+    public class ManualAttendanceCommand : IRequest<Result>
     {
         public Guid StudentId { get; set; }
         public DateTime Date { get; set; }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.Students.Commands;
 using SchoolManagement.Application.Students.Queries;
 
@@ -24,13 +25,13 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin,Principal")]
-        public async Task<ActionResult<CreateStudentResponse>> CreateStudent(CreateStudentCommand command)
+        public async Task<ActionResult<Result<StudentDto>>> CreateStudent(CreateStudentCommand command)
         {
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
             {
-                return CreatedAtAction(nameof(GetStudent), new { id = response.Id }, response);
+                return CreatedAtAction(nameof(GetStudent), new { id = response.Data }, response);
             }
 
             return BadRequest(response);
@@ -69,12 +70,12 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Principal")]
-        public async Task<ActionResult<UpdateStudentResponse>> UpdateStudent(Guid id, UpdateStudentCommand command)
+        public async Task<ActionResult<Result<StudentDto>>> UpdateStudent(Guid id, UpdateStudentCommand command)
         {
             command.Id = id;
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);
@@ -85,12 +86,12 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPost("{id}/biometric")]
         [Authorize(Roles = "Admin,Principal")]
-        public async Task<ActionResult<EnrollBiometricResponse>> EnrollBiometric(Guid id, EnrollBiometricCommand command)
+        public async Task<ActionResult<Result>> EnrollBiometric(Guid id, EnrollBiometricCommand command)
         {
             command.StudentId = id;
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);

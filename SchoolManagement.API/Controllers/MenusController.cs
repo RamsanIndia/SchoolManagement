@@ -135,7 +135,7 @@ namespace SchoolManagement.API.Controllers
 
             var result = await _mediator.Send(command, cancellationToken);
 
-            if (!result.Success)
+            if (!result.Status)
                 return BadRequest(result);
 
             return Ok(result);
@@ -151,7 +151,7 @@ namespace SchoolManagement.API.Controllers
             var command = new DeleteMenuCommand { Id = id };
             var result = await _mediator.Send(command, cancellationToken);
 
-            if (!result.Success)
+            if (!result.Status)
                 return BadRequest(result);
 
             return Ok(result);

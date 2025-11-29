@@ -1,10 +1,11 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 
 namespace SchoolManagement.Application.Students.Commands
 {
-    public class CreateStudentCommand : IRequest<CreateStudentResponse>
+    public class CreateStudentCommand : IRequest<Result<StudentDto>>
     {
         public string FirstName { get; set; }
         public string LastName { get; set; }

@@ -44,7 +44,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Employee> CreateAsync(Employee employee)
+        public async Task<Employee> CreateAsync(Employee employee,CancellationToken cancellationToken)
         {
             _context.Employees.Add(employee);
             return employee;

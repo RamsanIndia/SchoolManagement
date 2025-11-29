@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Roles.Commands
 {
-    public class UpdateRoleCommand : IRequest<UpdateRoleResponse>
+    public class UpdateRoleCommand : IRequest<Result>
     {
         public Guid Id { get; set; }
         public string DisplayName { get; set; }

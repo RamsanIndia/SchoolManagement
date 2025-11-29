@@ -12,7 +12,7 @@ namespace SchoolManagement.Application.Interfaces
         Task<Employee> GetByIdAsync(Guid id);
         Task<Employee> GetByEmployeeIdAsync(string employeeId);
         Task<IEnumerable<Employee>> GetByDepartmentAsync(Guid departmentId);
-        Task<Employee> CreateAsync(Employee employee);
+        Task<Employee> CreateAsync(Employee employee,CancellationToken cancellationToken);
         Task<Employee> UpdateAsync(Employee employee);
         Task DeleteAsync(Guid id);
         Task<bool> ExistsAsync(Guid id);

@@ -1,15 +1,16 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Commands
 {
-    public class AssignMenuPermissionsCommandHandler : IRequestHandler<AssignMenuPermissionsCommand, AssignMenuPermissionsResponse>
+    public class AssignMenuPermissionsCommandHandler : IRequestHandler<AssignMenuPermissionsCommand, Result>
     {
         private readonly IMenuPermissionService _menuPermissionService;
 
@@ -18,7 +19,7 @@ namespace SchoolManagement.Application.Menus.Commands
             _menuPermissionService = menuPermissionService;
         }
 
-        public async Task<AssignMenuPermissionsResponse> Handle(AssignMenuPermissionsCommand request, CancellationToken cancellationToken)
+        public async Task<Result> Handle(AssignMenuPermissionsCommand request, CancellationToken cancellationToken)
         {
             try
             {
@@ -38,20 +39,11 @@ namespace SchoolManagement.Application.Menus.Commands
 
                 await _menuPermissionService.AssignMenuPermissionsToRoleAsync(request.RoleId, menuPermissions);
 
-                return new AssignMenuPermissionsResponse
-                {
-                    Message = "Menu permissions assigned successfully",
-                    Success = true,
-                    PermissionsAssigned = menuPermissions.Count
-                };
+                return Result.Success("Menu permissions assigned successfully");
             }
             catch (Exception ex)
             {
-                return new AssignMenuPermissionsResponse
-                {
-                    Message = $"Error assigning permissions: {ex.Message}",
-                    Success = false
-                };
+                return Result.Failure($"Error assigning permissions: {ex.Message}");
             }
         }
     }

@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Attendance.Commands;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Students.Commands;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Services;
 using System;
@@ -11,7 +11,7 @@ using Entities = SchoolManagement.Domain.Entities;
 
 namespace SchoolManagement.Application.Features.Attendance.Handlers.Commands
 {
-    public class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanceCommand, MarkAttendanceResponse>
+    public class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanceCommand, Result>
     {
         private readonly IAttendanceRepository _attendanceRepository;
         private readonly IStudentRepository _studentRepository;
@@ -33,48 +33,36 @@ namespace SchoolManagement.Application.Features.Attendance.Handlers.Commands
             _notificationService = notificationService;
         }
 
-        public async Task<MarkAttendanceResponse> Handle(MarkAttendanceCommand request, CancellationToken cancellationToken)
+        public async Task<Result> Handle(MarkAttendanceCommand request, CancellationToken cancellationToken)
         {
             try
             {
-                // Verify student exists
+                // 1. Verify student exists
                 var student = await _studentRepository.GetByIdAsync(request.StudentId);
                 if (student == null)
                 {
-                    return new MarkAttendanceResponse
-                    {
-                        Success = false,
-                        Message = "Student not found"
-                    };
+                    return Result.Failure("Student not found");
                 }
 
-                // Verify biometric data
+                // 2. Verify biometric match
                 var verificationResult = await _biometricService.VerifyAsync(
                     request.BiometricData, (BiometricType)request.BiometricType);
 
                 if (!verificationResult.IsVerified)
                 {
-                    return new MarkAttendanceResponse
-                    {
-                        Success = false,
-                        Message = "Biometric verification failed"
-                    };
+                    return Result.Failure("Biometric verification failed");
                 }
 
-                // Check if already marked for today
+                // 3. Check duplicate attendance
                 var existingAttendance = await _attendanceRepository.GetTodayAttendanceAsync(
                     request.StudentId, request.Timestamp.Date);
 
                 if (existingAttendance != null)
                 {
-                    return new MarkAttendanceResponse
-                    {
-                        Success = false,
-                        Message = "Attendance already marked for today"
-                    };
+                    return Result.Failure("Attendance already marked for today");
                 }
 
-                // Create attendance record using the namespace alias
+                // 4. Create attendance entry
                 var attendance = new Entities.Attendance(
                     request.StudentId,
                     request.Timestamp.Date,
@@ -85,25 +73,16 @@ namespace SchoolManagement.Application.Features.Attendance.Handlers.Commands
                 var createdAttendance = await _attendanceRepository.CreateAsync(attendance);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                // Send notification
+                // 5. Send notification to parents
                 await _notificationService.SendSMSAsync(student.Phone,
                     $"{student.FirstName} has arrived at school at {request.Timestamp:HH:mm}");
 
-                return new MarkAttendanceResponse
-                {
-                    Success = true,
-                    Message = "Attendance marked successfully",
-                    AttendanceId = createdAttendance.Id,
-                    CheckInTime = request.Timestamp.TimeOfDay
-                };
+                // 6. Return success result
+                return Result.Success("Attendance marked successfully");
             }
             catch (Exception ex)
             {
-                return new MarkAttendanceResponse
-                {
-                    Success = false,
-                    Message = $"Error marking attendance: {ex.Message}"
-                };
+                return Result.Failure("Error marking attendance", ex.Message);
             }
         }
     }

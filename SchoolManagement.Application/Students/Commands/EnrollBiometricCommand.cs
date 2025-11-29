@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Students.Commands
 {
-    public class EnrollBiometricCommand : IRequest<EnrollBiometricResponse>
+    public class EnrollBiometricCommand : IRequest<Result>
     {
         public Guid StudentId { get; set; }
         public string BiometricData { get; set; }
