@@ -24,17 +24,17 @@ namespace SchoolManagement.Application.UserRoles.Handlers
         {
             try
             {
-                // Optionally filter by UserId if provided
                 var userRoles = request.UserId == Guid.Empty
-                    ? await _unitOfWork.UserRoleRepository.GetAllAsync(cancellationToken)
-                    : await _unitOfWork.UserRoleRepository.FindAsync(ur => ur.UserId == request.UserId, cancellationToken);
+                    ? await _unitOfWork.UserRoleRepository.GetAllWithUserAndRoleAsync(cancellationToken)
+                    : await _unitOfWork.UserRoleRepository.FindWithUserAndRoleAsync(
+                        ur => ur.UserId == request.UserId,
+                        cancellationToken);
 
                 if (userRoles == null || !userRoles.Any())
                     return Result<IEnumerable<UserRoleDto>>.Success(Enumerable.Empty<UserRoleDto>());
 
                 var now = DateTime.UtcNow;
 
-                // Map entities to DTO safely
                 var result = userRoles.Select(ur => new UserRoleDto
                 {
                     UserId = ur.UserId,
@@ -54,9 +54,9 @@ namespace SchoolManagement.Application.UserRoles.Handlers
             }
             catch (Exception ex)
             {
-                // Log the exception if needed
                 return Result<IEnumerable<UserRoleDto>>.Failure($"Failed to fetch user roles: {ex.Message}");
             }
         }
+
     }
 }

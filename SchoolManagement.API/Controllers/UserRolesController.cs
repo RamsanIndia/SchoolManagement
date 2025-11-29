@@ -35,7 +35,7 @@ namespace SchoolManagement.API.Controllers
             if (!result.Status)
                 return BadRequest(new { result.Errors });
 
-            return Ok(result.Data);
+            return Ok(result);
         }
 
         /// <summary>

@@ -19,6 +19,7 @@ namespace SchoolManagement.Domain.Enums
         HRManager = 9,
         DepartmentHead = 10,
         Staff = 11,
-        Guest = 12
+        Guest = 12,
+        None = 0
     }
 }

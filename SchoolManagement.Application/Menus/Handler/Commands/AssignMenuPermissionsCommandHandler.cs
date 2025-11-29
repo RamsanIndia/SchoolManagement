@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Menus.Commands;
 using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.ValueObjects;
 using System;
@@ -8,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SchoolManagement.Application.Menus.Commands
+namespace SchoolManagement.Application.Menus.Handler.Commands
 {
     public class AssignMenuPermissionsCommandHandler : IRequestHandler<AssignMenuPermissionsCommand, Result>
     {
