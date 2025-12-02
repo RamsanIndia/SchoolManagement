@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Domain.Entities;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +25,12 @@ namespace SchoolManagement.Persistence.Repositories
         // Add other repositories as needed
         private IUserRoleRepository _userRoleRepository;
         private IPermissionRepository _permissionRepository;
+
+        public IClassRepository _classesRepository;
+        public ISectionRepository _sectionsRepository;
+        public ISectionSubjectRepository _sectionSubjectsRepository;
+        public ITimeTableRepository _timeTablesRepository;
+
 
         public UnitOfWork(SchoolManagementDbContext context)
         {
@@ -59,6 +66,18 @@ namespace SchoolManagement.Persistence.Repositories
 
         public IPermissionRepository Permissions =>
             _permissionRepository ??= new PermissionRepository(_context);
+
+        public IClassRepository ClassesRepository =>
+            _classesRepository ??= new ClassRepository(_context);
+
+        public ISectionRepository SectionsRepository =>
+            _sectionsRepository ??= new SectionRepository(_context);
+
+        public ISectionSubjectRepository SectionSubjectsRepository =>
+            _sectionSubjectsRepository ??= new SectionSubjectRepository(_context);
+
+        public ITimeTableRepository TimeTablesRepository =>
+            _timeTablesRepository ??= new TimeTableRepository(_context);
 
         #endregion
 

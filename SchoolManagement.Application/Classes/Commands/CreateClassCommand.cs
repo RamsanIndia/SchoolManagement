@@ -1,0 +1,19 @@
+﻿using MediatR;
+using SchoolManagement.Application.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace SchoolManagement.Application.Classes.Commands
+{
+    public class CreateClassCommand : IRequest<Result<Guid>>
+    {
+        public string ClassName { get; set; }
+        public string ClassCode { get; set; }
+        public int Grade { get; set; }
+        public string Description { get; set; }
+        public Guid AcademicYearId { get; set; }
+    }
+}

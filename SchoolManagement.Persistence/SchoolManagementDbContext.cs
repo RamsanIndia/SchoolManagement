@@ -1,21 +1,23 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Domain.Entities;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SchoolManagement.Persistence
 {
     public class SchoolManagementDbContext : DbContext
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public SchoolManagementDbContext(DbContextOptions<SchoolManagementDbContext> options,
-                                     IHttpContextAccessor httpContextAccessor = null)
-        : base(options)
+
+        public SchoolManagementDbContext(
+            DbContextOptions<SchoolManagementDbContext> options,
+            IHttpContextAccessor httpContextAccessor = null)
+            : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
         }
-        //public SchoolManagementDbContext(DbContextOptions<SchoolManagementDbContext> options)
-        //    : base(options)
-        //{ }
 
         #region DbSets
 
@@ -36,6 +38,8 @@ namespace SchoolManagement.Persistence
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Class> Classes { get; set; }
         public DbSet<Section> Sections { get; set; }
+        public DbSet<SectionSubject> SectionSubjects { get; set; }
+        public DbSet<TimeTableEntry> TimeTableEntries { get; set; }
         public DbSet<ExamResult> ExamResults { get; set; }
         public DbSet<StudentParent> StudentParents { get; set; }
         public DbSet<FeePayment> FeePayments { get; set; }
@@ -55,7 +59,18 @@ namespace SchoolManagement.Persistence
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Apply all IEntityTypeConfiguration classes in this assembly
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(SchoolManagementDbContext).Assembly);
+
+            // RowVersion for concurrency on all BaseEntity derived types
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+                         .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property(nameof(BaseEntity.RowVersion))
+                    .IsRowVersion()
+                    .IsConcurrencyToken();
+            }
 
             base.OnModelCreating(modelBuilder);
         }
@@ -84,14 +99,10 @@ namespace SchoolManagement.Persistence
             foreach (var entry in entries)
             {
                 if (entry.State == EntityState.Added)
-                {
                     entry.Entity.SetCreated(currentUser, currentIp);
-                }
 
                 if (entry.State == EntityState.Modified)
-                {
                     entry.Entity.SetUpdated(currentUser, currentIp);
-                }
             }
         }
     }

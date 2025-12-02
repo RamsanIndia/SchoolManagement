@@ -18,4 +18,9 @@
     <ProjectReference Include="..\SchoolManagement.Domain\SchoolManagement.Domain.csproj" />
     <!-- Update this path to match your actual project structure -->
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="SectionSubjects\Handlers\Queries\" />
+    <Folder Include="SectionSubjects\Validators\" />
+  </ItemGroup>
 </Project>

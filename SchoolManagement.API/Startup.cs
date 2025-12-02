@@ -133,6 +133,11 @@ namespace SchoolManagement.API
             //services.AddSingleton<INotificationQueue, InMemoryNotificationQueue>();
             //services.AddHostedService<NotificationProcessorService>();
 
+            services.AddScoped<IClassRepository, ClassRepository>();
+            services.AddScoped<ISectionRepository, SectionRepository>();
+            services.AddScoped<ISectionSubjectRepository, SectionSubjectRepository>();
+            services.AddScoped<ITimeTableRepository, TimeTableRepository>();
+
             // MediatR for CQRS
             services.AddMediatR(typeof(CreateStudentCommand).Assembly);
             if (typeof(LoginCommandHandler).Assembly != typeof(CreateStudentCommand).Assembly)

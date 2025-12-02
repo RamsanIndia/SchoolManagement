@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace SchoolManagement.Domain.Entities
 {
@@ -13,7 +14,9 @@ namespace SchoolManagement.Domain.Entities
         public string CreatedIP { get; set; }
 
         // Concurrency token for optimistic concurrency
+        [Timestamp]
         public byte[] RowVersion { get; set; }
+
 
         protected BaseEntity()
         {

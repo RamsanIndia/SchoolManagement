@@ -63,8 +63,10 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -199,8 +201,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("AcademicYearId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Capacity")
                         .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -215,21 +225,30 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Grade")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -239,7 +258,17 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Classes");
+                    b.HasIndex("AcademicYearId")
+                        .HasDatabaseName("IX_Classes_AcademicYear");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Classes_ClassCode");
+
+                    b.HasIndex("Grade")
+                        .HasDatabaseName("IX_Classes_Grade");
+
+                    b.ToTable("Classes", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Deduction", b =>
@@ -283,8 +312,10 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -396,8 +427,10 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -914,8 +947,10 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<DateTime?>("SentAt")
                         .HasColumnType("datetime2");
@@ -986,8 +1021,10 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -1428,6 +1465,9 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<Guid>("ClassId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ClassTeacherId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1439,15 +1479,28 @@ namespace SchoolManagement.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("CurrentStrength")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RoomNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -1463,9 +1516,90 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClassId");
+                    b.HasIndex("ClassTeacherId")
+                        .HasDatabaseName("IX_Sections_ClassTeacher");
 
-                    b.ToTable("Sections");
+                    b.HasIndex("ClassId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Sections_Class_Name");
+
+                    b.ToTable("Sections", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.SectionSubject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CreatedIP")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsMandatory")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SubjectCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SubjectName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TeacherName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("WeeklyPeriods")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherId")
+                        .HasDatabaseName("IX_SectionSubjects_Teacher");
+
+                    b.HasIndex("SectionId", "SubjectId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SectionSubjects_Section_Subject");
+
+                    b.ToTable("SectionSubjects", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Student", b =>
@@ -1637,6 +1771,81 @@ namespace SchoolManagement.Persistence.Migrations
                     b.HasIndex("StudentId");
 
                     b.ToTable("StudentParents");
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.TimeTableEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CreatedIP")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DayOfWeek")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PeriodNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RoomNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherId")
+                        .HasDatabaseName("IX_TimeTable_Teacher");
+
+                    b.HasIndex("DayOfWeek", "PeriodNumber")
+                        .HasDatabaseName("IX_TimeTable_Day_Period");
+
+                    b.HasIndex("SectionId", "DayOfWeek", "PeriodNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TimeTable_Section_Day_Period");
+
+                    b.ToTable("TimeTableEntries", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.User", b =>
@@ -2101,6 +2310,17 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Navigation("Class");
                 });
 
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.SectionSubject", b =>
+                {
+                    b.HasOne("SchoolManagement.Domain.Entities.Section", "Section")
+                        .WithMany("SectionSubjects")
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Section");
+                });
+
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Student", b =>
                 {
                     b.HasOne("SchoolManagement.Domain.Entities.Class", "Class")
@@ -2248,6 +2468,17 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.TimeTableEntry", b =>
+                {
+                    b.HasOne("SchoolManagement.Domain.Entities.Section", "Section")
+                        .WithMany("TimeTableEntries")
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Section");
+                });
+
             modelBuilder.Entity("SchoolManagement.Domain.Entities.User", b =>
                 {
                     b.HasOne("SchoolManagement.Domain.Entities.Employee", "Employee")
@@ -2335,7 +2566,11 @@ namespace SchoolManagement.Persistence.Migrations
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Section", b =>
                 {
+                    b.Navigation("SectionSubjects");
+
                     b.Navigation("Students");
+
+                    b.Navigation("TimeTableEntries");
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Student", b =>
