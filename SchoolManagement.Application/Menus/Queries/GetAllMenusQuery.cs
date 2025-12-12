@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Queries
 {
-    public class GetAllMenusQuery : IRequest<IEnumerable<MenuDto>>
+    public class GetAllMenusQuery : IRequest<Result<List<MenuDto>>>
     {
     }
 }

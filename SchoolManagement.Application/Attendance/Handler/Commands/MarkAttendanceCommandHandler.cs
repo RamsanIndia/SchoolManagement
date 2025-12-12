@@ -1,109 +1,158 @@
-﻿using MediatR;
+﻿// Application/Features/Attendance/Handlers/Commands/MarkAttendanceCommandHandler.cs
+using MediatR;
+using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Attendance.Commands;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Students.Commands;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Services;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Entities = SchoolManagement.Domain.Entities;
 
 namespace SchoolManagement.Application.Features.Attendance.Handlers.Commands
 {
-    public class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanceCommand, MarkAttendanceResponse>
+    public class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanceCommand, Result>
     {
         private readonly IAttendanceRepository _attendanceRepository;
         private readonly IStudentRepository _studentRepository;
         private readonly IBiometricVerificationService _biometricService;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly INotificationService _notificationService;
+        private readonly ILogger<MarkAttendanceCommandHandler> _logger;
 
         public MarkAttendanceCommandHandler(
             IAttendanceRepository attendanceRepository,
             IStudentRepository studentRepository,
             IBiometricVerificationService biometricService,
             IUnitOfWork unitOfWork,
-            INotificationService notificationService)
+            ILogger<MarkAttendanceCommandHandler> logger)
         {
             _attendanceRepository = attendanceRepository;
             _studentRepository = studentRepository;
             _biometricService = biometricService;
             _unitOfWork = unitOfWork;
-            _notificationService = notificationService;
+            _logger = logger;
         }
 
-        public async Task<MarkAttendanceResponse> Handle(MarkAttendanceCommand request, CancellationToken cancellationToken)
+        public async Task<Result> Handle(MarkAttendanceCommand request, CancellationToken cancellationToken)
         {
             try
             {
-                // Verify student exists
-                var student = await _studentRepository.GetByIdAsync(request.StudentId);
+                _logger.LogInformation("Processing attendance marking for student {StudentId}", request.StudentId);
+
+                // 1. Verify student exists and is active
+                var student = await _studentRepository.GetByIdAsync(request.StudentId, cancellationToken);
                 if (student == null)
                 {
-                    return new MarkAttendanceResponse
-                    {
-                        Success = false,
-                        Message = "Student not found"
-                    };
+                    _logger.LogWarning("Student not found: {StudentId}", request.StudentId);
+                    return Result.Failure("Student not found");
                 }
 
-                // Verify biometric data
-                var verificationResult = await _biometricService.VerifyAsync(
-                    request.BiometricData, (BiometricType)request.BiometricType);
-
-                if (!verificationResult.IsVerified)
+                if (!student.IsActive)
                 {
-                    return new MarkAttendanceResponse
-                    {
-                        Success = false,
-                        Message = "Biometric verification failed"
-                    };
+                    _logger.LogWarning("Attempt to mark attendance for inactive student: {StudentId}", request.StudentId);
+                    return Result.Failure("Student is not active");
                 }
 
-                // Check if already marked for today
-                var existingAttendance = await _attendanceRepository.GetTodayAttendanceAsync(
-                    request.StudentId, request.Timestamp.Date);
+                // 2. Verify biometric match if biometric data provided
+                if (!string.IsNullOrEmpty(request.BiometricData))
+                {
+                    var verificationResult = await _biometricService.VerifyAsync(
+                        request.BiometricData,
+                        request.BiometricType);
+
+                    if (!verificationResult.IsVerified)
+                    {
+                        _logger.LogWarning(
+                            "Biometric verification failed for student {StudentId}. Confidence: {Confidence}",
+                            request.StudentId,
+                            verificationResult.ConfidenceScore);
+                        return Result.Failure("Biometric verification failed");
+                    }
+
+                    _logger.LogInformation(
+                        "Biometric verified for student {StudentId}. Confidence: {Confidence}",
+                        request.StudentId,
+                        verificationResult.ConfidenceScore);
+                }
+
+                // 3. Check duplicate attendance
+                var existingAttendance = await _attendanceRepository.GetByStudentAndDateAsync(
+                    request.StudentId,
+                    request.Timestamp.Date,
+                    cancellationToken);
 
                 if (existingAttendance != null)
                 {
-                    return new MarkAttendanceResponse
-                    {
-                        Success = false,
-                        Message = "Attendance already marked for today"
-                    };
+                    _logger.LogInformation(
+                        "Attendance already exists for student {StudentId} on {Date}",
+                        request.StudentId,
+                        request.Timestamp.Date);
+                    return Result.Failure("Attendance already marked for today");
                 }
 
-                // Create attendance record using the namespace alias
-                var attendance = new Entities.Attendance(
-                    request.StudentId,
-                    request.Timestamp.Date,
-                    request.Timestamp.TimeOfDay,
-                    AttendanceMode.Biometric,
-                    request.DeviceId);
+                // 4. Parse device ID
+                Guid? deviceId = null;
+                if (!string.IsNullOrEmpty(request.DeviceId) && Guid.TryParse(request.DeviceId, out var parsedDeviceId))
+                {
+                    deviceId = parsedDeviceId;
+                }
 
-                var createdAttendance = await _attendanceRepository.CreateAsync(attendance);
+                // 5. Determine attendance status
+                var status = DetermineAttendanceStatus(request.Timestamp);
+
+                // 6. Create attendance using factory method
+                var attendance = Domain.Entities.Attendance.Create(
+                    studentId: request.StudentId,
+                    date: request.Timestamp.Date,
+                    status: status,
+                    createdBy: request.MarkedBy ?? "SYSTEM",
+                    createdIp: request.IpAddress ?? "Device",
+                    checkInTime: request.Timestamp,
+                    isFromBiometric: !string.IsNullOrEmpty(request.BiometricData),
+                    biometricDeviceId: deviceId,
+                    remarks: request.Remarks);
+
+                // 7. Save attendance
+                await _attendanceRepository.AddAsync(attendance, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                // Send notification
-                await _notificationService.SendSMSAsync(student.Phone,
-                    $"{student.FirstName} has arrived at school at {request.Timestamp:HH:mm}");
+                // Domain events are automatically dispatched by UnitOfWork
+                // Events: AttendanceMarkedEvent (which triggers notification to parents)
 
-                return new MarkAttendanceResponse
-                {
-                    Success = true,
-                    Message = "Attendance marked successfully",
-                    AttendanceId = createdAttendance.Id,
-                    CheckInTime = request.Timestamp.TimeOfDay
-                };
+                _logger.LogInformation(
+                    "Successfully marked attendance for student {StudentId} at {Time}. Status: {Status}",
+                    request.StudentId,
+                    request.Timestamp,
+                    status);
+
+                return Result.Success("Attendance marked successfully");
             }
             catch (Exception ex)
             {
-                return new MarkAttendanceResponse
-                {
-                    Success = false,
-                    Message = $"Error marking attendance: {ex.Message}"
-                };
+                _logger.LogError(
+                    ex,
+                    "Error marking attendance for student {StudentId}",
+                    request.StudentId);
+                return Result.Failure("Error marking attendance. Please try again.");
+            }
+        }
+
+        private AttendanceStatus DetermineAttendanceStatus(DateTime timestamp)
+        {
+            // Define school timing (you can move this to configuration)
+            var schoolStartTime = new TimeSpan(8, 0, 0); // 8:00 AM
+            var lateThreshold = new TimeSpan(8, 15, 0);  // 8:15 AM
+
+            var checkInTime = timestamp.TimeOfDay;
+
+            if (checkInTime <= lateThreshold)
+            {
+                return AttendanceStatus.Present;
+            }
+            else
+            {
+                return AttendanceStatus.Late;
             }
         }
     }

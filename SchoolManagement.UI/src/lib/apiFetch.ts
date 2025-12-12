@@ -59,7 +59,7 @@ export async function apiFetch<T = any>(
       throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
-    // ✅ Parse JSON automatically
+    // Parse JSON automatically
     const data = await response.json().catch(() => null);
     return data as T;
   } catch (error: any) {
@@ -74,7 +74,7 @@ export async function apiFetch<T = any>(
   }
 }
 
-// 🔁 Token refresh logic
+// Token refresh logic
 async function tryRefreshToken(): Promise<boolean> {
   const refreshToken = localStorage.getItem("sms_refresh_token");
   if (!refreshToken) return false;
@@ -103,7 +103,7 @@ async function tryRefreshToken(): Promise<boolean> {
   }
 }
 
-// 🧹 Clear all auth data
+// Clear all auth data
 function clearAuthStorage() {
   localStorage.removeItem("sms_user");
   localStorage.removeItem("sms_token");

@@ -10,5 +10,6 @@ namespace SchoolManagement.Application.Auth.Commands
     public class RevokeAllTokensCommand : IRequest<bool>
     {
         public Guid UserId { get; set; }
+        public string RevokedByIp { get; set; } // Add this property to fix CS1061
     }
 }

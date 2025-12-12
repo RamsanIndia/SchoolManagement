@@ -9,6 +9,7 @@ namespace SchoolManagement.Application.Interfaces
     public interface IUnitOfWork
     {
         IAuthRepository AuthRepository { get; }
+        IRefreshTokenRepository RefreshTokenRepository { get; }
         IEmployeeRepository EmployeeRepository { get; }
         IUserRepository UserRepository { get; }
         IRoleRepository RoleRepository { get; }
@@ -16,10 +17,15 @@ namespace SchoolManagement.Application.Interfaces
         IUserRoleRepository UserRoleRepository { get; }
         IStudentRepository StudentRepository { get; }
         IAttendanceRepository AttendanceRepository { get; }
-        IRoleMenuPermissionRepository RoleMenuPermissionRepository { get; } // <-- Add this line
+        IRoleMenuPermissionRepository RoleMenuPermissionRepository { get; } 
+        IClassRepository ClassesRepository { get; }
+        ISectionRepository SectionsRepository { get; }
+        ISectionSubjectRepository SectionSubjectsRepository { get; }
+        ITimeTableRepository TimeTablesRepository { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-        Task BeginTransactionAsync();
-        Task CommitTransactionAsync();
-        Task RollbackTransactionAsync();
+        IPermissionRepository Permissions { get; }
+        Task BeginTransactionAsync(CancellationToken cancellationToken);
+        Task CommitTransactionAsync(CancellationToken cancellationToken);
+        Task RollbackTransactionAsync(CancellationToken cancellationToken);
     }
 }

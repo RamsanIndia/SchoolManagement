@@ -80,10 +80,10 @@ namespace SchoolManagement.Infrastructure.Services
                 .CountAsync(n => n.Status == NotificationStatus.Pending, cancellationToken);
         }
 
-        public Task<IEnumerable<QueuedNotification>> DequeueAsync(int count)
-        {
-            throw new NotImplementedException();
-        }
+        //public Task<IEnumerable<QueuedNotification>> DequeueAsync(int count)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         public Task MarkAsProcessedAsync(Guid notificationId)
         {
@@ -95,9 +95,9 @@ namespace SchoolManagement.Infrastructure.Services
             throw new NotImplementedException();
         }
 
-        public Task EnqueueAsync(QueuedNotification notification)
-        {
-            throw new NotImplementedException();
-        }
+        //public Task EnqueueAsync(QueuedNotification notification)
+        //{
+        //    throw new NotImplementedException();
+        //}
     }
 }

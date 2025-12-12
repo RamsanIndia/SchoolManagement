@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Employees.Commands
 {
-    public class UpdateEmployeeCommand : IRequest<UpdateEmployeeResponse>
+    public class UpdateEmployeeCommand : IRequest<Result>
     {
         public Guid Id { get; set; }
         public string FirstName { get; set; }

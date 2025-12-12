@@ -2,15 +2,15 @@
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Queries;
-using System;
+using SchoolManagement.Application.Models;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Menus.Handler.Queries
 {
-    public class GetAllMenusQueryHandler : IRequestHandler<GetAllMenusQuery, IEnumerable<MenuDto>>
+    public class GetAllMenusQueryHandler : IRequestHandler<GetAllMenusQuery, Result<List<MenuDto>>>
     {
         private readonly IMenuRepository _menuRepository;
 
@@ -19,11 +19,14 @@ namespace SchoolManagement.Application.Menus.Handler.Queries
             _menuRepository = menuRepository;
         }
 
-        public async Task<IEnumerable<MenuDto>> Handle(GetAllMenusQuery request, CancellationToken cancellationToken)
+        public async Task<Result<List<MenuDto>>> Handle(GetAllMenusQuery request, CancellationToken cancellationToken)
         {
             var menus = await _menuRepository.GetAllAsync();
 
-            return menus.Select(m => new MenuDto
+            if (menus == null || !menus.Any())
+                return Result<List<MenuDto>>.Failure("No menus found.");
+
+            var menuList = menus.Select(m => new MenuDto
             {
                 Id = m.Id,
                 Name = m.Name,
@@ -38,7 +41,9 @@ namespace SchoolManagement.Application.Menus.Handler.Queries
                 IsVisible = m.IsVisible,
                 ParentMenuId = m.ParentMenuId,
                 ParentMenuName = m.ParentMenu?.DisplayName
-            });
+            }).ToList();
+
+            return Result<List<MenuDto>>.Success(menuList, "Menus retrieved successfully.");
         }
     }
 }

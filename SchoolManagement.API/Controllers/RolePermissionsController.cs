@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.RolePermissions.Commands;
 using SchoolManagement.Application.Roles.Queries;
 
@@ -35,35 +36,36 @@ namespace SchoolManagement.API.Controllers
         }
 
         /// <summary>
-        /// Assign menu permissions to role
+        /// Assign menu permissions to a role
         /// </summary>
         [HttpPost("{roleId}/menu-permissions")]
-        public async Task<ActionResult<AssignMenuPermissionsResponse>> AssignMenuPermissions(
-        Guid roleId,  [FromBody] AssignMenuPermissionsCommand command)
+        public async Task<ActionResult<Result<bool>>> AssignMenuPermissions(
+            Guid roleId,
+            [FromBody] AssignMenuPermissionsCommand command)
         {
             command.RoleId = roleId;
-            var response = await _mediator.Send(command);
 
-            if (response.Success)
-                return Ok(response);
+            var result = await _mediator.Send(command);
 
-            return BadRequest(response);
+            if (result.Status)
+                return Ok(result);
+
+            return BadRequest(result);
         }
-
 
 
         /// <summary>
         /// Update specific menu permission for role
         /// </summary>
         [HttpPut("{roleId}/menu-permissions/{menuId}")]
-        public async Task<ActionResult<UpdateMenuPermissionResponse>> UpdateMenuPermission(
+        public async Task<ActionResult<Result>> UpdateMenuPermission(
             Guid roleId, Guid menuId, UpdateMenuPermissionCommand command)
         {
             command.RoleId = roleId;
             command.MenuId = menuId;
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);
@@ -73,13 +75,13 @@ namespace SchoolManagement.API.Controllers
         /// Revoke menu permissions from role
         /// </summary>
         [HttpDelete("{roleId}/menu-permissions")]
-        public async Task<ActionResult<RevokeMenuPermissionsResponse>> RevokeMenuPermissions(
+        public async Task<ActionResult<Result>> RevokeMenuPermissions(
             Guid roleId, RevokeMenuPermissionsCommand command)
         {
             command.RoleId = roleId;
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);

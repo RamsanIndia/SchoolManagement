@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SchoolManagement.Domain.Common;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,11 +10,15 @@ namespace SchoolManagement.Domain.Entities
 {
     public class Class : BaseEntity
     {
+        public int Grade { get; private set; }
         public string Name { get; private set; }
+        public string Code { get; private set; }
         public string Description { get; private set; }
         public int Capacity { get; private set; }
         public bool IsActive { get; private set; }
+        public Guid AcademicYearId { get; private set; }
 
+        
         // Navigation Properties
         public virtual ICollection<Student> Students { get; private set; } = new List<Student>();
         public virtual ICollection<Section> Sections { get; private set; } = new List<Section>();
@@ -25,26 +30,37 @@ namespace SchoolManagement.Domain.Entities
             Sections = new List<Section>();
         }
 
-        public Class(string name, string description, int capacity)
+        public Class(string className, string classCode, int grade, string description, Guid academicYearId)
         {
-            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Name = className;
+            Code = classCode;
+            Grade = grade;
             Description = description;
-            Capacity = capacity;
+            AcademicYearId = academicYearId;
             IsActive = true;
-            Students = new List<Student>();
-            Sections = new List<Section>();
+            Sections = new HashSet<Section>();
         }
 
-        public void UpdateDetails(string name, string description, int capacity)
+        public void UpdateDetails(string className, string classCode, int grade, string description)
         {
-            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Name = className;
+            Code = classCode;
+            Grade = grade;
             Description = description;
-            Capacity = capacity;
+            
         }
 
-        public void SetActiveStatus(bool isActive)
+        public void Activate()
         {
-            IsActive = isActive;
+            IsActive = true;
+            
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+            UpdatedAt = DateTime.UtcNow;
+            
         }
     }
 }

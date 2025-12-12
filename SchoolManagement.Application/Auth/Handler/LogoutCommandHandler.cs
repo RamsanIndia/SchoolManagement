@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Domain.Exceptions;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Auth.Handler
 {
-    public class LogoutCommandHandler : IRequestHandler<LogoutCommand, bool>
+    public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result<bool>>
     {
         private readonly IUnitOfWork _unitOfWork;
 
@@ -19,18 +20,20 @@ namespace SchoolManagement.Application.Auth.Handler
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<bool> Handle(LogoutCommand request, CancellationToken cancellationToken)
+        public async Task<Result<bool>> Handle(LogoutCommand request, CancellationToken cancellationToken)
         {
             var refreshToken = await _unitOfWork.AuthRepository.GetRefreshTokenAsync(request.RefreshToken);
 
             if (refreshToken == null || refreshToken.UserId != request.UserId)
                 throw new AuthenticationException("Invalid refresh token");
 
-            refreshToken.Revoke();
+            refreshToken.Revoke(
+                revokedByIp: request.IpAddress ?? "Unknown",
+                reason: "User logged out");
             await _unitOfWork.AuthRepository.RevokeRefreshTokenAsync(refreshToken);
             await _unitOfWork.SaveChangesAsync();
 
-            return true;
+            return Result<bool>.Success(true);
         }
     }
 }

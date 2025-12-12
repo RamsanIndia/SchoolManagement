@@ -60,7 +60,7 @@ namespace SchoolManagement.Infrastructure.Services
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Role, user.UserType.ToString()),
-                    new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}")
+                    new Claim(ClaimTypes.Name, $"{user.FullName}")
                 }),
                 Expires = DateTime.UtcNow.AddHours(1), // 1 hour expiry
                 Issuer = _issuer,

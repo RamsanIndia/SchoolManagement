@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.Attendance.Commands;
 using SchoolManagement.Application.Attendance.Queries;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Models;
 
 namespace SchoolManagement.API.Controllers
 {
@@ -24,11 +25,11 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPost("capture")]
         [AllowAnonymous] // Device authentication handled separately
-        public async Task<ActionResult<MarkAttendanceResponse>> CaptureAttendance(MarkAttendanceCommand command)
+        public async Task<ActionResult<Result>> CaptureAttendance(MarkAttendanceCommand command)
         {
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);
@@ -81,11 +82,11 @@ namespace SchoolManagement.API.Controllers
         /// </summary>
         [HttpPost("manual-override")]
         [Authorize(Roles = "Admin,Principal,Teacher")]
-        public async Task<ActionResult<ManualAttendanceResponse>> ManualOverride(ManualAttendanceCommand command)
+        public async Task<ActionResult<Result>> ManualOverride(ManualAttendanceCommand command)
         {
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);

@@ -1,15 +1,25 @@
-﻿using MediatR;
+﻿// Application/Auth/Commands/LogoutCommand.cs
+using MediatR;
+using SchoolManagement.Application.Models;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Auth.Commands
 {
-    public class LogoutCommand : IRequest<bool>
+    public class LogoutCommand : IRequest<Result<bool>>
     {
         public string RefreshToken { get; set; }
         public Guid UserId { get; set; }
+        public string IpAddress { get; set; }
+
+        public LogoutCommand()
+        {
+        }
+
+        public LogoutCommand(string refreshToken, Guid userId, string ipAddress = null)
+        {
+            RefreshToken = refreshToken;
+            UserId = userId;
+            IpAddress = ipAddress;
+        }
     }
 }

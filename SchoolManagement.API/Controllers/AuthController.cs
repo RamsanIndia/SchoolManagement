@@ -5,6 +5,7 @@ using SchoolManagement.API.Extensions;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.Auth.Queries;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
 
 namespace SchoolManagement.API.Controllers
@@ -20,87 +21,9 @@ namespace SchoolManagement.API.Controllers
             _mediator = mediator;
         }
 
-        //[HttpPost("login")]
-        //public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
-        //{
-        //    try
-        //    {
-        //        var command = new LoginCommand
-        //        {
-        //            Email = request.Email,
-        //            Password = request.Password
-        //        };
-
-        //        var result = await _mediator.Send(command);
-        //        return Ok(result);
-        //    }
-        //    catch (AuthenticationException ex)
-        //    {
-        //        return Unauthorized(new { message = ex.Message });
-        //    }
-        //    catch (ValidationException ex)
-        //    {
-        //        return BadRequest(new { message = ex.Message });
-        //    }
-        //}
-
-        //[HttpPost("register")]
-        //public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto request)
-        //{
-        //    try
-        //    {
-        //        var command = new RegisterCommand
-        //        {
-        //            Email = request.Email,
-        //            Password = request.Password,
-        //            FirstName = request.FirstName,
-        //            LastName = request.LastName,
-        //            Role = (Domain.Enums.UserType)request.Role
-        //        };
-
-        //        var result = await _mediator.Send(command);
-        //        return Ok(result);
-        //    }
-        //    catch (ValidationException ex)
-        //    {
-        //        return BadRequest(new { message = ex.Message });
-        //    }
-        //}
-
-        //[HttpPost("refresh")]
-        //public async Task<ActionResult<AuthResponseDto>> RefreshToken([FromBody] RefreshTokenRequestDto request)
-        //{
-        //    try
-        //    {
-        //        var command = new RefreshTokenCommand
-        //        {
-        //            RefreshToken = request.RefreshToken
-        //        };
-
-        //        var result = await _mediator.Send(command);
-        //        return Ok(result);
-        //    }
-        //    catch (AuthenticationException ex)
-        //    {
-        //        return Unauthorized(new { message = ex.Message });
-        //    }
-        //}
-
-        //[Authorize]
-        //[HttpPost("logout")]
-        //public async Task<ActionResult> Logout()
-        //{
-        //    // Implementation for logout (revoke refresh tokens)
-        //    return Ok(new { message = "Logged out successfully" });
-        //}
-
-        /// <summary>
-        /// Authenticates a user and returns JWT tokens
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("login")]
-        [ProducesResponseType(typeof(AuthResponseDto), 200)]
-        [ProducesResponseType(401)]
-        [ProducesResponseType(400)]
         public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
         {
             var command = new LoginCommand
@@ -121,15 +44,25 @@ namespace SchoolManagement.API.Controllers
         [ProducesResponseType(400)]
         public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto request)
         {
+            // Input validation (defense-in-depth)
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+                       
+            // Map DTO → Command (use AutoMapper in production)
             var command = new RegisterCommand
             {
-                Username= request.Username,
+                Username = request.Username,
                 Email = request.Email,
                 Password = request.Password,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                Role = (Domain.Enums.UserType)request.Role
+                UserType = (UserType)request.Role,  // ✅ Enum casting
+                PhoneNumber = request.PhoneNumber ?? null, // Optional
+                ConfirmPassword = request.Password  // For validation
             };
+
 
             var result = await _mediator.Send(command);
             return Ok(result);
@@ -198,10 +131,7 @@ namespace SchoolManagement.API.Controllers
         [ProducesResponseType(401)]
         public async Task<ActionResult<UserDto>> GetProfile()
         {
-            var query = new GetUserProfileQuery
-            {
-                UserId = User.GetUserId()
-            };
+            var query = new GetUserProfileQuery(User.GetUserId());
 
             var result = await _mediator.Send(query);
             return Ok(result);

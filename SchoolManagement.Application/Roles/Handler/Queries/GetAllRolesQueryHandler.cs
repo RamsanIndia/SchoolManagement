@@ -1,16 +1,16 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.Roles.Queries;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Roles.Handler.Queries
 {
-    public class GetAllRolesQueryHandler : IRequestHandler<GetAllRolesQuery, IEnumerable<RoleDto>>
+    public class GetAllRolesQueryHandler : IRequestHandler<GetAllRolesQuery, Result<IEnumerable<RoleDto>>>
     {
         private readonly IUnitOfWork _unitOfWork;
 
@@ -19,11 +19,14 @@ namespace SchoolManagement.Application.Roles.Handler.Queries
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<IEnumerable<RoleDto>> Handle(GetAllRolesQuery request, CancellationToken cancellationToken)
+        public async Task<Result<IEnumerable<RoleDto>>> Handle(GetAllRolesQuery request, CancellationToken cancellationToken)
         {
             var roles = await _unitOfWork.RoleRepository.GetAllAsync();
 
-            return roles.Select(role => new RoleDto
+            if (roles == null || !roles.Any())
+                return Result<IEnumerable<RoleDto>>.Failure("No roles found");
+
+            var roleDtos = roles.Select(role => new RoleDto
             {
                 Id = role.Id,
                 Name = role.Name,
@@ -32,8 +35,10 @@ namespace SchoolManagement.Application.Roles.Handler.Queries
                 IsSystemRole = role.IsSystemRole,
                 IsActive = role.IsActive,
                 Level = role.Level
-                //UserCount = role.UserCount
+                // UserCount = role.UserCount
             });
+
+            return Result<IEnumerable<RoleDto>>.Success(roleDtos);
         }
     }
 }

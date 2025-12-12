@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.UserRoles.Commands
 {
-    public class RevokeRoleFromUserCommand : IRequest<RevokeRoleFromUserResponse>
+    public class RevokeRoleFromUserCommand : IRequest<Result>
     {
         public Guid UserId { get; set; }
         public Guid RoleId { get; set; }

@@ -1,15 +1,21 @@
-﻿using MediatR;
+﻿// Application/Auth/Commands/RefreshTokenCommand.cs
+using MediatR;
 using SchoolManagement.Application.DTOs;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SchoolManagement.Application.Models;
 
 namespace SchoolManagement.Application.Auth.Commands
 {
-    public class RefreshTokenCommand : IRequest<AuthResponseDto>
+    public class RefreshTokenCommand : IRequest<Result<AuthResponseDto>>
     {
         public string RefreshToken { get; set; }
+
+        public RefreshTokenCommand()
+        {
+        }
+
+        public RefreshTokenCommand(string refreshToken)
+        {
+            RefreshToken = refreshToken;
+        }
     }
 }

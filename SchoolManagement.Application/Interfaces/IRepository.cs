@@ -1,19 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Linq.Expressions;
 
-namespace SchoolManagement.Application.Interfaces
+public interface IRepository<T> where T : class
 {
-    public interface IRepository<T> where T : class
-    {
-        Task<T> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-        Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default);
-        Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
-        Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
-        void Add(T entity);
-        void Update(T entity);
-        void Remove(T entity);
-    }
+    Task<T> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken);
+    Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken);
+
+    Task<T> AddAsync(T entity, CancellationToken cancellationToken);
+    Task<T> UpdateAsync(T entity, CancellationToken cancellationToken);
+    Task DeleteAsync(T entity, CancellationToken cancellationToken);
 }

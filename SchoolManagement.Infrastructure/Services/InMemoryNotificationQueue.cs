@@ -69,11 +69,6 @@ namespace SchoolManagement.Infrastructure.Services
             return Task.FromResult(_queue.Count);
         }
 
-        public Task<IEnumerable<QueuedNotification>> DequeueAsync(int count)
-        {
-            throw new NotImplementedException();
-        }
-
         public Task MarkAsProcessedAsync(Guid notificationId)
         {
             throw new NotImplementedException();
@@ -84,9 +79,6 @@ namespace SchoolManagement.Infrastructure.Services
             throw new NotImplementedException();
         }
 
-        public Task EnqueueAsync(QueuedNotification notification)
-        {
-            throw new NotImplementedException();
-        }
+       
     }
 }

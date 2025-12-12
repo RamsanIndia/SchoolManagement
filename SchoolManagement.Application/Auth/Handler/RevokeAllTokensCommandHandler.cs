@@ -29,7 +29,8 @@ namespace SchoolManagement.Application.Auth.Handler
             {
                 if (token.IsActive)
                 {
-                    token.Revoke();
+                    // Provide required 'revokedByIp' argument, use null for optional 'reason'
+                    token.Revoke(request.RevokedByIp, null);
                     await _unitOfWork.AuthRepository.RevokeRefreshTokenAsync(token);
                 }
             }

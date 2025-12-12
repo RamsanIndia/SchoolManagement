@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.Students.Commands;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Students.Handler.Commands
 {
-    public class CreateStudentCommandHandler : IRequestHandler<CreateStudentCommand, CreateStudentResponse>
+    public class CreateStudentCommandHandler : IRequestHandler<CreateStudentCommand, Result>
     {
         private readonly IStudentRepository _studentRepository;
         private readonly IUnitOfWork _unitOfWork;
@@ -26,13 +27,12 @@ namespace SchoolManagement.Application.Students.Handler.Commands
             _notificationService = notificationService;
         }
 
-        public async Task<CreateStudentResponse> Handle(CreateStudentCommand request, CancellationToken cancellationToken)
+        public async Task<Result> Handle(CreateStudentCommand request, CancellationToken cancellationToken)
         {
             try
             {
-                await _unitOfWork.BeginTransactionAsync();
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-                // Create Address value object
                 var address = new Address(
                     request.Address.Street,
                     request.Address.City,
@@ -40,12 +40,10 @@ namespace SchoolManagement.Application.Students.Handler.Commands
                     request.Address.Country,
                     request.Address.ZipCode);
 
-                // Generate AdmissionNumber if not provided
                 var admissionNumber = string.IsNullOrEmpty(request.AdmissionNumber)
                     ? $"ADM{DateTime.UtcNow:yyyyMMddHHmmss}"
                     : request.AdmissionNumber;
 
-                // Create Student entity using constructor that allows required fields
                 var student = new Student(
                     request.FirstName,
                     request.LastName,
@@ -54,13 +52,12 @@ namespace SchoolManagement.Application.Students.Handler.Commands
                     (Gender)request.Gender,
                     request.ClassId,
                     request.SectionId,
-                    admissionNumber,                       // AdmissionNumber via constructor
+                    admissionNumber,
                     request.AdmissionDate == default ? DateTime.UtcNow : request.AdmissionDate,
-                    (StudentStatus)request.Status,                        // Status via constructor
-                    request.PhotoUrl                        // PhotoUrl via constructor
-                    );
+                    (StudentStatus)request.Status,
+                    request.PhotoUrl
+                );
 
-                // Update optional details via methods
                 student.UpdatePersonalInfo(
                     firstName: request.FirstName,
                     lastName: request.LastName,
@@ -69,34 +66,24 @@ namespace SchoolManagement.Application.Students.Handler.Commands
                     address: address
                 );
 
-                // Save
-                var createdStudent = await _unitOfWork.StudentRepository.CreateAsync(student);
+                await _unitOfWork.StudentRepository.CreateAsync(student,cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
-                await _unitOfWork.CommitTransactionAsync();
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                // Send notification
                 if (!string.IsNullOrEmpty(request.Phone))
                 {
-                    await _notificationService.SendSMSAsync(request.Phone,
-                        $"Welcome to our school! Student ID: {createdStudent.StudentId}");
+                    await _notificationService.SendSMSAsync(
+                        request.Phone,
+                        $"Welcome to our school! Student ID: {student.StudentId}");
                 }
 
-                return new CreateStudentResponse
-                {
-                    Id = createdStudent.Id,
-                    StudentId = createdStudent.StudentId,
-                    Message = "Student created successfully",
-                    Success = true
-                };
+                return Result.Success();
             }
             catch (Exception ex)
             {
-                await _unitOfWork.RollbackTransactionAsync();
-                return new CreateStudentResponse
-                {
-                    Message = $"Error creating student: {ex.Message}",
-                    Success = false
-                };
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+
+                return Result.Failure("Error creating student:", ex.Message);
             }
         }
     }

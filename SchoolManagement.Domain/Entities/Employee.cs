@@ -1,4 +1,5 @@
-﻿using SchoolManagement.Domain.Enums;
+﻿using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;

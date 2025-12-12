@@ -2,16 +2,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.UserRoles.Commands;
 using SchoolManagement.Domain.Entities;
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.UserRoles.Handler.Commands
 {
-    public class AssignRoleToUserCommandHandler : IRequestHandler<AssignRoleToUserCommand, AssignRoleToUserResponse>
+    public class AssignRoleToUserCommandHandler : IRequestHandler<AssignRoleToUserCommand, Result>
     {
         private readonly IUserRepository _userRepository;
         private readonly IRoleRepository _roleRepository;
@@ -31,64 +31,74 @@ namespace SchoolManagement.Application.UserRoles.Handler.Commands
             _logger = logger;
         }
 
-        public async Task<AssignRoleToUserResponse> Handle(AssignRoleToUserCommand request, CancellationToken cancellationToken)
+        public async Task<Result> Handle(AssignRoleToUserCommand request, CancellationToken cancellationToken)
         {
-            var retryCount = 0;
+            if (request.UserId == Guid.Empty || request.RoleId == Guid.Empty)
+                return Result.Failure("Invalid UserId or RoleId");
+
+            int retryCount = 0;
 
             while (retryCount < MaxRetryCount)
             {
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
                 try
                 {
                     // Load the user
                     var user = await _userRepository.GetByIdAsync(request.UserId);
                     if (user == null)
-                    {
-                        return new AssignRoleToUserResponse { Success = false, Message = "User not found" };
-                    }
+                        return Result.Failure("User not found");
+
+                    if (!user.IsActive)
+                        return Result.Failure("User account is deactivated");
 
                     // Load the role
-                    var role = await _roleRepository.GetByIdAsync(request.RoleId);
+                    var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
                     if (role == null)
-                    {
-                        return new AssignRoleToUserResponse { Success = false, Message = "Role not found" };
-                    }
+                        return Result.Failure("Role not found");
 
-                    // Check if user already has active role
+                    // Check if the user already has this role
                     var existingUserRole = await _unitOfWork.UserRoleRepository
                         .FirstOrDefaultAsync(ur => ur.UserId == request.UserId && ur.RoleId == request.RoleId && ur.IsActive, cancellationToken);
 
                     if (existingUserRole != null)
-                    {
-                        return new AssignRoleToUserResponse { Success = false, Message = "User already has the active role" };
-                    }
+                        return Result.Failure("User already has this active role");
 
-                    // Add new UserRole
+                    // Create new UserRole
                     var userRole = new UserRole(user.Id, role.Id, DateTime.UtcNow, true, request.ExpiresAt);
-                    _unitOfWork.UserRoleRepository.Add(userRole);
 
+                    await _unitOfWork.UserRoleRepository.AddAsync(userRole, cancellationToken);
+
+                    // Save changes
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                    return new AssignRoleToUserResponse { Success = true, Message = "Role assigned successfully" };
+                    // Commit transaction
+                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                    _logger.LogInformation("Role {RoleId} assigned to User {UserId} successfully", role.Id, user.Id);
+
+                    return Result.Success("Role assigned successfully");
                 }
                 catch (DbUpdateConcurrencyException ex)
                 {
                     retryCount++;
-                    _logger.LogWarning(ex, "Concurrency conflict assigning role to user {UserId}. Retry {RetryCount}/{MaxRetry}", request.UserId, retryCount, MaxRetryCount);
+                    _logger.LogWarning(ex, "Concurrency conflict assigning role {RoleId} to user {UserId}. Retry {Retry}/{MaxRetry}", request.RoleId, request.UserId, retryCount, MaxRetryCount);
 
                     if (retryCount >= MaxRetryCount)
-                    {
-                        return new AssignRoleToUserResponse { Success = false, Message = "Concurrency conflict, please retry." };
-                    }
+                        return Result.Failure("Concurrency conflict, please retry.");
 
                     // Reload the tracked entities to get latest values
                     foreach (var entry in ex.Entries)
-                    {
                         await entry.ReloadAsync(cancellationToken);
-                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error assigning role {RoleId} to user {UserId}", request.RoleId, request.UserId);
+                    return Result.Failure("An unexpected error occurred while assigning role");
                 }
             }
 
-            return new AssignRoleToUserResponse { Success = false, Message = "Failed to assign role due to concurrency issues." };
+            return Result.Failure("Failed to assign role due to repeated concurrency conflicts");
         }
     }
 }

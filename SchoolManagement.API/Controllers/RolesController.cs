@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
+using SchoolManagement.Application.Menus.Commands;
+using SchoolManagement.Application.Models;
 using SchoolManagement.Application.Roles.Commands;
 using SchoolManagement.Application.Roles.Queries;
 
@@ -18,6 +20,23 @@ namespace SchoolManagement.API.Controllers
         {
             _mediator = mediator;
         }
+
+        /// <summary>
+        /// Create new role
+        /// </summary>
+        [HttpPost]
+        public async Task<ActionResult<Result<RoleDto>>> CreateRole(CreateRoleCommand command)
+        {
+            var response = await _mediator.Send(command);
+
+            if (response.Status)
+            {
+                return CreatedAtAction(nameof(GetRole), new { id = response.Data }, response);
+            }
+
+            return BadRequest(response);
+        }
+
 
         /// <summary>
         /// Get all roles
@@ -46,31 +65,32 @@ namespace SchoolManagement.API.Controllers
         }
 
         /// <summary>
-        /// Create new role
+        /// Assign menu permissions to role
         /// </summary>
-        [HttpPost]
-        public async Task<ActionResult<CreateRoleResponse>> CreateRole(CreateRoleCommand command)
+        [HttpPost("{roleId}/menu-permissions")]
+        public async Task<ActionResult<Result<bool>>> AssignMenuPermissions(Guid roleId, [FromBody] AssignMenuPermissionsCommand command)
         {
+            command.RoleId = roleId;
+
             var response = await _mediator.Send(command);
 
-            if (response.Success)
-            {
-                return CreatedAtAction(nameof(GetRole), new { id = response.Id }, response);
-            }
+            if (response.Status)
+                return Ok(response);
 
             return BadRequest(response);
         }
+
 
         /// <summary>
         /// Update role
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<ActionResult<UpdateRoleResponse>> UpdateRole(Guid id, UpdateRoleCommand command)
+        public async Task<ActionResult<Result<bool>>> UpdateRole(Guid id, UpdateRoleCommand command)
         {
             command.Id = id;
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);
@@ -80,12 +100,12 @@ namespace SchoolManagement.API.Controllers
         /// Delete role
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<ActionResult<DeleteRoleResponse>> DeleteRole(Guid id)
+        public async Task<ActionResult<Result<bool>>> DeleteRole(Guid id)
         {
             var command = new DeleteRoleCommand { Id = id };
             var response = await _mediator.Send(command);
 
-            if (response.Success)
+            if (response.Status)
                 return Ok(response);
 
             return BadRequest(response);
