@@ -49,6 +49,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{75E4EB6E-8
 		..\Docs\System-Architecture.md = ..\Docs\System-Architecture.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.Test", "SchoolManagement.Test\SchoolManagement.Test.csproj", "{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -109,6 +111,10 @@ Global
 		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B347F06D-3E67-164D-CB21-5D2E53FBE57B}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -131,6 +137,7 @@ Global
 		{BD38F219-7EFE-47ED-BEC5-93C6864C9C04} = {00CE6763-98C0-4EA9-B693-30AF1A124DB6}
 		{1C7BB7F3-E341-4325-A8EC-57BD6738F129} = {9101581A-BA39-4050-ABFB-DEFBE54F2B20}
 		{B347F06D-3E67-164D-CB21-5D2E53FBE57B} = {9101581A-BA39-4050-ABFB-DEFBE54F2B20}
+		{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A} = {0A4291E8-1F4F-4DCD-916B-77DEF7D9D1C0}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {03555C83-0A0F-4303-8794-A118B51941BE}

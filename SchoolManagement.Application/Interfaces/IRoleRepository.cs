@@ -9,12 +9,12 @@ namespace SchoolManagement.Application.Interfaces
 {
     public interface IRoleRepository
     {
-        Task<Role> GetByIdAsync(Guid id);
-        Task<Role> GetByNameAsync(string name);
+        Task<Role> GetByIdAsync(Guid id,CancellationToken cancellationToken);
+        Task<Role> GetByNameAsync(string name, CancellationToken cancellationToken);
         Task<IEnumerable<Role>> GetAllAsync();
         Task<IEnumerable<Role>> GetActiveRolesAsync();
         Task<Role> CreateAsync(Role role);
         Task<Role> UpdateAsync(Role role);
-        Task DeleteAsync(Guid id);
+        Task DeleteAsync(Guid id, CancellationToken cancellationToken);
     }
 }

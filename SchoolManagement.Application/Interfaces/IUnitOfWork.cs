@@ -9,6 +9,7 @@ namespace SchoolManagement.Application.Interfaces
     public interface IUnitOfWork
     {
         IAuthRepository AuthRepository { get; }
+        IRefreshTokenRepository RefreshTokenRepository { get; }
         IEmployeeRepository EmployeeRepository { get; }
         IUserRepository UserRepository { get; }
         IRoleRepository RoleRepository { get; }

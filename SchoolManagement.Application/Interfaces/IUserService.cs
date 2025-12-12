@@ -1,46 +1,41 @@
-﻿using SchoolManagement.Domain.Entities;
+﻿// Application/Interfaces/IUserService.cs
+using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Interfaces
 {
-    //public interface IUserService
-    //{
-    //    Task<User> GetByIdAsync(Guid id);
-    //    Task<User> GetByUsernameAsync(string username);
-    //    Task<User> GetByEmailAsync(string email);
-    //    Task<User> CreateAsync(User user);
-    //    Task<User> UpdateAsync(User user);
-    //    Task<bool> ValidatePasswordAsync(Guid userId, string password);
-    //    Task ChangePasswordAsync(Guid userId, string newPassword);
-    //    Task AssignRoleAsync(Guid userId, Guid roleId, DateTime? expiresAt = null);
-    //    Task RevokeRoleAsync(Guid userId, Guid roleId);
-    //    Task<IEnumerable<Role>> GetUserRolesAsync(Guid userId);
-    //}
     public interface IUserService
     {
-        Task<User> GetByIdAsync(Guid id);
-        Task<IEnumerable<User>> GetAllAsync();
-        Task<User> GetByUsernameAsync(string username);
-        Task<User> GetByEmailAsync(string email);
-        Task<User> CreateAsync(User user, string password);
-        Task<User> CreateAsync(User user);
-        Task<User> UpdateAsync(User user);
-        Task<bool> ValidatePasswordAsync(Guid userId, string password);
-        Task ChangePasswordAsync(Guid userId, string newPassword);
-        Task AssignRoleAsync(Guid userId, Guid roleId, DateTime? expiresAt = null);
-        Task RevokeRoleAsync(Guid userId, Guid roleId);
-        Task<IEnumerable<Role>> GetUserRolesAsync(Guid userId);
-        Task<bool> DeleteAsync(Guid id);
-        Task<User> ActivateUserAsync(Guid userId);
-        Task<User> DeactivateUserAsync(Guid userId);
-        Task<User> VerifyEmailAsync(Guid userId);
-        Task<User> VerifyPhoneAsync(Guid userId);
-        Task<User> UnlockUserAsync(Guid userId);
-        Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType);
+        // Query methods
+        Task<User> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+        Task<User> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
+        Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType, CancellationToken cancellationToken = default);
+        Task<IEnumerable<Role>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default);
+
+        // Command methods
+        Task<User> CreateAsync(User user, string password, string createdBy, string createdIp, CancellationToken cancellationToken = default);
+        Task<User> UpdateAsync(User user, string updatedBy, string updatedIp, CancellationToken cancellationToken = default);
+        Task<bool> DeleteAsync(Guid id, string deletedBy, CancellationToken cancellationToken = default);
+
+        // Password methods
+        Task<bool> ValidatePasswordAsync(Guid userId, string password, CancellationToken cancellationToken = default);
+        Task ChangePasswordAsync(Guid userId, string newPassword, string updatedBy, CancellationToken cancellationToken = default);
+
+        // Role methods
+        Task AssignRoleAsync(Guid userId, Guid roleId, string assignedBy, DateTime? expiresAt = null, CancellationToken cancellationToken = default);
+        Task RevokeRoleAsync(Guid userId, Guid roleId, string revokedBy, CancellationToken cancellationToken = default);
+
+        // User status methods
+        Task<User> ActivateUserAsync(Guid userId, string activatedBy, CancellationToken cancellationToken = default);
+        Task<User> DeactivateUserAsync(Guid userId, string deactivatedBy, string reason = null, CancellationToken cancellationToken = default);
+        Task<User> VerifyEmailAsync(Guid userId, string verifiedBy, CancellationToken cancellationToken = default);
+        Task<User> VerifyPhoneAsync(Guid userId, string verifiedBy, CancellationToken cancellationToken = default);
+        Task<User> UnlockUserAsync(Guid userId, string unlockedBy, CancellationToken cancellationToken = default);
     }
 }

@@ -18,7 +18,7 @@ namespace SchoolManagement.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<Student> GetByIdAsync(Guid id)
+        public async Task<Student> GetByIdAsync(Guid id,CancellationToken cancellationToken)
         {
             return await _context.Students
                 .Include(s => s.Class)
@@ -26,7 +26,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         }
 
-        public async Task<Student> GetByStudentIdAsync(string studentId)
+        public async Task<Student> GetByStudentIdAsync(string studentId, CancellationToken cancellationToken)
         {
             return await _context.Students
                 .Include(s => s.Class)
@@ -34,7 +34,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .FirstOrDefaultAsync(s => s.StudentId == studentId && !s.IsDeleted);
         }
 
-        public async Task<IEnumerable<Student>> GetByClassAsync(Guid classId)
+        public async Task<IEnumerable<Student>> GetByClassAsync(Guid classId, CancellationToken cancellationToken)
         {
             return await _context.Students
                 .Where(s => s.ClassId == classId && !s.IsDeleted)
@@ -43,21 +43,21 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Student> CreateAsync(Student student)
+        public async Task<Student> CreateAsync(Student student, CancellationToken cancellationToken)
         {
             _context.Students.Add(student);
             return student;
         }
 
-        public async Task<Student> UpdateAsync(Student student)
+        public async Task<Student> UpdateAsync(Student student, CancellationToken cancellationToken)
         {
             _context.Students.Update(student);
             return student;
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
         {
-            var student = await GetByIdAsync(id);
+            var student = await GetByIdAsync(id, cancellationToken);
             if (student != null)
             {
                 student.MarkAsDeleted();
@@ -65,7 +65,7 @@ namespace SchoolManagement.Persistence.Repositories
             }
         }
 
-        public async Task<bool> ExistsAsync(Guid id)
+        public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken)
         {
             return await _context.Students.AnyAsync(s => s.Id == id && !s.IsDeleted);
         }
@@ -81,6 +81,12 @@ namespace SchoolManagement.Persistence.Repositories
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
+        }
+
+        public async Task<Student> GetByCodeAsync(string studentCode, CancellationToken cancellationToken = default)
+        {
+            return await _context.Students
+                .FirstOrDefaultAsync(s => s.AdmissionNumber == studentCode && !s.IsDeleted, cancellationToken);
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SchoolManagement.Domain.Entities;
+using SchoolManagement.Domain.ValueObjects;
 
 namespace SchoolManagement.Persistence.Configurations
 {
@@ -14,25 +16,64 @@ namespace SchoolManagement.Persistence.Configurations
                   .IsRequired()
                   .HasMaxLength(50);
 
+            // Email Value Object with Converter and Comparer
             entity.Property(e => e.Email)
                   .IsRequired()
-                  .HasMaxLength(100);
+                  .HasMaxLength(100)
+                  .HasConversion(
+                      email => email.Value,
+                      value => new Email(value));
 
-            entity.Property(e => e.FirstName)
-                  .IsRequired()
-                  .HasMaxLength(50);
+            entity.Property(e => e.Email)
+                  .Metadata.SetValueComparer(
+                      new ValueComparer<Email>(
+                          (left, right) => left != null && right != null && left.Value == right.Value,
+                          email => email != null ? email.Value.GetHashCode() : 0,
+                          email => new Email(email.Value)));
 
-            entity.Property(e => e.LastName)
-                  .IsRequired()
-                  .HasMaxLength(50);
+            // FullName Value Object as Owned Type
+            entity.OwnsOne(e => e.FullName, fullName =>
+            {
+                fullName.Property(fn => fn.FirstName)
+                        .HasColumnName("FirstName")
+                        .HasMaxLength(50)
+                        .IsRequired();
+
+                fullName.Property(fn => fn.LastName)
+                        .HasColumnName("LastName")
+                        .HasMaxLength(50)
+                        .IsRequired();
+            });
+
+            // PhoneNumber Value Object with Converter and Comparer (nullable)
+            entity.Property(e => e.PhoneNumber)
+                  .HasMaxLength(20)
+                  .HasConversion(
+                      phone => phone != null ? phone.Value : null,
+                      value => value != null ? new PhoneNumber(value) : null);
+
+            entity.Property(e => e.PhoneNumber)
+                  .Metadata.SetValueComparer(
+                      new ValueComparer<PhoneNumber>(
+                          (left, right) => (left == null && right == null) ||
+                                         (left != null && right != null && left.Value == right.Value),
+                          phone => phone != null ? phone.Value.GetHashCode() : 0,
+                          phone => phone != null ? new PhoneNumber(phone.Value) : null));
 
             entity.Property(e => e.PasswordHash)
                   .IsRequired()
                   .HasMaxLength(500);
 
-            entity.Property(e => e.PhoneNumber)
-                  .HasMaxLength(20);
+            entity.Property(e => e.IsActive)
+                  .IsRequired();
 
+            entity.Property(e => e.EmailVerified)
+                  .IsRequired();
+
+            entity.Property(e => e.PhoneVerified)
+                  .IsRequired();
+
+            // Relationships
             entity.HasOne(e => e.Student)
                   .WithOne()
                   .HasForeignKey<User>(e => e.StudentId)
@@ -43,9 +84,23 @@ namespace SchoolManagement.Persistence.Configurations
                   .HasForeignKey<User>(e => e.EmployeeId)
                   .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasIndex(e => e.Username).IsUnique();
-            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasMany(e => e.RefreshTokens)
+                  .WithOne(rt => rt.User)
+                  .HasForeignKey(rt => rt.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
 
+            entity.Metadata
+                  .FindNavigation(nameof(User.RefreshTokens))
+                  ?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+            // Indexes
+            entity.HasIndex(e => e.Username)
+                  .IsUnique();
+
+            entity.HasIndex(e => e.Email)
+                  .IsUnique();
+
+            // Concurrency
             entity.Property(e => e.RowVersion)
                   .IsRowVersion()
                   .IsConcurrencyToken();

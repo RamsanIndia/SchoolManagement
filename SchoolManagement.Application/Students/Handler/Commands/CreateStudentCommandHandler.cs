@@ -66,7 +66,7 @@ namespace SchoolManagement.Application.Students.Handler.Commands
                     address: address
                 );
 
-                await _unitOfWork.StudentRepository.CreateAsync(student);
+                await _unitOfWork.StudentRepository.CreateAsync(student,cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 

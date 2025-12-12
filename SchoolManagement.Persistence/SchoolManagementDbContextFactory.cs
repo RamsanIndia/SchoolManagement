@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 
@@ -29,8 +30,12 @@ namespace SchoolManagement.Persistence
             var optionsBuilder = new DbContextOptionsBuilder<SchoolManagementDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
 
+            // Create a logger factory for design-time
+            ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            ILogger<SchoolManagementDbContext> logger = loggerFactory.CreateLogger<SchoolManagementDbContext>();
+
             // Pass null for IHttpContextAccessor at design time
-            return new SchoolManagementDbContext(optionsBuilder.Options, null);
+            return new SchoolManagementDbContext(optionsBuilder.Options, null, logger);
         }
     }
 }

@@ -53,7 +53,7 @@ namespace SchoolManagement.Application.UserRoles.Handler.Commands
                         return Result.Failure("User account is deactivated");
 
                     // Load the role
-                    var role = await _roleRepository.GetByIdAsync(request.RoleId);
+                    var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
                     if (role == null)
                         return Result.Failure("Role not found");
 

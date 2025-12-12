@@ -40,7 +40,7 @@ namespace SchoolManagement.Application.UserRoles.Handlers
                     UserId = ur.UserId,
                     Username = ur.User?.Username ?? string.Empty,
                     FullName = ur.User != null
-                        ? $"{ur.User.FirstName} {ur.User.LastName}".Trim()
+                        ? $"{ur.User.FullName}".Trim()
                         : string.Empty,
                     RoleId = ur.RoleId,
                     RoleName = ur.Role?.Name ?? string.Empty,

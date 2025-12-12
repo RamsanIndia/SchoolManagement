@@ -12,4 +12,10 @@
     <ProjectReference Include="..\SchoolManagement.Persistence\SchoolManagement.Persistence.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Your NuGet packages -->
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.17.5" />
+  </ItemGroup>
+
 </Project>

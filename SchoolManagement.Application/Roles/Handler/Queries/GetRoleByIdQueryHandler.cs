@@ -19,7 +19,7 @@ namespace SchoolManagement.Application.Roles.Handler.Queries
 
         public async Task<Result<RoleDto>> Handle(GetRoleByIdQuery request, CancellationToken cancellationToken)
         {
-            var role = await _unitOfWork.RoleRepository.GetByIdAsync(request.Id);
+            var role = await _unitOfWork.RoleRepository.GetByIdAsync(request.Id,cancellationToken);
 
             if (role == null)
                 return Result<RoleDto>.Failure("Role not found");

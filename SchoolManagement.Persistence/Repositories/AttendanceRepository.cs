@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.DTOs;
-using Entities = SchoolManagement.Domain.Entities;
+using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using System;
 using System.Collections.Generic;
@@ -19,14 +19,13 @@ namespace SchoolManagement.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<Entities.Attendance> CreateAsync(Entities.Attendance attendance)
+        public async Task<Attendance> CreateAsync(Attendance attendance,CancellationToken cancellationToken)
         {
-            _context.Attendances.Add(attendance);
-            await _context.SaveChangesAsync(); // Added SaveChanges
+            await _context.Attendances.AddAsync(attendance);
             return attendance;
         }
 
-        public async Task<IEnumerable<Entities.Attendance>> GetStudentAttendanceAsync(Guid studentId, DateTime fromDate, DateTime toDate)
+        public async Task<IEnumerable<Attendance>> GetStudentAttendanceAsync(Guid studentId, DateTime fromDate, DateTime toDate, CancellationToken cancellationToken)
         {
             return await _context.Attendances
                 .Where(a => a.StudentId == studentId &&
@@ -38,7 +37,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Entities.Attendance>> GetClassAttendanceAsync(Guid classId, DateTime date)
+        public async Task<IEnumerable<Attendance>> GetClassAttendanceAsync(Guid classId, DateTime date, CancellationToken cancellationToken)
         {
             return await _context.Attendances
                 .Include(a => a.Student)
@@ -48,7 +47,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Entities.Attendance> GetTodayAttendanceAsync(Guid studentId, DateTime date)
+        public async Task<Attendance> GetTodayAttendanceAsync(Guid studentId, DateTime date, CancellationToken cancellationToken)
         {
             return await _context.Attendances
                 .FirstOrDefaultAsync(a => a.StudentId == studentId &&
@@ -56,9 +55,9 @@ namespace SchoolManagement.Persistence.Repositories
                                         !a.IsDeleted);
         }
 
-        public async Task<AttendanceStatistics> GetAttendanceStatisticsAsync(Guid studentId, DateTime fromDate, DateTime toDate)
+        public async Task<AttendanceStatistics> GetAttendanceStatisticsAsync(Guid studentId, DateTime fromDate, DateTime toDate, CancellationToken cancellationToken)
         {
-            var attendances = await GetStudentAttendanceAsync(studentId, fromDate, toDate);
+            var attendances = await GetStudentAttendanceAsync(studentId, fromDate, toDate,cancellationToken);
             var totalDays = attendances.Count();
             var presentDays = attendances.Count(a => a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late);
             var absentDays = attendances.Count(a => a.Status == AttendanceStatus.Absent);
@@ -74,13 +73,44 @@ namespace SchoolManagement.Persistence.Repositories
             };
         }
 
-        public async Task<IEnumerable<Entities.Attendance>> GetAllAsync()
+        public async Task<IEnumerable<Attendance>> GetAllAsync()
         {
             return await _context.Attendances
                 .Where(a => !a.IsDeleted)
                 .Include(a => a.Student)
                 .OrderByDescending(a => a.Date)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Attendance>> GetByDateAsync(DateTime date, CancellationToken cancellationToken = default)
+        {
+            return await _context.Attendances
+                .Include(a => a.Student)
+                .Where(a => a.Date.Date == date.Date && !a.IsDeleted)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task AddAsync(Attendance attendance, CancellationToken cancellationToken = default)
+        {
+            await _context.Attendances.AddAsync(attendance, cancellationToken);
+        }
+
+        public async Task UpdateAsync(Attendance attendance, CancellationToken cancellationToken = default)
+        {
+            _context.Attendances.Update(attendance);
+        }
+        
+        public async Task<Attendance> GetByStudentAndDateAsync(
+            Guid studentId,
+            DateTime date,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.Attendances
+                .FirstOrDefaultAsync(a =>
+                    a.StudentId == studentId &&
+                    a.Date.Date == date.Date &&
+                    !a.IsDeleted,
+                    cancellationToken);
         }
     }
 }

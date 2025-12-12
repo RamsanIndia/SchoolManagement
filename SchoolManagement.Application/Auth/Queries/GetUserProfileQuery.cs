@@ -12,5 +12,10 @@ namespace SchoolManagement.Application.Auth.Queries
     public class GetUserProfileQuery : IRequest<Result<UserDto>>
     {
         public Guid UserId { get; set; }
+
+        public GetUserProfileQuery(Guid userId)
+        {
+            UserId = userId;
+        }
     }
 }

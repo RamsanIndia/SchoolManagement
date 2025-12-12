@@ -1,4 +1,5 @@
-﻿using SchoolManagement.Domain.Enums;
+﻿using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Enums;
 using System;
 
 namespace SchoolManagement.Domain.Entities

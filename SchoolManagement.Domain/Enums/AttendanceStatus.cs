@@ -13,6 +13,7 @@ namespace SchoolManagement.Domain.Enums
         Late = 3,
         HalfDay = 4,
         Holiday = 5,
-        Leave = 6
+        Leave = 6,
+        Excused=7
     }
 }

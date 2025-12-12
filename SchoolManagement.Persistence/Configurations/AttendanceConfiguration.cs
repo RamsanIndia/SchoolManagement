@@ -18,8 +18,8 @@ namespace SchoolManagement.Persistence.Configurations
             entity.Property(e => e.CheckInTime).IsRequired();
             entity.Property(e => e.CheckOutTime);
             entity.Property(e => e.Status).IsRequired();
-            entity.Property(e => e.Mode).IsRequired();
-            entity.Property(e => e.DeviceId).HasMaxLength(50);
+            //entity.Property(e => e.Mode).IsRequired();
+            //entity.Property(e => e.DeviceId).HasMaxLength(50);
             entity.Property(e => e.Remarks).HasMaxLength(500);
 
             entity.HasIndex(e => new { e.StudentId, e.Date }).IsUnique();

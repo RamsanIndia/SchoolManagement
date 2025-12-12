@@ -81,29 +81,29 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
             var unitOfWork = serviceProvider.GetRequiredService<IUnitOfWork>();
 
             // Process attendance-related notifications
-            var pendingNotifications = await GetPendingAttendanceNotificationsAsync(serviceProvider);
+            //var pendingNotifications = await GetPendingAttendanceNotificationsAsync(serviceProvider);
 
-            foreach (var notification in pendingNotifications)
-            {
-                try
-                {
-                    await notificationService.SendSMSAsync(notification.PhoneNumber, notification.Message);
-                    notification.MarkAsSent();
-                    await unitOfWork.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Failed to send notification {notification.Id}");
-                }
-            }
+            //foreach (var notification in pendingNotifications)
+            //{
+            //    try
+            //    {
+            //        await notificationService.SendSMSAsync(notification.PhoneNumber, notification.Message);
+            //        notification.MarkAsSent();
+            //        await unitOfWork.SaveChangesAsync();
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        _logger.LogError(ex, $"Failed to send notification {notification.Id}");
+            //    }
+            //}
         }
 
-        private async Task<IEnumerable<PendingNotification>> GetPendingAttendanceNotificationsAsync(IServiceProvider serviceProvider)
-        {
-            var context = serviceProvider.GetRequiredService<SchoolManagementDbContext>();
+        //private async Task<IEnumerable<PendingNotification>> GetPendingAttendanceNotificationsAsync(IServiceProvider serviceProvider)
+        //{
+        //    var context = serviceProvider.GetRequiredService<SchoolManagementDbContext>();
 
-            // Implementation would fetch pending notifications from database
-            return await Task.FromResult(new List<PendingNotification>());
-        }
+        //    // Implementation would fetch pending notifications from database
+        //    return await Task.FromResult(new List<PendingNotification>());
+        //}
     }
 }

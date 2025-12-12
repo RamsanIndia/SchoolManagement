@@ -22,7 +22,7 @@ namespace SchoolManagement.Application.Roles.Handler.Queries
         public async Task<Result<IEnumerable<RoleMenuPermissionDto>>> Handle(GetRoleMenuPermissionsQuery request, CancellationToken cancellationToken)
         {
             // Get role entity
-            var role = await _unitOfWork.RoleRepository.GetByIdAsync(request.RoleId);
+            var role = await _unitOfWork.RoleRepository.GetByIdAsync(request.RoleId,cancellationToken);
             if (role == null)
                 return Result<IEnumerable<RoleMenuPermissionDto>>.Failure("Role not found");
 

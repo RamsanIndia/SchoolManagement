@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SchoolManagement.Domain.Common;
+using System;
 using System.Collections.Generic;
 
 namespace SchoolManagement.Domain.Entities
