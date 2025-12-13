@@ -15,8 +15,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{00
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0A4291E8-1F4F-4DCD-916B-77DEF7D9D1C0}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docker", "docker", "{46A5D76A-EEDE-442F-AC3B-B84AD0140533}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.Domain", "SchoolManagement.Domain\SchoolManagement.Domain.csproj", "{6299F835-4CA4-4380-A08D-03582010DFD6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.Application", "SchoolManagement.Application\SchoolManagement.Application.csproj", "{3CA5CE38-4922-4482-A883-C0F08F7EA204}"
@@ -42,12 +40,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.API", "SchoolManagement.API\SchoolManagement.API.csproj", "{1C7BB7F3-E341-4325-A8EC-57BD6738F129}"
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "schoolmanagement.ui", "SchoolManagement.UI\schoolmanagement.ui.esproj", "{B347F06D-3E67-164D-CB21-5D2E53FBE57B}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{75E4EB6E-88E9-4D5E-9875-FA1846AC9468}"
-	ProjectSection(SolutionItems) = preProject
-		..\Docs\Business Requirements Document.docx = ..\Docs\Business Requirements Document.docx
-		..\Docs\System-Architecture.md = ..\Docs\System-Architecture.md
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolManagement.Test", "SchoolManagement.Test\SchoolManagement.Test.csproj", "{3723EF3E-5DF6-4C18-B0C7-5F393CB66C4A}"
 EndProject
