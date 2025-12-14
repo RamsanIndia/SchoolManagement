@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Persistence.Outbox;
@@ -80,12 +81,24 @@ namespace SchoolManagement.Persistence
 
 
             // RowVersion concurrency for BaseEntity types
+            //foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+            //             .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
+            //{
+            //    modelBuilder.Entity(entityType.ClrType)
+            //        .Property(nameof(BaseEntity.RowVersion))
+            //        .IsRowVersion()
+            //        .IsConcurrencyToken();
+            //}
+
+            // Configure RowVersion to map to xmin for all BaseEntity types
             foreach (var entityType in modelBuilder.Model.GetEntityTypes()
                          .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
             {
                 modelBuilder.Entity(entityType.ClrType)
                     .Property(nameof(BaseEntity.RowVersion))
-                    .IsRowVersion()
+                    .HasColumnName("xmin")
+                    .HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate()
                     .IsConcurrencyToken();
             }
 
@@ -198,16 +211,33 @@ namespace SchoolManagement.Persistence
         /// <summary>
         /// Check if exception is a duplicate key error for OutboxMessages
         /// </summary>
+        //private bool IsDuplicateKeyError(DbUpdateException ex)
+        //{
+        //    if (ex.InnerException is SqlException sqlEx)
+        //    {
+        //        // 2627 = Unique constraint violation
+        //        // 2601 = Duplicate key row error
+        //        return (sqlEx.Number == 2627 || sqlEx.Number == 2601)
+        //            && (sqlEx.Message.Contains("PK_OutboxMessages")
+        //                || sqlEx.Message.Contains("IX_OutboxMessages_EventId_Unique"));
+        //    }
+        //    return false;
+        //}
+
         private bool IsDuplicateKeyError(DbUpdateException ex)
         {
-            if (ex.InnerException is SqlException sqlEx)
+            if (ex.InnerException is PostgresException pgEx)
             {
-                // 2627 = Unique constraint violation
-                // 2601 = Duplicate key row error
-                return (sqlEx.Number == 2627 || sqlEx.Number == 2601)
-                    && (sqlEx.Message.Contains("PK_OutboxMessages")
-                        || sqlEx.Message.Contains("IX_OutboxMessages_EventId_Unique"));
+                // 23505 = unique_violation
+                return pgEx.SqlState == "23505"
+                       && (pgEx.ConstraintName == "PK_OutboxMessages"
+                           || pgEx.ConstraintName == "IX_OutboxMessages_EventId_Unique");
             }
+
+            // Optional: keep SQL Server handling if you still run SQL Server in dev
+            // if (ex.InnerException is SqlException sqlEx)
+            //     return (sqlEx.Number == 2627 || sqlEx.Number == 2601);
+
             return false;
         }
 

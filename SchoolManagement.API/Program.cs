@@ -64,33 +64,55 @@ try
     Log.Information("Starting School Management System API");
 
     // ============= DATABASE CONFIGURATION =============
+    //builder.Services.AddDbContext<SchoolManagementDbContext>((serviceProvider, options) =>
+    //{
+    //    var connectionString = builder.Configuration.GetConnectionString("SchoolManagementDbConnectionString")
+    //        ?? throw new InvalidOperationException("Database connection string not found");
+
+    //    options.UseSqlServer(connectionString, sqlOptions =>
+    //    {
+    //        sqlOptions.MigrationsAssembly("SchoolManagement.API");
+    //        //sqlOptions.EnableRetryOnFailure(
+    //        //    maxRetryCount: 5,
+    //        //    maxRetryDelay: TimeSpan.FromSeconds(30),
+    //        //    errorNumbersToAdd: null
+    //        //);
+    //        sqlOptions.CommandTimeout(30);
+    //        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+    //    });
+
+    //    // Enable sensitive data logging only in development
+    //    if (builder.Environment.IsDevelopment())
+    //    {
+    //        options.EnableSensitiveDataLogging();
+    //        options.EnableDetailedErrors();
+    //    }
+
+    //    // Disable change tracking for read-only scenarios (can be enabled per query)
+    //    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+    //});
+
     builder.Services.AddDbContext<SchoolManagementDbContext>((serviceProvider, options) =>
     {
         var connectionString = builder.Configuration.GetConnectionString("SchoolManagementDbConnectionString")
             ?? throw new InvalidOperationException("Database connection string not found");
 
-        options.UseSqlServer(connectionString, sqlOptions =>
+        options.UseNpgsql(connectionString, npgsqlOptions =>
         {
-            sqlOptions.MigrationsAssembly("SchoolManagement.API");
-            //sqlOptions.EnableRetryOnFailure(
-            //    maxRetryCount: 5,
-            //    maxRetryDelay: TimeSpan.FromSeconds(30),
-            //    errorNumbersToAdd: null
-            //);
-            sqlOptions.CommandTimeout(30);
-            sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            npgsqlOptions.MigrationsAssembly("SchoolManagement.API");
+            npgsqlOptions.CommandTimeout(30);
+            npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
         });
 
-        // Enable sensitive data logging only in development
         if (builder.Environment.IsDevelopment())
         {
             options.EnableSensitiveDataLogging();
             options.EnableDetailedErrors();
         }
 
-        // Disable change tracking for read-only scenarios (can be enabled per query)
         options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
     });
+
 
     // ============= MEMORY CACHE =============
     builder.Services.AddMemoryCache();

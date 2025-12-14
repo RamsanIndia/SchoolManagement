@@ -28,7 +28,8 @@ namespace SchoolManagement.Persistence
                 throw new InvalidOperationException("Connection string 'SchoolManagementDbConnectionString' not found.");
 
             var optionsBuilder = new DbContextOptionsBuilder<SchoolManagementDbContext>();
-            optionsBuilder.UseSqlServer(connectionString);
+            //optionsBuilder.UseSqlServer(connectionString);
+            optionsBuilder.UseNpgsql(connectionString);
 
             // Create a logger factory for design-time
             ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SchoolManagement.Domain.Common
 {
@@ -16,10 +17,11 @@ namespace SchoolManagement.Domain.Common
         public bool IsDeleted { get; protected set; }
         public string CreatedIP { get; set; }
 
-        // Concurrency token for optimistic concurrency
+        // PostgreSQL xmin concurrency token
         [Timestamp]
-        public byte[] RowVersion { get; set; }
+        public uint RowVersion { get; set; }  // Changed from private set to set
 
+        [NotMapped]
         public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents;
 
         public void AddDomainEvent(IDomainEvent domainEvent)
@@ -57,8 +59,8 @@ namespace SchoolManagement.Domain.Common
         {
             UpdatedAt = DateTime.UtcNow;
             UpdatedBy = user;
-            CreatedIP = ipAddress; // Note: This should probably be UpdatedIP if you have it
+            // Note: Consider adding UpdatedIP property if you want to track this
+            CreatedIP = ipAddress;
         }
-
     }
 }

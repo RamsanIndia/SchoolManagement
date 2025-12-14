@@ -89,23 +89,38 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
         /// Get user by email with pessimistic lock - prevents concurrent modifications
         /// Use this for login operations to avoid concurrency conflicts
         /// </summary>
-        public async Task<User> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default)
+        //public async Task<User> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default)
+        //{
+        //    if (string.IsNullOrWhiteSpace(email))
+        //        return null;
+
+        //    var normalizedEmail = email.ToLower().Trim();
+
+        //    // Use SQL Server row-level locking to prevent concurrent modifications
+        //    // FromSqlRaw MUST come before Include
+        //    var user = await _context.Users
+        //        .FromSqlRaw(@"
+        //            SELECT * 
+        //            FROM Users WITH (UPDLOCK, ROWLOCK)
+        //            WHERE Email = {0} AND IsDeleted = 0",
+        //            normalizedEmail)
+        //        .Include(u => u.RefreshTokens)  // Include after FromSqlRaw
+        //        .FirstOrDefaultAsync(cancellationToken);
+
+        //    return user;
+        //}
+
+        public async Task<User?> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(email))
                 return null;
 
             var normalizedEmail = email.ToLower().Trim();
 
-            // Use SQL Server row-level locking to prevent concurrent modifications
-            // FromSqlRaw MUST come before Include
+            // Use regular EF Core query - it will handle xmin correctly
             var user = await _context.Users
-                .FromSqlRaw(@"
-                    SELECT * 
-                    FROM Users WITH (UPDLOCK, ROWLOCK)
-                    WHERE Email = {0} AND IsDeleted = 0",
-                    normalizedEmail)
-                .Include(u => u.RefreshTokens)  // Include after FromSqlRaw
-                .FirstOrDefaultAsync(cancellationToken);
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.Email == normalizedEmail && !u.IsDeleted, cancellationToken);
 
             return user;
         }

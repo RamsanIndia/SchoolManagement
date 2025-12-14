@@ -8,35 +8,38 @@ namespace SchoolManagement.Persistence.Configurations
     {
         public void Configure(EntityTypeBuilder<OutboxMessage> builder)
         {
+            builder.ToTable("OutboxMessages");
+
             builder.HasKey(x => x.Id);
 
-            // Let EF/DB generate Guid on insert
-            builder.Property(x => x.Id)
-                .ValueGeneratedOnAdd();
-
-            // EventId - Critical for idempotency
-            builder.Property(x => x.EventId)
-                .IsRequired();
+            // Guid -> uuid automatically in PostgreSQL (no SQL Server types)
+            builder.Property(x => x.Id).ValueGeneratedOnAdd();
+            builder.Property(x => x.EventId).IsRequired();
 
             builder.Property(x => x.EventType)
                 .HasMaxLength(500)
                 .IsRequired();
 
+            // nvarchar(max) doesn't exist in PostgreSQL; use text (or jsonb if you prefer)
             builder.Property(x => x.Payload)
-                .HasColumnType("nvarchar(max)")
+                .HasColumnType("text")
                 .IsRequired();
 
+            builder.Property(x => x.Metadata)
+                .HasColumnType("text")
+                .IsRequired(false);
+
             builder.Property(x => x.CorrelationId)
-                .HasMaxLength(100);
+                .HasMaxLength(100)
+                .IsRequired();
 
             builder.Property(x => x.CausationId)
-                .HasMaxLength(100);
+                .HasMaxLength(100)
+                .IsRequired();
 
             builder.Property(x => x.Source)
-                .HasMaxLength(200);
-
-            builder.Property(x => x.RowVersion)
-                .IsRowVersion();
+                .HasMaxLength(200)
+                .IsRequired();
 
             builder.Property(x => x.Error)
                 .HasMaxLength(4000)
@@ -45,32 +48,21 @@ namespace SchoolManagement.Persistence.Configurations
             builder.Property(x => x.RetryCount)
                 .IsRequired(false);
 
-            builder.Property(x => x.Metadata)
-                .HasColumnType("nvarchar(max)")
-                .IsRequired(false);
+            // IMPORTANT: SQL Server rowversion doesn't exist in PostgreSQL.
+            // Remove/ignore RowVersion for this table (or switch to xmin-based concurrency).
+            builder.Ignore(x => x.RowVersion);
 
-            // Indexes for query performance
-            builder.HasIndex(x => x.ProcessedAt)
-                .HasDatabaseName("IX_OutboxMessages_ProcessedAt");
+            // Indexes
+            builder.HasIndex(x => x.ProcessedAt).HasDatabaseName("IX_OutboxMessages_ProcessedAt");
+            builder.HasIndex(x => new { x.ProcessedAt, x.CreatedAt }).HasDatabaseName("IX_OutboxMessages_ProcessedAt_CreatedAt");
+            builder.HasIndex(x => x.EventType).HasDatabaseName("IX_OutboxMessages_EventType");
+            builder.HasIndex(x => x.CorrelationId).HasDatabaseName("IX_OutboxMessages_CorrelationId");
 
-            builder.HasIndex(x => new { x.ProcessedAt, x.CreatedAt })
-                .HasDatabaseName("IX_OutboxMessages_ProcessedAt_CreatedAt");
-
-            builder.HasIndex(x => x.EventType)
-                .HasDatabaseName("IX_OutboxMessages_EventType");
-
-            builder.HasIndex(x => x.CorrelationId)
-                .HasDatabaseName("IX_OutboxMessages_CorrelationId");
-
-            // CRITICAL: Unique index on EventId for idempotency
-            // Prevents duplicate events from being inserted
+            // Unique index for idempotency
+            // Since EventId is required, no filter is needed.
             builder.HasIndex(x => x.EventId)
                 .IsUnique()
-                .HasFilter("[EventId] IS NOT NULL")
                 .HasDatabaseName("IX_OutboxMessages_EventId_Unique");
-
-            // Table name
-            builder.ToTable("OutboxMessages");
         }
     }
 }
