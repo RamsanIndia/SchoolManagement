@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.Sections.Commands;
 using SchoolManagement.Domain.Entities;
 using System;

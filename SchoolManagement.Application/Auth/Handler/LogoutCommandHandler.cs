@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Exceptions;
 using System;
 using System.Collections.Generic;

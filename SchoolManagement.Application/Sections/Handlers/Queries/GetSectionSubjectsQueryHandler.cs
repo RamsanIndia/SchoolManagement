@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.SectionSubjects.Queries;
 using System;
 using System.Collections.Generic;

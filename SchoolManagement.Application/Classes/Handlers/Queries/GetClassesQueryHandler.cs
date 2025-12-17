@@ -2,12 +2,11 @@
 using SchoolManagement.Application.Classes.Queries;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static SchoolManagement.Application.Models.Result;
 
 namespace SchoolManagement.Application.Classes.Handlers.Queries
 {

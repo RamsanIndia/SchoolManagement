@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.TimeTables.Commands;
 using System;
 using System.Threading;

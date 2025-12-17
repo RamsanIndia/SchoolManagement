@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Attendance.Commands;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Services;
 using System;

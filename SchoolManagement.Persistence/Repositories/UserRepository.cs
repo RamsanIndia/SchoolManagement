@@ -49,7 +49,7 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
         }
 
         /// <summary>
-        /// Get user by email for authentication - uses AsNoTracking for concurrency safety
+        /// Get user by email for authentication
         /// </summary>
         public async Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
@@ -59,16 +59,14 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
             var normalizedEmail = email.ToLower().Trim();
             var emailValueObject = new Email(normalizedEmail);
 
-            // CRITICAL FIX: Use AsNoTracking() to prevent caching issues
-            // Include RefreshTokens for login operations but not Roles (not needed for auth)
             return await _context.Users
-                .Include(u => u.RefreshTokens)  // Need tokens for login
-                .AsNoTracking()  // ← CRITICAL: Prevents entity caching
+                .Include(u => u.RefreshTokens)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
         }
 
         /// <summary>
-        /// Get user by email with roles - for operations that need role information
+        /// Get user by email with roles
         /// </summary>
         public async Task<User> GetByEmailWithRolesAsync(string email, CancellationToken cancellationToken = default)
         {
@@ -86,26 +84,27 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
         }
 
         /// <summary>
-        /// Get user by email with pessimistic lock - prevents concurrent modifications
-        /// Use this for login operations to avoid concurrency conflicts
+        /// ✅ FIXED: Get user by email with pessimistic lock for login operations
+        /// CRITICAL FIXES:
+        /// 1. Create Email value object for proper comparison
+        /// 2. Include RefreshTokens collection for tracking
+        /// 3. Do NOT use AsNoTracking() - we need change tracking for updates
         /// </summary>
-        public async Task<User> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(email))
                 return null;
 
             var normalizedEmail = email.ToLower().Trim();
 
-            // Use SQL Server row-level locking to prevent concurrent modifications
-            // FromSqlRaw MUST come before Include
+            // ✅ FIX #1: Create Email value object for proper comparison
+            var emailValueObject = new Email(normalizedEmail);
+
+            // ✅ FIX #2: Include RefreshTokens AND remove AsNoTracking()
             var user = await _context.Users
-                .FromSqlRaw(@"
-                    SELECT * 
-                    FROM Users WITH (UPDLOCK, ROWLOCK)
-                    WHERE Email = {0} AND IsDeleted = 0",
-                    normalizedEmail)
-                .Include(u => u.RefreshTokens)  // Include after FromSqlRaw
-                .FirstOrDefaultAsync(cancellationToken);
+                .Include(u => u.RefreshTokens)  // MUST include for collection tracking
+                                                // NO AsNoTracking() here - we need change tracking for login operations!
+                .FirstOrDefaultAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
 
             return user;
         }
@@ -156,41 +155,23 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
             await _context.Users.AddAsync(user, cancellationToken);
         }
 
-        //public Task UpdateAsync(User user, CancellationToken cancellationToken = default)
-        //{
-        //    if (user == null)
-        //        throw new ArgumentNullException(nameof(user));
-
-        //    // CRITICAL: Detach any existing tracked entity before updating
-        //    var trackedEntity = _context.ChangeTracker.Entries<User>()
-        //        .FirstOrDefault(e => e.Entity.Id == user.Id);
-
-        //    if (trackedEntity != null)
-        //    {
-        //        trackedEntity.State = EntityState.Detached;
-        //    }
-
-        //    // Also detach related RefreshTokens to avoid tracking conflicts
-        //    var trackedTokens = _context.ChangeTracker.Entries<RefreshToken>()
-        //        .Where(e => e.Entity.UserId == user.Id)
-        //        .ToList();
-
-        //    foreach (var token in trackedTokens)
-        //    {
-        //        token.State = EntityState.Detached;
-        //    }
-
-        //    _context.Users.Update(user);
-        //    return Task.CompletedTask;
-        //}
-
+        /// <summary>
+        /// ✅ SIMPLIFIED: Update user - EF tracks changes automatically
+        /// </summary>
         public Task UpdateAsync(User user, CancellationToken cancellationToken = default)
         {
             if (user == null)
                 throw new ArgumentNullException(nameof(user));
 
-            // ✅ SIMPLIFIED - Let EF handle tracking naturally
-            _context.Users.Update(user);
+            // EF Core automatically tracks changes to entities loaded with Include()
+            // No need to call Update() explicitly if entity is already tracked
+            var entry = _context.Entry(user);
+
+            if (entry.State == EntityState.Detached)
+            {
+                _context.Users.Update(user);
+            }
+
             return Task.CompletedTask;
         }
 
@@ -204,12 +185,11 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 return false;
 
             var normalizedEmail = email.ToLower().Trim();
+            var emailValueObject = new Email(normalizedEmail);
 
             return await _context.Users
                 .AsNoTracking()
-                .AnyAsync(
-                    u => EF.Property<string>(u, "Email") == normalizedEmail && !u.IsDeleted,
-                    cancellationToken);
+                .AnyAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
         }
 
         public async Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default)
@@ -230,9 +210,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
 
         #region Additional Query Methods
 
-        /// <summary>
-        /// Get users with pagination
-        /// </summary>
         public async Task<(IEnumerable<User> Users, int TotalCount)> GetPagedAsync(
             int pageNumber,
             int pageSize,
@@ -253,9 +230,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
             return (users, totalCount);
         }
 
-        /// <summary>
-        /// Get active users only
-        /// </summary>
         public async Task<IEnumerable<User>> GetActiveUsersAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Users
@@ -265,9 +239,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Get users by multiple IDs (for batch operations)
-        /// </summary>
         public async Task<IEnumerable<User>> GetByIdsAsync(
             IEnumerable<Guid> ids,
             CancellationToken cancellationToken = default)
@@ -281,9 +252,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Search users by name or email
-        /// </summary>
         public async Task<IEnumerable<User>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
@@ -303,9 +271,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Get users with expired or expiring roles
-        /// </summary>
         public async Task<IEnumerable<User>> GetUsersWithExpiringRolesAsync(
             DateTime expiryDate,
             CancellationToken cancellationToken = default)
@@ -322,9 +287,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Get locked out users
-        /// </summary>
         public async Task<IEnumerable<User>> GetLockedOutUsersAsync(CancellationToken cancellationToken = default)
         {
             var now = DateTime.UtcNow;
@@ -337,9 +299,6 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Get users pending email verification
-        /// </summary>
         public async Task<IEnumerable<User>> GetUnverifiedEmailUsersAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Users

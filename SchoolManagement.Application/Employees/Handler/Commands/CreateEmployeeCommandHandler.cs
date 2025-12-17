@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Employees.Commands;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.ValueObjects;

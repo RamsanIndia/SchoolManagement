@@ -3,6 +3,8 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
+using Npgsql;
+using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Persistence.Outbox;
@@ -22,15 +24,18 @@ namespace SchoolManagement.Persistence
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<SchoolManagementDbContext> _logger;
+        private readonly IpAddressHelper _ipAddressHelper;
 
         public SchoolManagementDbContext(
             DbContextOptions<SchoolManagementDbContext> options,
             IHttpContextAccessor httpContextAccessor,
-            ILogger<SchoolManagementDbContext> logger)
+            ILogger<SchoolManagementDbContext> logger,
+            IpAddressHelper ipAddressHelper)
             : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
+            _ipAddressHelper = ipAddressHelper;
         }
 
         #region DbSets
@@ -80,12 +85,24 @@ namespace SchoolManagement.Persistence
 
 
             // RowVersion concurrency for BaseEntity types
+            //foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+            //             .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
+            //{
+            //    modelBuilder.Entity(entityType.ClrType)
+            //        .Property(nameof(BaseEntity.RowVersion))
+            //        .IsRowVersion()
+            //        .IsConcurrencyToken();
+            //}
+
+            // Configure RowVersion to map to xmin for all BaseEntity types
             foreach (var entityType in modelBuilder.Model.GetEntityTypes()
                          .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
             {
                 modelBuilder.Entity(entityType.ClrType)
                     .Property(nameof(BaseEntity.RowVersion))
-                    .IsRowVersion()
+                    .HasColumnName("xmin")
+                    .HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate()
                     .IsConcurrencyToken();
             }
 
@@ -198,16 +215,33 @@ namespace SchoolManagement.Persistence
         /// <summary>
         /// Check if exception is a duplicate key error for OutboxMessages
         /// </summary>
+        //private bool IsDuplicateKeyError(DbUpdateException ex)
+        //{
+        //    if (ex.InnerException is SqlException sqlEx)
+        //    {
+        //        // 2627 = Unique constraint violation
+        //        // 2601 = Duplicate key row error
+        //        return (sqlEx.Number == 2627 || sqlEx.Number == 2601)
+        //            && (sqlEx.Message.Contains("PK_OutboxMessages")
+        //                || sqlEx.Message.Contains("IX_OutboxMessages_EventId_Unique"));
+        //    }
+        //    return false;
+        //}
+
         private bool IsDuplicateKeyError(DbUpdateException ex)
         {
-            if (ex.InnerException is SqlException sqlEx)
+            if (ex.InnerException is PostgresException pgEx)
             {
-                // 2627 = Unique constraint violation
-                // 2601 = Duplicate key row error
-                return (sqlEx.Number == 2627 || sqlEx.Number == 2601)
-                    && (sqlEx.Message.Contains("PK_OutboxMessages")
-                        || sqlEx.Message.Contains("IX_OutboxMessages_EventId_Unique"));
+                // 23505 = unique_violation
+                return pgEx.SqlState == "23505"
+                       && (pgEx.ConstraintName == "PK_OutboxMessages"
+                           || pgEx.ConstraintName == "IX_OutboxMessages_EventId_Unique");
             }
+
+            // Optional: keep SQL Server handling if you still run SQL Server in dev
+            // if (ex.InnerException is SqlException sqlEx)
+            //     return (sqlEx.Number == 2627 || sqlEx.Number == 2601);
+
             return false;
         }
 
@@ -358,9 +392,9 @@ namespace SchoolManagement.Persistence
         /// </summary>
         private void AddEventsToOutbox(List<IDomainEvent> domainEvents)
         {
-            var correlationId = GetCorrelationId();
-            var userId = GetCurrentUserId();
-            var ipAddress = GetCurrentIpAddress();
+            var correlationId = _ipAddressHelper.GetCorrelationId();
+            var userId = _ipAddressHelper.GetCurrentUserId();
+            var ipAddress = _ipAddressHelper.GetClientIpAddress();
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
 
             foreach (var domainEvent in domainEvents)
@@ -411,9 +445,9 @@ namespace SchoolManagement.Persistence
             List<IDomainEvent> domainEvents,
             CancellationToken cancellationToken)
         {
-            var correlationId = GetCorrelationId();
-            var userId = GetCurrentUserId();
-            var ipAddress = GetCurrentIpAddress();
+            var correlationId = _ipAddressHelper.GetCorrelationId();
+            var userId = _ipAddressHelper.GetCurrentUserId();
+            var ipAddress = _ipAddressHelper.GetClientIpAddress();
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
 
             // Get all event IDs to check for duplicates
@@ -516,8 +550,8 @@ namespace SchoolManagement.Persistence
                 .Entries<BaseEntity>()
                 .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
-            var currentUser = GetCurrentUserId();
-            var currentIp = GetCurrentIpAddress();
+            var currentUser = _ipAddressHelper.GetCurrentUserId();
+            var currentIp = _ipAddressHelper.GetClientIpAddress();
 
             foreach (var entry in entries)
             {
@@ -533,40 +567,40 @@ namespace SchoolManagement.Persistence
             }
         }
 
-        /// <summary>
-        /// Get current user ID from HTTP context
-        /// </summary>
-        private string GetCurrentUserId()
-        {
-            return _httpContextAccessor?.HttpContext?.User?.FindFirst("sub")?.Value
-                   ?? _httpContextAccessor?.HttpContext?.User?.FindFirst("userId")?.Value
-                   ?? _httpContextAccessor?.HttpContext?.User?.Identity?.Name
-                   ?? "System";
-        }
+        ///// <summary>
+        ///// Get current user ID from HTTP context
+        ///// </summary>
+        //private string GetCurrentUserId()
+        //{
+        //    return _httpContextAccessor?.HttpContext?.User?.FindFirst("sub")?.Value
+        //           ?? _httpContextAccessor?.HttpContext?.User?.FindFirst("userId")?.Value
+        //           ?? _httpContextAccessor?.HttpContext?.User?.Identity?.Name
+        //           ?? "System";
+        //}
 
-        /// <summary>
-        /// Get current IP address from HTTP context
-        /// </summary>
-        private string GetCurrentIpAddress()
-        {
-            return _httpContextAccessor?.HttpContext?.Connection?.RemoteIpAddress?.ToString()
-                   ?? "Unknown";
-        }
+        ///// <summary>
+        ///// Get current IP address from HTTP context
+        ///// </summary>
+        //private string GetCurrentIpAddress()
+        //{
+        //    return _httpContextAccessor?.HttpContext?.Connection?.RemoteIpAddress?.ToString()
+        //           ?? "Unknown";
+        //}
 
-        /// <summary>
-        /// Get or generate correlation ID for request tracing
-        /// </summary>
-        private string GetCorrelationId()
-        {
-            var correlationId = _httpContextAccessor?.HttpContext?.TraceIdentifier;
+        ///// <summary>
+        ///// Get or generate correlation ID for request tracing
+        ///// </summary>
+        //private string GetCorrelationId()
+        //{
+        //    var correlationId = _httpContextAccessor?.HttpContext?.TraceIdentifier;
 
-            if (string.IsNullOrEmpty(correlationId))
-            {
-                correlationId = _httpContextAccessor?.HttpContext?.Request?.Headers["X-Correlation-ID"]
-                    .FirstOrDefault();
-            }
+        //    if (string.IsNullOrEmpty(correlationId))
+        //    {
+        //        correlationId = _httpContextAccessor?.HttpContext?.Request?.Headers["X-Correlation-ID"]
+        //            .FirstOrDefault();
+        //    }
 
-            return correlationId ?? Guid.NewGuid().ToString();
-        }
+        //    return correlationId ?? Guid.NewGuid().ToString();
+        //}
     }
 }

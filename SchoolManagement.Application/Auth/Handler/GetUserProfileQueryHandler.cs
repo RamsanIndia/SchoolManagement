@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Auth.Queries;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 using System.Collections.Generic;
 using System.Threading;

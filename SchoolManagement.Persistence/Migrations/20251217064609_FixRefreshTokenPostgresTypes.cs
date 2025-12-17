@@ -5,7 +5,7 @@
 namespace SchoolManagement.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class UpdateOutboxIdGeneration : Migration
+    public partial class FixRefreshTokenPostgresTypes : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

@@ -1,18 +1,15 @@
 ﻿using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SchoolManagement.Domain.Exceptions;
 
 namespace SchoolManagement.Application.Behaviors
 {
     /// <summary>
-    /// Validates requests using FluentValidation before processing
+    /// Validates requests using FluentValidation before passing to the handler.
+    /// Throws domain ValidationException so API can return ValidationProblemDetails.
     /// </summary>
-    public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+    public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : IRequest<TResponse>
     {
         private readonly IEnumerable<IValidator<TRequest>> _validators;
@@ -32,31 +29,37 @@ namespace SchoolManagement.Application.Behaviors
             CancellationToken cancellationToken)
         {
             if (!_validators.Any())
-            {
                 return await next();
-            }
 
             var context = new ValidationContext<TRequest>(request);
 
-            var validationResults = await Task.WhenAll(
-                _validators.Select(v => v.ValidateAsync(context, cancellationToken))
-            );
+            var results = await Task.WhenAll(
+                _validators.Select(v => v.ValidateAsync(context, cancellationToken)));
 
-            var failures = validationResults
+            var failures = results
                 .SelectMany(r => r.Errors)
-                .Where(f => f != null)
+                .Where(f => f is not null)
                 .ToList();
 
-            if (failures.Any())
-            {
-                _logger.LogWarning("Validation failed for {RequestType}: {Errors}",
-                    typeof(TRequest).Name,
-                    string.Join("; ", failures.Select(f => f.ErrorMessage)));
+            if (failures.Count == 0)
+                return await next();
 
-                throw new ValidationException(failures);
-            }
+            // Convert to field -> messages[] dictionary (ValidationProblemDetails-friendly)
+            var errors = failures
+                .GroupBy(f => f.PropertyName)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.ErrorMessage).Distinct().ToArray()
+                );
 
-            return await next();
+            _logger.LogWarning(
+                "Validation failed for {RequestType}. ErrorFields: {FieldCount}, TotalErrors: {ErrorCount}",
+                typeof(TRequest).Name,
+                errors.Count,
+                failures.Count);
+
+            // Throw domain exception (NOT FluentValidation.ValidationException)
+            throw new Domain.Exceptions.ValidationException(errors);
         }
     }
 }

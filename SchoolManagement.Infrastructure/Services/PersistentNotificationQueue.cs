@@ -6,7 +6,7 @@ using SchoolManagement.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Infrastructure.Services
@@ -30,10 +30,10 @@ namespace SchoolManagement.Infrastructure.Services
             if (notification == null)
                 throw new ArgumentNullException(nameof(notification));
 
-            notification.Status = NotificationStatus.Pending;
-            //notification.CreatedAt = DateTime.UtcNow;
-
+            // Don't set Status here (setter is private); ensure callers enqueue a Pending notification.
+            // If you must enforce Pending, add a domain method like ResetToPending() inside Notification.
             _context.Set<Notification>().Add(notification);
+
             await _context.SaveChangesAsync(cancellationToken);
 
             _signal.Release();
@@ -50,7 +50,11 @@ namespace SchoolManagement.Infrastructure.Services
 
             if (notification != null)
             {
-                notification.Status = NotificationStatus.Processing;
+                // Use domain behavior instead of setting Status directly.
+                var result = notification.MarkAsProcessing();
+                if (!result.Status)
+                    return null; // or throw; depending on your policy
+
                 await _context.SaveChangesAsync(cancellationToken);
             }
 
@@ -65,9 +69,12 @@ namespace SchoolManagement.Infrastructure.Services
                 .Take(batchSize)
                 .ToListAsync(cancellationToken);
 
+            // Mark each as processing via domain method (no direct setter access).
             foreach (var notification in notifications)
             {
-                notification.Status = NotificationStatus.Processing;
+                var result = notification.MarkAsProcessing();
+                if (!result.Status)
+                    continue; // or handle failure (throw/log) based on your needs
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -80,11 +87,6 @@ namespace SchoolManagement.Infrastructure.Services
                 .CountAsync(n => n.Status == NotificationStatus.Pending, cancellationToken);
         }
 
-        //public Task<IEnumerable<QueuedNotification>> DequeueAsync(int count)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
         public Task MarkAsProcessedAsync(Guid notificationId)
         {
             throw new NotImplementedException();
@@ -94,10 +96,5 @@ namespace SchoolManagement.Infrastructure.Services
         {
             throw new NotImplementedException();
         }
-
-        //public Task EnqueueAsync(QueuedNotification notification)
-        //{
-        //    throw new NotImplementedException();
-        //}
     }
 }
