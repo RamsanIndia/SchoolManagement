@@ -13,6 +13,8 @@ namespace SchoolManagement.Domain.Enums
         Sent = 3,
         Failed = 4,
         Retry = 5,
-        Pending=6
+        Pending=6,
+        Delivered = 7,
+        Cancelled=8
     }
 }

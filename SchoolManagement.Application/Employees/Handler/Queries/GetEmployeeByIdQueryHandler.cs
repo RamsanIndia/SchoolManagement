@@ -3,7 +3,7 @@ using MediatR;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Employees.Queries;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;

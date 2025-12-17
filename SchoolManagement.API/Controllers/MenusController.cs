@@ -6,7 +6,7 @@ using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
 using SchoolManagement.Application.Menus.Queries;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;

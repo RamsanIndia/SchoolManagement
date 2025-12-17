@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;

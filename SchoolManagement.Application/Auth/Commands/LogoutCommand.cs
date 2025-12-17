@@ -1,6 +1,6 @@
 ﻿// Application/Auth/Commands/LogoutCommand.cs
 using MediatR;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 
 namespace SchoolManagement.Application.Auth.Commands

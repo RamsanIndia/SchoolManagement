@@ -16,6 +16,17 @@ namespace SchoolManagement.Application.Shared.Utilities
         }
 
         /// <summary>
+        /// Get current user ID from HTTP context
+        /// </summary>
+        public string GetCurrentUserId()
+        {
+            return _httpContextAccessor?.HttpContext?.User?.FindFirst("sub")?.Value
+                   ?? _httpContextAccessor?.HttpContext?.User?.FindFirst("userId")?.Value
+                   ?? _httpContextAccessor?.HttpContext?.User?.Identity?.Name
+                   ?? "System";
+        }
+
+        /// <summary>
         /// Gets the client IP address from the current HTTP request.
         /// Checks X-Forwarded-For header first (for proxy/load balancer scenarios),
         /// then falls back to direct connection IP.

@@ -64,6 +64,7 @@ try
     Log.Information("Starting School Management System API");
 
     // ============= DATABASE CONFIGURATION =============
+
     //builder.Services.AddDbContext<SchoolManagementDbContext>((serviceProvider, options) =>
     //{
     //    var connectionString = builder.Configuration.GetConnectionString("SchoolManagementDbConnectionString")
@@ -231,7 +232,7 @@ try
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
 
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/NotificationHub"))
                 {
                     context.Token = accessToken;
                 }
@@ -556,6 +557,19 @@ try
         options.ResponseBodyLogLimit = 4096;
     });
 
+    // Register ProblemDetails services + global customization
+    builder.Services.AddProblemDetails(options =>
+    {
+        options.CustomizeProblemDetails = ctx =>
+        {
+            ctx.ProblemDetails.Extensions["traceId"] =
+                System.Diagnostics.Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
+        };
+    });
+
+    // Register exception handler (IExceptionHandler)
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
     var app = builder.Build();
 
     // ============= DATABASE INITIALIZATION (Run migrations and seed data) =============
@@ -572,11 +586,11 @@ try
     // Exception handling
     if (app.Environment.IsDevelopment())
     {
-        app.UseDeveloperExceptionPage();
+        //app.UseDeveloperExceptionPage();
     }
     else
     {
-        app.UseMiddleware<ErrorHandlingMiddleware>();
+        app.UseExceptionHandler(); // will invoke GlobalExceptionHandler (IExceptionHandler)
         app.UseHsts();
     }
 

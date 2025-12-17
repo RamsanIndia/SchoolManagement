@@ -1,5 +1,6 @@
 ﻿using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Services;
+using SchoolManagement.Application.Shared.Correlation;
 using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Services;
 using SchoolManagement.Infrastructure.Configuration;
@@ -7,6 +8,7 @@ using SchoolManagement.Infrastructure.EventBus;
 using SchoolManagement.Infrastructure.Events;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Infrastructure.Services;
+using SchoolManagement.Persistence;
 using SchoolManagement.Persistence.Repositories;
 using SchoolManagement.Persistence.Services;
 
@@ -15,32 +17,118 @@ namespace SchoolManagement.API.Extensions
     public static class ServiceCollectionExtensions
     {
         /// <summary>
-        /// Register all repository services
+        /// ✅ Register repositories to share the same DbContext instance
+        /// This ensures proper change tracking across all repositories
         /// </summary>
         public static IServiceCollection AddRepositories(this IServiceCollection services)
         {
-            // Core Repositories
+            // Register UnitOfWork
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-            // Entity Repositories
-            services.AddScoped<IMenuRepository, MenuRepository>();
-            services.AddScoped<IRoleRepository, RoleRepository>();
-            services.AddScoped<IPermissionRepository, PermissionRepository>();
-            services.AddScoped<IRoleMenuPermissionRepository, RoleMenuPermissionRepository>();
-            services.AddScoped<IUserRepository, UserRepository>();
-            services.AddScoped<IStudentRepository, StudentRepository>();
-            services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-            services.AddScoped<IAttendanceRepository, AttendanceRepository>();
-            services.AddScoped<IAuthRepository, AuthRepository>();
-            services.AddScoped<IClassRepository, ClassRepository>();
-            services.AddScoped<ISectionRepository, SectionRepository>();
-            services.AddScoped<ISectionSubjectRepository, SectionSubjectRepository>();
-            services.AddScoped<ITimeTableRepository, TimeTableRepository>();
-            services.AddScoped<IBiometricDeviceRepository, BiometricDeviceRepository>();
-            services.AddScoped<IOfflineAttendanceRepository, OfflineAttendanceRepository>();
-            services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            // ✅ Register all repositories using factory pattern to share DbContext
+            // This ensures IUserRepository and IUnitOfWork.UserRepository use the SAME context
 
+            services.AddScoped<IUserRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new UserRepository(context);
+            });
 
+            services.AddScoped<IMenuRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new MenuRepository(context);
+            });
+
+            services.AddScoped<IRoleRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new RoleRepository(context);
+            });
+
+            services.AddScoped<IPermissionRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new PermissionRepository(context);
+            });
+
+            services.AddScoped<IRoleMenuPermissionRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new RoleMenuPermissionRepository(context);
+            });
+
+            services.AddScoped<IStudentRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new StudentRepository(context);
+            });
+
+            services.AddScoped<IEmployeeRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new EmployeeRepository(context);
+            });
+
+            services.AddScoped<IAttendanceRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new AttendanceRepository(context);
+            });
+
+            services.AddScoped<IAuthRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new AuthRepository(context);
+            });
+
+            services.AddScoped<IClassRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new ClassRepository(context);
+            });
+
+            services.AddScoped<ISectionRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new SectionRepository(context);
+            });
+
+            services.AddScoped<ISectionSubjectRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new SectionSubjectRepository(context);
+            });
+
+            services.AddScoped<ITimeTableRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new TimeTableRepository(context);
+            });
+
+            services.AddScoped<IBiometricDeviceRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new BiometricDeviceRepository(context);
+            });
+
+            services.AddScoped<IOfflineAttendanceRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new OfflineAttendanceRepository(context);
+            });
+
+            services.AddScoped<IRefreshTokenRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new RefreshTokenRepository(context);
+            });
+
+            services.AddScoped<IUserRoleRepository>(sp =>
+            {
+                var context = sp.GetRequiredService<SchoolManagementDbContext>();
+                return new UserRoleRepository(context);
+            });
 
             return services;
         }
@@ -62,6 +150,8 @@ namespace SchoolManagement.API.Extensions
             services.AddScoped<ITokenService, CachedTokenService>(); // Cached decorator
             services.AddScoped<IPasswordService, PasswordService>();
             services.AddScoped<IpAddressHelper>();
+            services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
+
 
             return services;
         }
@@ -96,7 +186,6 @@ namespace SchoolManagement.API.Extensions
             //services.AddSingleton<IEventBus, EventBus>();
 
             // Register DomainEventPublisher
-            
             services.AddScoped<IEventPublisher, AzureServiceBusPublisher>();
             services.AddScoped<IIntegrationEventMapper, IntegrationEventMapper>();
 

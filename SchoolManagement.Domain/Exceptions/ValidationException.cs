@@ -6,8 +6,15 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.Exceptions
 {
-    public class ValidationException : Exception
+    public sealed class ValidationException : Exception
     {
-        public ValidationException(string message) : base(message) { }
+        public Dictionary<string, string[]> Errors { get; }
+
+        public ValidationException(Dictionary<string, string[]> errors, string? message = null)
+            : base(message ?? "One or more validation errors occurred.")
+        {
+            Errors = errors;
+        }
     }
+
 }
