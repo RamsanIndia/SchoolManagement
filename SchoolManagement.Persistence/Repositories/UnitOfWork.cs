@@ -2,9 +2,11 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,7 +45,7 @@ namespace SchoolManagement.Persistence.Repositories
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        #region Repository Properties (shared DbContext)
+        #region Repository Properties
         public IAuthRepository AuthRepository =>
             _authRepository ??= new AuthRepository(_context);
 
@@ -100,11 +102,19 @@ namespace SchoolManagement.Persistence.Repositories
                 try
                 {
                     _logger.LogDebug("💾 UnitOfWork: Attempting SaveChanges, attempt {Attempt}", retryCount + 1);
+
+                    // ✅ FIX: Log what's being tracked BEFORE save
+                    LogTrackedEntities();
+
                     var result = await _context.SaveChangesAsync(cancellationToken);
 
                     if (retryCount > 0)
                     {
                         _logger.LogInformation("✅ UnitOfWork: SaveChanges succeeded after {Retries} retries", retryCount);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("✅ UnitOfWork: SaveChanges succeeded. {Count} entities saved.", result);
                     }
 
                     return result;
@@ -131,7 +141,6 @@ namespace SchoolManagement.Persistence.Repositories
                             ex);
                     }
 
-                    // CRITICAL: Proper concurrency resolution
                     var hasUnresolvableConflicts = false;
 
                     foreach (var entry in ex.Entries)
@@ -144,12 +153,10 @@ namespace SchoolManagement.Persistence.Repositories
 
                         try
                         {
-                            // Get current values from database
                             var databaseValues = await entry.GetDatabaseValuesAsync(cancellationToken);
 
                             if (databaseValues == null)
                             {
-                                // Entity was deleted in DB
                                 _logger.LogWarning(
                                     "⚠️ Entity {EntityType} was deleted in DB. Detaching.",
                                     entityType);
@@ -160,28 +167,7 @@ namespace SchoolManagement.Persistence.Repositories
                             switch (state)
                             {
                                 case EntityState.Modified:
-                                    // STRATEGY: Client Wins (with merge)
-                                    // For login scenario, we want to keep our changes but acknowledge DB state
-
-                                    // Log what changed in DB vs our changes
-                                    var currentValues = entry.CurrentValues;
-                                    var dbPropertyNames = databaseValues.Properties
-                                        .Where(p => !Equals(currentValues[p.Name], databaseValues[p.Name]))
-                                        .Select(p => p.Name)
-                                        .ToList();
-
-                                    if (dbPropertyNames.Any())
-                                    {
-                                        _logger.LogDebug(
-                                            "🔍 DB changed properties for {EntityType}: {Properties}",
-                                            entityType,
-                                            string.Join(", ", dbPropertyNames));
-                                    }
-
-                                    // Set original values to current DB values
-                                    // This makes EF think we're updating from the latest DB state
                                     entry.OriginalValues.SetValues(databaseValues);
-
                                     _logger.LogDebug(
                                         "✅ Merged changes for {EntityType} (Client Wins strategy)",
                                         entityType);
@@ -195,30 +181,15 @@ namespace SchoolManagement.Persistence.Repositories
                                     break;
 
                                 case EntityState.Added:
-                                    // For added entities, check if they now exist
                                     var existsInDb = databaseValues != null;
                                     if (existsInDb)
                                     {
                                         _logger.LogWarning(
                                             "⚠️ Attempted add on {EntityType} that now exists. Converting to Modified.",
                                             entityType);
-
-                                        // Convert to Modified state
                                         entry.State = EntityState.Modified;
                                         entry.OriginalValues.SetValues(databaseValues);
                                     }
-                                    else
-                                    {
-                                        _logger.LogDebug(
-                                            "⏩ Added entity {EntityType} will be retried.",
-                                            entityType);
-                                    }
-                                    break;
-
-                                default:
-                                    _logger.LogDebug(
-                                        "⏩ Entity {EntityType} in state {State}, no special handling.",
-                                        entityType, state);
                                     break;
                             }
                         }
@@ -238,16 +209,15 @@ namespace SchoolManagement.Persistence.Repositories
                         throw;
                     }
 
-                    // Exponential backoff before retry
                     var delay = BaseDelayMilliseconds * (int)Math.Pow(2, retryCount - 1);
                     _logger.LogDebug("⏳ Waiting {Delay}ms before retry {Retry}", delay, retryCount + 1);
                     await Task.Delay(delay, cancellationToken);
                 }
                 catch (DbUpdateException ex)
                 {
-                    // Let the DbContext handle duplicate key errors and other DB exceptions
-                    _logger.LogWarning(ex,
-                        "⚠️ UnitOfWork: DbUpdateException caught. Propagating to allow DbContext error handling.");
+                    _logger.LogError(ex,
+                        "❌ UnitOfWork: DbUpdateException - {Message}",
+                        ex.InnerException?.Message ?? ex.Message);
                     throw;
                 }
                 catch (Exception ex)
@@ -257,7 +227,89 @@ namespace SchoolManagement.Persistence.Repositories
                 }
             }
         }
+
+        // ✅ ADD: Helper method to log tracked entities
+        private void LogTrackedEntities()
+        {
+            var entries = _context.ChangeTracker.Entries().ToList();
+            _logger.LogDebug("📊 ChangeTracker has {Count} tracked entities:", entries.Count);
+
+            foreach (var entry in entries)
+            {
+                var entityType = entry.Entity.GetType().Name;
+                var id = entry.Entity is BaseEntity be ? be.Id.ToString() : "N/A";
+                _logger.LogDebug("   - {EntityType} (ID: {Id}): {State}", entityType, id, entry.State);
+
+                // Special logging for RefreshToken
+                if (entry.Entity is RefreshToken rt && entry.State == EntityState.Added)
+                {
+                    _logger.LogDebug("      🔑 RefreshToken details - UserId: {UserId}, Token: {Token}..., Expiry: {Expiry}",
+                        rt.UserId,
+                        rt.Token?.Substring(0, Math.Min(10, rt.Token?.Length ?? 0)),
+                        rt.ExpiryDate);
+                }
+            }
+        }
         #endregion
+
+        //#region Debug Methods (for troubleshooting - can remove after fixing)
+
+        ///// <summary>
+        ///// ✅ Get information about tracked entities for debugging
+        ///// </summary>
+        //public IEnumerable<string> GetTrackedEntitiesDebugInfo()
+        //{
+        //    var entries = _context.ChangeTracker.Entries().ToList();
+        //    var debugInfo = new List<string>
+        //    {
+        //        $"Total tracked entities: {entries.Count}"
+        //    };
+
+        //    foreach (var entry in entries)
+        //    {
+        //        var entityType = entry.Entity.GetType().Name;
+        //        var state = entry.State;
+        //        var id = entry.Entity is BaseEntity baseEntity ? baseEntity.Id.ToString() : "N/A";
+
+        //        var info = $"{entityType} (ID: {id}): {state}";
+
+        //        // Add extra details for RefreshToken
+        //        if (entry.Entity is RefreshToken rt)
+        //        {
+        //            info += $" | UserId: {rt.UserId}, Token: {rt.Token?.Substring(0, Math.Min(20, rt.Token?.Length ?? 0))}..., Expiry: {rt.ExpiryDate}";
+        //        }
+
+        //        debugInfo.Add(info);
+        //    }
+
+        //    return debugInfo;
+        //}
+
+        ///// <summary>
+        ///// ✅ Check if a refresh token exists in the database
+        ///// </summary>
+        //public async Task<bool> RefreshTokenExistsInDatabaseAsync(string token, CancellationToken cancellationToken = default)
+        //{
+        //    try
+        //    {
+        //        var exists = await _context.RefreshTokens
+        //            .AsNoTracking()
+        //            .AnyAsync(rt => rt.Token == token, cancellationToken);
+
+        //        _logger.LogDebug("🔍 Token exists check: {Exists} for token {Token}...",
+        //            exists,
+        //            token?.Substring(0, Math.Min(20, token?.Length ?? 0)));
+
+        //        return exists;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "❌ Error checking if token exists in database");
+        //        return false;
+        //    }
+        //}
+
+        //#endregion
 
         #region Transaction Handling
         public async Task BeginTransactionAsync(CancellationToken cancellationToken)
@@ -319,8 +371,6 @@ namespace SchoolManagement.Persistence.Repositories
                 {
                     await _transaction.DisposeAsync();
                     _transaction = null;
-
-                    // Clear change tracker after rollback to prevent stale state
                     _context.ChangeTracker.Clear();
                     _logger.LogDebug("🧹 ChangeTracker cleared after rollback");
                 }

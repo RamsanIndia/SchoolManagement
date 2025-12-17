@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.ValueObjects;
 using System;
@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 namespace SchoolManagement.Application.Auth.Handler
 {
     /// <summary>
-    /// Login command handler with pessimistic locking to prevent concurrency conflicts
+    /// Login command handler with proper DbContext sharing
     /// </summary>
     public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResponseDto>>
     {
@@ -51,6 +51,8 @@ namespace SchoolManagement.Application.Auth.Handler
             {
                 var ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
 
+                _logger.LogInformation("🔵 LOGIN ATTEMPT for email: {Email}", request.Email);
+
                 // Validate email format
                 Email email;
                 try
@@ -63,14 +65,17 @@ namespace SchoolManagement.Application.Auth.Handler
                     return Result<AuthResponseDto>.Failure("Invalid email format");
                 }
 
-                // Get user with pessimistic lock (blocks concurrent logins)
+                // Get user with pessimistic lock
+                // Now IUserRepository shares the same DbContext as IUnitOfWork!
                 var user = await _userRepository.GetByEmailWithLockAsync(email.Value, cancellationToken);
 
                 if (user == null)
                 {
-                    _logger.LogWarning("Login attempt with non-existent email: {Email}", email.Value);
+                    _logger.LogWarning("❌ Login attempt with non-existent email: {Email}", email.Value);
                     return Result<AuthResponseDto>.Failure("Invalid email or password");
                 }
+
+                _logger.LogInformation("✅ User found: {UserId}, Username: {Username}", user.Id, user.Username);
 
                 // Check if account is locked
                 if (user.IsLockedOut())
@@ -91,9 +96,8 @@ namespace SchoolManagement.Application.Auth.Handler
                 {
                     _logger.LogWarning("Failed login attempt for user: {UserId}", user.Id);
 
-                    // Apply failed login attempt logic
+                    // Record failed login
                     user.RecordFailedLogin(MaxLoginAttempts, LockoutDuration);
-
                     await _userRepository.UpdateAsync(user, cancellationToken);
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -103,47 +107,71 @@ namespace SchoolManagement.Application.Auth.Handler
                 // Successful login
                 var result = await HandleSuccessfulLoginAsync(user, ipAddress, cancellationToken);
 
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during login for email: {Email}", request.Email);
+                _logger.LogError(ex, "❌ Error during login for email: {Email}", request.Email);
                 return Result<AuthResponseDto>.Failure("An error occurred during login. Please try again.");
             }
         }
 
-        /// <summary>
-        /// Handle successful login - no concurrency issues since we have pessimistic lock
-        /// </summary>
-        private async Task<Result<AuthResponseDto>> HandleSuccessfulLoginAsync(User user, string ipAddress, CancellationToken cancellationToken)
+        private async Task<Result<AuthResponseDto>> HandleSuccessfulLoginAsync(
+            User user, string ipAddress, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("🟢 HANDLING SUCCESSFUL LOGIN for user: {UserId}", user.Id);
+
             // Generate tokens
             var accessToken = _tokenService.GenerateAccessToken(user);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
 
-            // Clean up expired tokens to reduce DB bloat
+            _logger.LogInformation("🔑 Generated tokens for user: {UserId}", user.Id);
+
+            // 🔍 DEBUG: Check before adding token
+            _logger.LogInformation("🔍 BEFORE - RefreshTokens count: {Count}", user.RefreshTokens.Count);
+
+            // Clean up expired tokens
             user.RemoveExpiredRefreshTokens();
-            
-            // Add new refresh token (raises RefreshTokenCreatedEvent)
-            user.AddRefreshToken(
+            _logger.LogInformation("🧹 After cleanup - RefreshTokens count: {Count}", user.RefreshTokens.Count);
+
+            // Add new refresh token
+            var newToken = user.AddRefreshToken(
                 refreshTokenValue,
                 DateTime.UtcNow.AddDays(7),
                 ipAddress
             );
 
-            // Record successful login (raises UserLoggedInEvent)
+            _logger.LogInformation("➕ Added token - ID: {TokenId}, UserId: {UserId}", newToken.Id, newToken.UserId);
+            _logger.LogInformation("🔍 AFTER adding - RefreshTokens count: {Count}", user.RefreshTokens.Count);
+
+            // Record successful login
             user.RecordSuccessfulLogin();
+
+            // 🔍 DEBUG: Log change tracker before save
+            //_logger.LogInformation("📊 CHANGE TRACKER BEFORE SAVE:");
+            //var trackedEntities = _unitOfWork.GetTrackedEntitiesDebugInfo();
+            //foreach (var entity in trackedEntities)
+            //{
+            //    _logger.LogInformation("   {EntityInfo}", entity);
+            //}
 
             // Update and save
             await _userRepository.UpdateAsync(user, cancellationToken);
 
+            _logger.LogInformation("💾 Calling SaveChangesAsync...");
             var savedCount = await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("✅ SaveChangesAsync completed. Saved {SavedCount} changes.", savedCount);
 
-            _logger.LogInformation(
-                "✅ Successful login for user: {UserId} from IP: {IpAddress}. Saved {SavedCount} changes.",
-                user.Id, ipAddress, savedCount);
+            // 🔍 DEBUG: Verify token in database
+            //var tokenExists = await _unitOfWork.RefreshTokenExistsInDatabaseAsync(refreshTokenValue, cancellationToken);
+            //if (tokenExists)
+            //{
+            //    _logger.LogInformation("✅✅✅ SUCCESS! Token found in database!");
+            //}
+            //else
+            //{
+            //    _logger.LogError("❌❌❌ FAILURE! Token NOT found in database!");
+            //}
 
             // Build response
             var response = new AuthResponseDto

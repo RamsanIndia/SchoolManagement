@@ -1,4 +1,4 @@
-﻿namespace SchoolManagement.Application.Models
+﻿namespace SchoolManagement.Domain.Common
 {
     public class Result
     {

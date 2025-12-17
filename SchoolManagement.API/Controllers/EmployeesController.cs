@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Employees.Commands;
 using SchoolManagement.Application.Employees.Queries;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 
 [ApiController]
 [Route("api/hr/[controller]")]

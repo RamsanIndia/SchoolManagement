@@ -64,33 +64,56 @@ try
     Log.Information("Starting School Management System API");
 
     // ============= DATABASE CONFIGURATION =============
+
+    //builder.Services.AddDbContext<SchoolManagementDbContext>((serviceProvider, options) =>
+    //{
+    //    var connectionString = builder.Configuration.GetConnectionString("SchoolManagementDbConnectionString")
+    //        ?? throw new InvalidOperationException("Database connection string not found");
+
+    //    options.UseSqlServer(connectionString, sqlOptions =>
+    //    {
+    //        sqlOptions.MigrationsAssembly("SchoolManagement.API");
+    //        //sqlOptions.EnableRetryOnFailure(
+    //        //    maxRetryCount: 5,
+    //        //    maxRetryDelay: TimeSpan.FromSeconds(30),
+    //        //    errorNumbersToAdd: null
+    //        //);
+    //        sqlOptions.CommandTimeout(30);
+    //        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+    //    });
+
+    //    // Enable sensitive data logging only in development
+    //    if (builder.Environment.IsDevelopment())
+    //    {
+    //        options.EnableSensitiveDataLogging();
+    //        options.EnableDetailedErrors();
+    //    }
+
+    //    // Disable change tracking for read-only scenarios (can be enabled per query)
+    //    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+    //});
+
     builder.Services.AddDbContext<SchoolManagementDbContext>((serviceProvider, options) =>
     {
         var connectionString = builder.Configuration.GetConnectionString("SchoolManagementDbConnectionString")
             ?? throw new InvalidOperationException("Database connection string not found");
 
-        options.UseSqlServer(connectionString, sqlOptions =>
+        options.UseNpgsql(connectionString, npgsqlOptions =>
         {
-            sqlOptions.MigrationsAssembly("SchoolManagement.API");
-            //sqlOptions.EnableRetryOnFailure(
-            //    maxRetryCount: 5,
-            //    maxRetryDelay: TimeSpan.FromSeconds(30),
-            //    errorNumbersToAdd: null
-            //);
-            sqlOptions.CommandTimeout(30);
-            sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            npgsqlOptions.MigrationsAssembly("SchoolManagement.API");
+            npgsqlOptions.CommandTimeout(30);
+            npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
         });
 
-        // Enable sensitive data logging only in development
         if (builder.Environment.IsDevelopment())
         {
             options.EnableSensitiveDataLogging();
             options.EnableDetailedErrors();
         }
 
-        // Disable change tracking for read-only scenarios (can be enabled per query)
         options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
     });
+
 
     // ============= MEMORY CACHE =============
     builder.Services.AddMemoryCache();
@@ -209,7 +232,7 @@ try
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
 
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/NotificationHub"))
                 {
                     context.Token = accessToken;
                 }
@@ -534,6 +557,19 @@ try
         options.ResponseBodyLogLimit = 4096;
     });
 
+    // Register ProblemDetails services + global customization
+    builder.Services.AddProblemDetails(options =>
+    {
+        options.CustomizeProblemDetails = ctx =>
+        {
+            ctx.ProblemDetails.Extensions["traceId"] =
+                System.Diagnostics.Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
+        };
+    });
+
+    // Register exception handler (IExceptionHandler)
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
     var app = builder.Build();
 
     // ============= DATABASE INITIALIZATION (Run migrations and seed data) =============
@@ -550,11 +586,11 @@ try
     // Exception handling
     if (app.Environment.IsDevelopment())
     {
-        app.UseDeveloperExceptionPage();
+        //app.UseDeveloperExceptionPage();
     }
     else
     {
-        app.UseMiddleware<ErrorHandlingMiddleware>();
+        app.UseExceptionHandler(); // will invoke GlobalExceptionHandler (IExceptionHandler)
         app.UseHsts();
     }
 

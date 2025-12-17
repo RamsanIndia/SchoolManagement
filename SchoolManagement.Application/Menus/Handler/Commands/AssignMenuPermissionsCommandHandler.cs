@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;

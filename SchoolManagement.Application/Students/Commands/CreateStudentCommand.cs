@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using SchoolManagement.Application.DTOs;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 
 namespace SchoolManagement.Application.Students.Commands

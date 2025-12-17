@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.Attendance.Commands;
 using SchoolManagement.Application.Attendance.Queries;
 using SchoolManagement.Application.DTOs;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 
 namespace SchoolManagement.API.Controllers
 {

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.RolePermissions.Commands;
 using SchoolManagement.Application.Roles.Queries;
 

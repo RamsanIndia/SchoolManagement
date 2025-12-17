@@ -45,7 +45,7 @@ namespace SchoolManagement.Persistence.Configurations
                         .IsRequired();
             });
 
-            // PhoneNumber Value Object with Converter and Comparer (nullable)
+            // PhoneNumber Value Object (nullable)
             entity.Property(e => e.PhoneNumber)
                   .HasMaxLength(20)
                   .HasConversion(
@@ -56,7 +56,7 @@ namespace SchoolManagement.Persistence.Configurations
                   .Metadata.SetValueComparer(
                       new ValueComparer<PhoneNumber>(
                           (left, right) => (left == null && right == null) ||
-                                         (left != null && right != null && left.Value == right.Value),
+                                           (left != null && right != null && left.Value == right.Value),
                           phone => phone != null ? phone.Value.GetHashCode() : 0,
                           phone => phone != null ? new PhoneNumber(phone.Value) : null));
 
@@ -64,14 +64,9 @@ namespace SchoolManagement.Persistence.Configurations
                   .IsRequired()
                   .HasMaxLength(500);
 
-            entity.Property(e => e.IsActive)
-                  .IsRequired();
-
-            entity.Property(e => e.EmailVerified)
-                  .IsRequired();
-
-            entity.Property(e => e.PhoneVerified)
-                  .IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
+            entity.Property(e => e.EmailVerified).IsRequired();
+            entity.Property(e => e.PhoneVerified).IsRequired();
 
             // Relationships
             entity.HasOne(e => e.Student)
@@ -84,21 +79,21 @@ namespace SchoolManagement.Persistence.Configurations
                   .HasForeignKey<User>(e => e.EmployeeId)
                   .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasMany(e => e.RefreshTokens)
+            // Relationship: use the PUBLIC navigation
+            entity.HasMany(u => u.RefreshTokens)
                   .WithOne(rt => rt.User)
                   .HasForeignKey(rt => rt.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            entity.Metadata
-                  .FindNavigation(nameof(User.RefreshTokens))
-                  ?.SetPropertyAccessMode(PropertyAccessMode.Field);
+            // Tell EF that RefreshTokens uses the private field "_refreshTokens"
+            entity.Navigation(u => u.RefreshTokens)
+                  .HasField("_refreshTokens")
+                  .UsePropertyAccessMode(PropertyAccessMode.Field);
+
 
             // Indexes
-            entity.HasIndex(e => e.Username)
-                  .IsUnique();
-
-            entity.HasIndex(e => e.Email)
-                  .IsUnique();
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
 
             // Concurrency
             entity.Property(e => e.RowVersion)

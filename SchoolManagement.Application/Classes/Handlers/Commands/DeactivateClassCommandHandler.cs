@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using SchoolManagement.Application.Classes.Commands;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 using System;
 using System.Threading;
 using System.Threading.Tasks;

@@ -1,7 +1,7 @@
 ﻿// Application/Auth/Commands/RefreshTokenCommand.cs
 using MediatR;
 using SchoolManagement.Application.DTOs;
-using SchoolManagement.Application.Models;
+using SchoolManagement.Domain.Common;
 
 namespace SchoolManagement.Application.Auth.Commands
 {
