@@ -340,7 +340,7 @@ Application/
 ### Database
 | Type | Technology | Purpose |
 |------|-----------|---------|
-| Primary DB | SQL Server | 2022 | Relational data |
+| Primary DB | PostgreSQL 18 | Relational data |
 | Future: Cache | Redis | N/A | Performance optimization |
 | Future: Queue | RabbitMQ/Azure Service Bus | N/A | Message queuing |
 
