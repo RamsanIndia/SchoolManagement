@@ -228,7 +228,7 @@ namespace SchoolManagement.Persistence.Repositories
             }
         }
 
-        // ✅ ADD: Helper method to log tracked entities
+        // ADD: Helper method to log tracked entities
         private void LogTrackedEntities()
         {
             var entries = _context.ChangeTracker.Entries().ToList();
@@ -251,65 +251,6 @@ namespace SchoolManagement.Persistence.Repositories
             }
         }
         #endregion
-
-        //#region Debug Methods (for troubleshooting - can remove after fixing)
-
-        ///// <summary>
-        ///// ✅ Get information about tracked entities for debugging
-        ///// </summary>
-        //public IEnumerable<string> GetTrackedEntitiesDebugInfo()
-        //{
-        //    var entries = _context.ChangeTracker.Entries().ToList();
-        //    var debugInfo = new List<string>
-        //    {
-        //        $"Total tracked entities: {entries.Count}"
-        //    };
-
-        //    foreach (var entry in entries)
-        //    {
-        //        var entityType = entry.Entity.GetType().Name;
-        //        var state = entry.State;
-        //        var id = entry.Entity is BaseEntity baseEntity ? baseEntity.Id.ToString() : "N/A";
-
-        //        var info = $"{entityType} (ID: {id}): {state}";
-
-        //        // Add extra details for RefreshToken
-        //        if (entry.Entity is RefreshToken rt)
-        //        {
-        //            info += $" | UserId: {rt.UserId}, Token: {rt.Token?.Substring(0, Math.Min(20, rt.Token?.Length ?? 0))}..., Expiry: {rt.ExpiryDate}";
-        //        }
-
-        //        debugInfo.Add(info);
-        //    }
-
-        //    return debugInfo;
-        //}
-
-        ///// <summary>
-        ///// ✅ Check if a refresh token exists in the database
-        ///// </summary>
-        //public async Task<bool> RefreshTokenExistsInDatabaseAsync(string token, CancellationToken cancellationToken = default)
-        //{
-        //    try
-        //    {
-        //        var exists = await _context.RefreshTokens
-        //            .AsNoTracking()
-        //            .AnyAsync(rt => rt.Token == token, cancellationToken);
-
-        //        _logger.LogDebug("🔍 Token exists check: {Exists} for token {Token}...",
-        //            exists,
-        //            token?.Substring(0, Math.Min(20, token?.Length ?? 0)));
-
-        //        return exists;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "❌ Error checking if token exists in database");
-        //        return false;
-        //    }
-        //}
-
-        //#endregion
 
         #region Transaction Handling
         public async Task BeginTransactionAsync(CancellationToken cancellationToken)
@@ -476,6 +417,11 @@ namespace SchoolManagement.Persistence.Repositories
             }
 
             GC.SuppressFinalize(this);
+        }
+
+        public async Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default)
+        {
+            await _context.Set<RefreshToken>().AddAsync(refreshToken, cancellationToken);
         }
         #endregion
     }

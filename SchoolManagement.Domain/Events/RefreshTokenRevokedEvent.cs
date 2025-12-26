@@ -11,7 +11,7 @@ namespace SchoolManagement.Domain.Events
         public string Reason { get; }
         public DateTime OccurredOn { get; }
 
-        public Guid EventId => throw new NotImplementedException();
+        public Guid EventId { get; } = Guid.NewGuid();
 
         public RefreshTokenRevokedEvent(Guid userId, Guid tokenId, string reason)
         {

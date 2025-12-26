@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SchoolManagement.Domain.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,6 +24,9 @@ namespace SchoolManagement.Application.Interfaces
         ISectionSubjectRepository SectionSubjectsRepository { get; }
         ITimeTableRepository TimeTablesRepository { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+        Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default);
+
         IPermissionRepository Permissions { get; }
         Task BeginTransactionAsync(CancellationToken cancellationToken);
         Task CommitTransactionAsync(CancellationToken cancellationToken);

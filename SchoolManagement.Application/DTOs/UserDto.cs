@@ -18,7 +18,7 @@ namespace SchoolManagement.Application.DTOs
         public bool IsPhoneVerified { get; set; }
         public List<string> Roles { get; set; }
         public string IsActive { get; set; }
-        public bool LastLoginAt { get; set; }
+        public DateTime LastLoginAt { get; set; }
         public DateTime CreatedAt { get; set; }
 
     }

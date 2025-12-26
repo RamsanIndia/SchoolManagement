@@ -1,51 +1,50 @@
-﻿using MediatR;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using SchoolManagement.Application.Auth.Commands;
-using SchoolManagement.Application.DTOs;
-using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Domain.Common;
-using SchoolManagement.Domain.Entities;
-using SchoolManagement.Domain.ValueObjects;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace SchoolManagement.Application.Auth.Handler
+﻿namespace SchoolManagement.Application.Auth.Handler
 {
+    using MediatR;
+    using Microsoft.AspNetCore.Http;
+    using Microsoft.Extensions.Logging;
+    using SchoolManagement.Application.Auth.Commands;
+    using SchoolManagement.Application.DTOs;
+    using SchoolManagement.Application.Interfaces;
+    using SchoolManagement.Domain.Common;
+    using SchoolManagement.Domain.ValueObjects;
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     /// <summary>
-    /// Login command handler with proper DbContext sharing
+    /// SRP: Only orchestrates the login process
+    /// OCP: Open for extension through service injection
+    /// DIP: Depends on abstractions
     /// </summary>
     public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResponseDto>>
     {
         private readonly IUserRepository _userRepository;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IPasswordService _passwordService;
-        private readonly ITokenService _tokenService;
-        private readonly ILogger<LoginCommandHandler> _logger;
+        private readonly IAccountSecurityService _securityService;
+        private readonly IAuthenticationTokenManager _tokenManager;
+        private readonly IAuthResponseBuilder _responseBuilder;
         private readonly IHttpContextAccessor _httpContextAccessor;
-
-        private const int MaxLoginAttempts = 5;
-        private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+        private readonly ILogger<LoginCommandHandler> _logger;
 
         public LoginCommandHandler(
-            IHttpContextAccessor httpContextAccessor,
             IUserRepository userRepository,
-            IUnitOfWork unitOfWork,
-            IPasswordService passwordService,
-            ITokenService tokenService,
+            IAccountSecurityService securityService,
+            IAuthenticationTokenManager tokenManager,
+            IAuthResponseBuilder responseBuilder,
+            IHttpContextAccessor httpContextAccessor,
             ILogger<LoginCommandHandler> logger)
         {
-            _httpContextAccessor = httpContextAccessor;
             _userRepository = userRepository;
-            _unitOfWork = unitOfWork;
-            _passwordService = passwordService;
-            _tokenService = tokenService;
+            _securityService = securityService;
+            _tokenManager = tokenManager;
+            _responseBuilder = responseBuilder;
+            _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
-        public async Task<Result<AuthResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
+        public async Task<Result<AuthResponseDto>> Handle(
+            LoginCommand request,
+            CancellationToken cancellationToken)
         {
             try
             {
@@ -54,60 +53,46 @@ namespace SchoolManagement.Application.Auth.Handler
                 _logger.LogInformation("🔵 LOGIN ATTEMPT for email: {Email}", request.Email);
 
                 // Validate email format
-                Email email;
-                try
+                var emailResult = ValidateEmail(request.Email);
+                if (!emailResult.Status)
                 {
-                    email = new Email(request.Email);
-                }
-                catch (ArgumentException)
-                {
-                    _logger.LogWarning("Invalid email format attempted: {Email}", request.Email);
-                    return Result<AuthResponseDto>.Failure("Invalid email format");
+                    return Result<AuthResponseDto>.Failure(emailResult.Message);
                 }
 
-                // Get user with pessimistic lock
-                // Now IUserRepository shares the same DbContext as IUnitOfWork!
-                var user = await _userRepository.GetByEmailWithLockAsync(email.Value, cancellationToken);
-
+                // Get user
+                var user = await _userRepository.GetByEmailWithLockAsync(emailResult.Data.Value, cancellationToken);
                 if (user == null)
                 {
-                    _logger.LogWarning("❌ Login attempt with non-existent email: {Email}", email.Value);
+                    _logger.LogWarning("❌ Login attempt with non-existent email: {Email}", request.Email);
                     return Result<AuthResponseDto>.Failure("Invalid email or password");
                 }
 
                 _logger.LogInformation("✅ User found: {UserId}, Username: {Username}", user.Id, user.Username);
 
-                // Check if account is locked
-                if (user.IsLockedOut())
+                // Validate account status
+                var statusResult = await _securityService.ValidateAccountStatusAsync(user);
+                if (!statusResult.Status)
                 {
-                    _logger.LogWarning("Login attempt for locked account: {UserId}", user.Id);
-                    return Result<AuthResponseDto>.Failure("Account is locked. Please try again later.");
+                    return Result<AuthResponseDto>.Failure(statusResult.Message);
                 }
 
-                // Check if account is active
-                if (!user.IsActive)
+                // Verify credentials
+                var credentialsResult = await _securityService.VerifyCredentialsAsync(user, request.Password);
+                if (!credentialsResult.Status)
                 {
-                    _logger.LogWarning("Login attempt for deactivated account: {UserId}", user.Id);
-                    return Result<AuthResponseDto>.Failure("Account is deactivated. Please contact support.");
+                    await _securityService.HandleFailedLoginAsync(user, cancellationToken);
+                    return Result<AuthResponseDto>.Failure(credentialsResult.Message);
                 }
 
-                // Verify password
-                if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
-                {
-                    _logger.LogWarning("Failed login attempt for user: {UserId}", user.Id);
+                // Generate tokens
+                var tokenResult = await _tokenManager.GenerateTokensAsync(user, ipAddress, cancellationToken);
 
-                    // Record failed login
-                    user.RecordFailedLogin(MaxLoginAttempts, LockoutDuration);
-                    await _userRepository.UpdateAsync(user, cancellationToken);
-                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                // Build response
+                var response = _responseBuilder.BuildAuthResponse(user, tokenResult.AccessToken, tokenResult.RefreshToken);
 
-                    return Result<AuthResponseDto>.Failure("Invalid email or password");
-                }
+                _logger.LogInformation("🟢 Successful login for user: {UserId}", user.Id);
 
-                // Successful login
-                var result = await HandleSuccessfulLoginAsync(user, ipAddress, cancellationToken);
-
-                return result;
+                return Result<AuthResponseDto>.Success(response, "Login successful");
             }
             catch (Exception ex)
             {
@@ -116,82 +101,18 @@ namespace SchoolManagement.Application.Auth.Handler
             }
         }
 
-        private async Task<Result<AuthResponseDto>> HandleSuccessfulLoginAsync(
-            User user, string ipAddress, CancellationToken cancellationToken)
+        private Result<Email> ValidateEmail(string email)
         {
-            _logger.LogInformation("🟢 HANDLING SUCCESSFUL LOGIN for user: {UserId}", user.Id);
-
-            // Generate tokens
-            var accessToken = _tokenService.GenerateAccessToken(user);
-            var refreshTokenValue = _tokenService.GenerateRefreshToken();
-
-            _logger.LogInformation("🔑 Generated tokens for user: {UserId}", user.Id);
-
-            // 🔍 DEBUG: Check before adding token
-            _logger.LogInformation("🔍 BEFORE - RefreshTokens count: {Count}", user.RefreshTokens.Count);
-
-            // Clean up expired tokens
-            user.RemoveExpiredRefreshTokens();
-            _logger.LogInformation("🧹 After cleanup - RefreshTokens count: {Count}", user.RefreshTokens.Count);
-
-            // Add new refresh token
-            var newToken = user.AddRefreshToken(
-                refreshTokenValue,
-                DateTime.UtcNow.AddDays(7),
-                ipAddress
-            );
-
-            _logger.LogInformation("➕ Added token - ID: {TokenId}, UserId: {UserId}", newToken.Id, newToken.UserId);
-            _logger.LogInformation("🔍 AFTER adding - RefreshTokens count: {Count}", user.RefreshTokens.Count);
-
-            // Record successful login
-            user.RecordSuccessfulLogin();
-
-            // 🔍 DEBUG: Log change tracker before save
-            //_logger.LogInformation("📊 CHANGE TRACKER BEFORE SAVE:");
-            //var trackedEntities = _unitOfWork.GetTrackedEntitiesDebugInfo();
-            //foreach (var entity in trackedEntities)
-            //{
-            //    _logger.LogInformation("   {EntityInfo}", entity);
-            //}
-
-            // Update and save
-            await _userRepository.UpdateAsync(user, cancellationToken);
-
-            _logger.LogInformation("💾 Calling SaveChangesAsync...");
-            var savedCount = await _unitOfWork.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("✅ SaveChangesAsync completed. Saved {SavedCount} changes.", savedCount);
-
-            // 🔍 DEBUG: Verify token in database
-            //var tokenExists = await _unitOfWork.RefreshTokenExistsInDatabaseAsync(refreshTokenValue, cancellationToken);
-            //if (tokenExists)
-            //{
-            //    _logger.LogInformation("✅✅✅ SUCCESS! Token found in database!");
-            //}
-            //else
-            //{
-            //    _logger.LogError("❌❌❌ FAILURE! Token NOT found in database!");
-            //}
-
-            // Build response
-            var response = new AuthResponseDto
+            try
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshTokenValue,
-                User = new UserDto
-                {
-                    Id = user.Id.ToString(),
-                    Email = user.Email.Value,
-                    FirstName = user.FullName.FirstName,
-                    LastName = user.FullName.LastName,
-                    PhoneNumber = user.PhoneNumber?.Value,
-                    IsEmailVerified = user.EmailVerified,
-                    IsPhoneVerified = user.PhoneVerified,
-                    Roles = new List<string> { user.UserType.ToString() }
-                }
-            };
-
-            return Result<AuthResponseDto>.Success(response);
+                var emailObj = new Email(email);
+                return Result<Email>.Success(emailObj, "Email validated");
+            }
+            catch (ArgumentException)
+            {
+                _logger.LogWarning("Invalid email format attempted: {Email}", email);
+                return Result<Email>.Failure("Invalid email format");
+            }
         }
     }
 }

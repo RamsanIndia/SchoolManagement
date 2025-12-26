@@ -3,8 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Services;
+using SchoolManagement.Domain.Common;
+using SchoolManagement.Infrastructure.EventBus;
 using SchoolManagement.Persistence;
 using SchoolManagement.Persistence.Outbox;
 using System;
@@ -73,65 +74,68 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
 
         private async Task ProcessOutboxMessagesAsync(CancellationToken cancellationToken)
         {
-            await using var scope = _scopeFactory.CreateAsyncScope(); // ✅ FIXED: Changed from 'using' to 'await using'
+            await using var scope = _scopeFactory.CreateAsyncScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<SchoolManagementDbContext>();
-            var publisher = scope.ServiceProvider.GetRequiredService<IEventPublisher>();
+            var publisher = scope.ServiceProvider.GetRequiredService<IEventBus>();
 
-            // Create execution strategy correctly
+            // Use execution strategy properly - don't mix with explicit transactions
             var strategy = dbContext.Database.CreateExecutionStrategy();
 
             await strategy.ExecuteAsync(async () =>
             {
-                // Create NEW DbContext inside execution strategy for retry safety
-                await using var retryScope = _scopeFactory.CreateAsyncScope(); // ✅ FIXED: Changed from 'using' to 'await using'
-                var retryDbContext = retryScope.ServiceProvider.GetRequiredService<SchoolManagementDbContext>();
-                var retryPublisher = retryScope.ServiceProvider.GetRequiredService<IEventPublisher>();
+                // Get unprocessed messages (no transaction needed for read)
+                var messages = await dbContext.OutboxMessages
+                    .Where(m => m.ProcessedAt == null && (m.RetryCount == null || m.RetryCount < _maxRetries))
+                    .OrderBy(m => m.CreatedAt)
+                    .Take(_batchSize)
+                    .AsNoTracking() //  Use no tracking for read
+                    .ToListAsync(cancellationToken);
 
-                // Now safe to start transaction inside execution strategy
-                await using var transaction = await retryDbContext.Database.BeginTransactionAsync(cancellationToken);
+                if (!messages.Any())
+                {
+                    _logger.LogDebug("No outbox messages to process");
+                    return;
+                }
 
+                _logger.LogInformation("Processing {Count} outbox messages", messages.Count);
+
+                // ✅ Re-attach entities to the context for tracking
+                foreach (var message in messages)
+                {
+                    dbContext.OutboxMessages.Attach(message);
+                }
+
+                // Process each message
+                foreach (var message in messages)
+                {
+                    await ProcessSingleMessageAsync(message, publisher, cancellationToken);
+                }
+
+                // ✅ CRITICAL: Save all changes in one batch
                 try
                 {
-                    // Get unprocessed messages
-                    var messages = await retryDbContext.OutboxMessages
-                        .Where(m => m.ProcessedAt == null && (m.RetryCount == null || m.RetryCount < _maxRetries))
-                        .OrderBy(m => m.CreatedAt)
-                        .Take(_batchSize)
-                        .ToListAsync(cancellationToken);
-
-                    if (!messages.Any())
-                    {
-                        await transaction.RollbackAsync(cancellationToken);
-                        return;
-                    }
-
-                    _logger.LogInformation("Processing {Count} outbox messages", messages.Count);
-
-                    foreach (var message in messages)
-                    {
-                        await ProcessSingleMessageAsync(message, retryPublisher, cancellationToken);
-                    }
-
-                    // Save all changes in one transaction
-                    await retryDbContext.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                    var savedCount = await dbContext.SaveChangesAsync(cancellationToken);
 
                     _logger.LogInformation(
-                        "Successfully processed {Count} outbox messages",
-                        messages.Count);
+                        "Successfully processed and saved {Count} outbox messages",
+                        savedCount);
+                }
+                catch (DbUpdateConcurrencyException ex)
+                {
+                    _logger.LogWarning(ex, "Concurrency conflict updating outbox messages. Will retry on next cycle.");
+                    // Don't throw - let it retry on next cycle
                 }
                 catch (Exception ex)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                    _logger.LogError(ex, "Failed to process outbox batch. Transaction rolled back.");
-                    throw; // Let execution strategy retry
+                    _logger.LogError(ex, "Failed to save outbox message updates to database");
+                    throw; // Execution strategy will retry
                 }
             });
         }
 
         private async Task ProcessSingleMessageAsync(
             OutboxMessage message,
-            IEventPublisher publisher,
+            IEventBus publisher,
             CancellationToken cancellationToken)
         {
             try
@@ -141,48 +145,154 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     message.Id,
                     message.EventType);
 
-                // Publish to Azure Service Bus
-                await publisher.PublishAsync(
-                    message.EventType,
-                    message.Payload,
-                    cancellationToken);
+                // Validate payload
+                if (string.IsNullOrWhiteSpace(message.Payload))
+                {
+                    _logger.LogError("Payload is null or empty for message {MessageId}", message.Id);
+                    message.Error = "Payload is null or empty";
+                    message.ProcessedAt = DateTime.UtcNow;
+                    message.RetryCount = _maxRetries;
+                    return; // ✅ EF Core tracks this change, will be saved
+                }
 
-                // Mark as processed
+                // Load event type
+                var eventType = Type.GetType(message.EventType);
+                if (eventType == null)
+                {
+                    _logger.LogError(
+                        "Could not load type {EventType} for message {MessageId}. " +
+                        "Ensure the type name is fully qualified with assembly.",
+                        message.EventType,
+                        message.Id);
+                    message.Error = $"Type '{message.EventType}' not found";
+                    message.ProcessedAt = DateTime.UtcNow;
+                    message.RetryCount = _maxRetries;
+                    return; // ✅ EF Core tracks this change
+                }
+
+                // Verify type implements IDomainEvent
+                if (!typeof(IDomainEvent).IsAssignableFrom(eventType))
+                {
+                    _logger.LogError(
+                        "Type {EventType} does not implement IDomainEvent for message {MessageId}",
+                        message.EventType,
+                        message.Id);
+                    message.Error = $"Type '{message.EventType}' does not implement IDomainEvent";
+                    message.ProcessedAt = DateTime.UtcNow;
+                    message.RetryCount = _maxRetries;
+                    return; // ✅ EF Core tracks this change
+                }
+
+                // Deserialize
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true,
+                    WriteIndented = false
+                };
+
+                var deserializedObject = JsonSerializer.Deserialize(message.Payload, eventType, jsonOptions);
+
+                if (deserializedObject == null)
+                {
+                    _logger.LogError(
+                        "Deserialization returned null for {EventType} message {MessageId}. Payload: {Payload}",
+                        message.EventType,
+                        message.Id,
+                        message.Payload.Length > 500 ? message.Payload.Substring(0, 500) + "..." : message.Payload);
+                    message.Error = "Deserialization returned null";
+                    message.ProcessedAt = DateTime.UtcNow;
+                    message.RetryCount = _maxRetries;
+                    return; // ✅ EF Core tracks this change
+                }
+
+                // Cast to IDomainEvent
+                var domainEvent = deserializedObject as IDomainEvent;
+                if (domainEvent == null)
+                {
+                    _logger.LogError(
+                        "Failed to cast deserialized object to IDomainEvent. " +
+                        "Actual type: {ActualType}, Expected type: {EventType}, MessageId: {MessageId}",
+                        deserializedObject.GetType().FullName,
+                        message.EventType,
+                        message.Id);
+                    message.Error = $"Object of type '{deserializedObject.GetType().FullName}' cannot be cast to IDomainEvent";
+                    message.ProcessedAt = DateTime.UtcNow;
+                    message.RetryCount = _maxRetries;
+                    return; // ✅ EF Core tracks this change
+                }
+
+                // ✅ Publish to Service Bus using reflection
+                var publishMethod = publisher.GetType()
+                    .GetMethod(nameof(IEventBus.PublishAsync))
+                    ?.MakeGenericMethod(eventType);
+
+                if (publishMethod == null)
+                {
+                    throw new InvalidOperationException($"Could not find PublishAsync method on {publisher.GetType().Name}");
+                }
+
+                await (Task)publishMethod.Invoke(publisher, new object[] { domainEvent, cancellationToken });
+
+                // ✅ Mark as successfully processed
                 message.ProcessedAt = DateTime.UtcNow;
                 message.Error = null;
+                // Don't increment RetryCount on success - leave it as is for audit trail
 
                 _logger.LogInformation(
                     "Successfully published outbox message {MessageId} of type {EventType} with EventId {EventId}",
                     message.Id,
                     message.EventType,
-                    message.EventId);
+                    domainEvent.EventId);
+            }
+            catch (JsonException jsonEx)
+            {
+                // Permanent error - deserialization failed
+                message.RetryCount = _maxRetries;
+                message.ProcessedAt = DateTime.UtcNow;
+                message.Error = TruncateError($"JSON Deserialization Error: {jsonEx.Message}", 4000);
+
+                _logger.LogError(
+                    jsonEx,
+                    "JSON deserialization failed for outbox message {MessageId}. " +
+                    "EventType: {EventType}. Payload: {Payload}",
+                    message.Id,
+                    message.EventType,
+                    message.Payload?.Length > 500 ? message.Payload.Substring(0, 500) + "..." : message.Payload);
             }
             catch (Exception ex)
             {
-                message.RetryCount = (message.RetryCount ?? 0) + 1; // ✅ FIXED: Added null-coalescing operator
+                // Transient error - increment retry count
+                message.RetryCount = (message.RetryCount ?? 0) + 1;
                 message.Error = TruncateError(ex.ToString(), 4000);
+                // ✅ Don't set ProcessedAt yet - allow retry
 
                 _logger.LogError(
                     ex,
-                    "Failed to publish outbox message {MessageId} (Retry {RetryCount}/{MaxRetries}). EventType: {EventType}",
+                    "Failed to publish outbox message {MessageId} (Retry {RetryCount}/{MaxRetries}). " +
+                    "EventType: {EventType}. Error: {Error}",
                     message.Id,
                     message.RetryCount,
                     _maxRetries,
-                    message.EventType);
+                    message.EventType,
+                    ex.Message);
 
-                // If max retries reached, mark as processed to prevent infinite retry
+                // Mark as processed if max retries reached
                 if (message.RetryCount >= _maxRetries)
                 {
-                    message.ProcessedAt = DateTime.UtcNow; // Mark as processed to skip future attempts
+                    message.ProcessedAt = DateTime.UtcNow;
 
                     _logger.LogCritical(
                         "Outbox message {MessageId} failed after {MaxRetries} retries. " +
-                        "EventType: {EventType}. Marked as processed. Manual intervention required.",
+                        "EventType: {EventType}. Marked as processed. Manual intervention required. " +
+                        "Last Error: {Error}",
                         message.Id,
                         _maxRetries,
-                        message.EventType);
+                        message.EventType,
+                        message.Error);
                 }
             }
+            // ✅ All changes tracked by EF Core - will be saved in ProcessOutboxMessagesAsync
         }
 
         /// <summary>
@@ -211,8 +321,13 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                 if (pendingCount > 0)
                 {
                     _logger.LogWarning(
-                        "{PendingCount} outbox messages remain unprocessed during shutdown",
+                        "{PendingCount} outbox messages remain unprocessed during shutdown. " +
+                        "They will be processed on next startup.",
                         pendingCount);
+                }
+                else
+                {
+                    _logger.LogInformation("All outbox messages processed successfully before shutdown");
                 }
             }
             catch (Exception ex)

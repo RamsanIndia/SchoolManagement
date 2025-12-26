@@ -407,11 +407,12 @@ namespace SchoolManagement.Persistence
                 {
                     Id = Guid.NewGuid(),
                     EventId = eventId,
-                    EventType = domainEvent.GetType().FullName,
+                    EventType = domainEvent.GetType().AssemblyQualifiedName!,
                     Payload = JsonSerializer.Serialize(domainEvent, new JsonSerializerOptions
                     {
                         WriteIndented = false,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        PropertyNameCaseInsensitive = true
                     }),
                     CreatedAt = DateTime.UtcNow,
                     ProcessedAt = null,
@@ -486,11 +487,12 @@ namespace SchoolManagement.Persistence
                 {
                     Id = Guid.NewGuid(),
                     EventId = eventId,
-                    EventType = domainEvent.GetType().FullName,
+                    EventType = domainEvent.GetType().AssemblyQualifiedName!,
                     Payload = JsonSerializer.Serialize(domainEvent, new JsonSerializerOptions
                     {
                         WriteIndented = false,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        PropertyNameCaseInsensitive = true
                     }),
                     CreatedAt = DateTime.UtcNow,
                     ProcessedAt = null,

@@ -10,11 +10,11 @@ namespace SchoolManagement.Domain.Entities
         // Properties
         public string Token { get; private set; }
         public DateTime ExpiryDate { get; private set; }
-        public bool IsRevoked { get; private set; }
+        public bool IsRevoked { get; private set; } = false;
         public DateTime? RevokedAt { get; private set; }
-        public string RevokedByIp { get; private set; }
-        public string ReplacedByToken { get; private set; }
-        public string ReasonRevoked { get; private set; }
+        public string? RevokedByIp { get; private set; }
+        public string? ReplacedByToken { get; private set; }
+        public string? ReasonRevoked { get; private set; }
         public Guid UserId { get; private set; }
 
         // Navigation property

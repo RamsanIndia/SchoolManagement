@@ -284,6 +284,7 @@ try
 
     // ============= DEPENDENCY INJECTION - Use Extension Methods =============
     builder.Services.AddRepositories();
+    builder.Services.AddAuthenticationServices();
     builder.Services.AddApplicationServices();
     builder.Services.AddDomainServices();
     builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -319,14 +320,14 @@ try
     }
     else
     {
-        builder.Services.AddSingleton<IEventBus>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<RabbitMQEventBus>>();
-            var rabbitMQHost = builder.Configuration["RabbitMQ:HostName"] ?? "localhost";
-            return new RabbitMQEventBus(logger, sp, rabbitMQHost);
-        });
+        //builder.Services.AddSingleton<IEventBus>(sp =>
+        //{
+        //    var logger = sp.GetRequiredService<ILogger<RabbitMQEventBus>>();
+        //    var rabbitMQHost = builder.Configuration["RabbitMQ:HostName"] ?? "localhost";
+        //    return new RabbitMQEventBus(logger, sp, rabbitMQHost);
+        //});
 
-        Log.Information("Using RabbitMQ for event publishing");
+        //Log.Information("Using RabbitMQ for event publishing");
     }
 
     // ============= BACKGROUND SERVICES =============
