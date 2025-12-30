@@ -326,6 +326,8 @@ try
     builder.Services.AddAuthenticationServices();
     builder.Services.AddApplicationServices();
     builder.Services.AddDomainServices();
+    builder.Services.AddTimeTableServices();
+
     builder.Services.AddInfrastructureServices(builder.Configuration);
 
     // ============= EVENT BUS CONFIGURATION =============

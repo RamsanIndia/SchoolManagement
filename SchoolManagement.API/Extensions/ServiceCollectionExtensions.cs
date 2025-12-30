@@ -2,7 +2,11 @@
 using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Shared.Correlation;
 using SchoolManagement.Application.Shared.Utilities;
+using SchoolManagement.Application.TimeTables.Mappers;
+using SchoolManagement.Application.TimeTables.Queries;
+using SchoolManagement.Application.TimeTables.Validators;
 using SchoolManagement.Domain.Services;
+using SchoolManagement.Domain.Services.Strategies;
 using SchoolManagement.Infrastructure.BackgroundServices;
 using SchoolManagement.Infrastructure.Configuration;
 using SchoolManagement.Infrastructure.EventBus;
@@ -165,12 +169,45 @@ namespace SchoolManagement.API.Extensions
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IAuditService, AuditService>();
             services.AddScoped<IChangeTrackerService, ChangeTrackerService>();
+            
+            return services;
+        }
+
+
+        public static IServiceCollection AddTimeTableServices(this IServiceCollection services)
+        {
+            // Application Services
             services.AddScoped<ITimeTableGenerationService, TimeTableGenerationService>();
+            services.AddScoped<ISlotAvailabilityApplicationService,
+                SlotAvailabilityApplicationService>();
 
+            // Domain Services
+            services.AddScoped<ISlotAvailabilityService, SlotAvailabilityService>();
 
+            // Conflict Detection Strategies
+            services.AddScoped<IConflictDetectionStrategy,
+                CompositeConflictDetectionStrategy>();
+            services.AddScoped<IConflictDetector, SectionConflictDetector>();
+            services.AddScoped<IConflictDetector, TeacherConflictDetector>();
+            services.AddScoped<IConflictDetector, RoomConflictDetector>();
+
+            // Validators
+            services.AddScoped<ISlotAvailabilityValidator, SlotAvailabilityValidator>();
+            services.AddScoped<IValidationRule<CheckSlotAvailabilityQuery>,
+                SectionExistsValidationRule>();
+            services.AddScoped<IValidationRule<CheckSlotAvailabilityQuery>,
+                TeacherExistsValidationRule>();
+            services.AddScoped<IValidationRule<CheckSlotAvailabilityQuery>,
+                DayOfWeekValidationRule>();
+            services.AddScoped<IValidationRule<CheckSlotAvailabilityQuery>,
+                PeriodNumberValidationRule>();
+
+            // Mappers
+            services.AddScoped<ISlotAvailabilityMapper, SlotAvailabilityMapper>();
 
             return services;
         }
+        
 
         /// <summary>
         /// Register all domain services
