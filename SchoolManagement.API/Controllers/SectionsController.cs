@@ -22,15 +22,42 @@ namespace SchoolManagement.API.Controllers
         }
 
         /// <summary>
-        /// Get all sections, optionally filtered by class
+        /// Get paginated sections with optional filtering
         /// </summary>
-        /// <param name="classId">Filter by class ID (optional)</param>
-        /// <returns>List of sections</returns>
+        /// <param name="pageNumber">Page number (default: 1)</param>
+        /// <param name="pageSize">Page size (default: 10, max: 100)</param>
+        /// <param name="classId">Filter by class ID</param>
+        /// <param name="isActive">Filter by active status</param>
+        /// <param name="searchTerm">Search in section name or room number</param>
+        /// <param name="sortBy">Sort field: name, capacity, createdat, roomnumber (default: name)</param>
+        /// <param name="sortDirection">Sort direction: asc or desc (default: asc)</param>
         [HttpGet]
-        public async Task<IActionResult> GetSections([FromQuery] Guid? classId = null)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetSections(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] Guid? classId = null,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDirection = "asc")
         {
-            var query = new GetSectionsQuery { ClassId = classId };
+            var query = new GetSectionsQuery(
+                pageNumber,
+                pageSize,
+                classId,
+                isActive,
+                searchTerm,
+                sortBy,
+                sortDirection
+            );
+
             var result = await _mediator.Send(query);
+
+            if (!result.Status)
+                return BadRequest(result);
+
             return Ok(result);
         }
 
@@ -42,7 +69,7 @@ namespace SchoolManagement.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetSectionById(Guid id)
         {
-            var query = new GetSectionByIdQuery { Id = id };
+            var query = new GetSectionByIdQuery { SectionId = id };
             var result = await _mediator.Send(query);
 
             if (result == null)
@@ -104,9 +131,7 @@ namespace SchoolManagement.API.Controllers
         /// <param name="request">Teacher assignment details</param>
         /// <returns>Success response</returns>
         [HttpPost("{id}/assign-teacher")]
-        public async Task<IActionResult> AssignClassTeacher(
-            Guid id,
-            [FromBody] AssignClassTeacherCommand request)
+        public async Task<IActionResult> AssignClassTeacher(Guid id, [FromBody] AssignClassTeacherCommand request)
         {
             var command = new AssignClassTeacherCommand
             {
@@ -114,8 +139,8 @@ namespace SchoolManagement.API.Controllers
                 TeacherId = request.TeacherId
             };
 
-            await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(command);
+            return Ok(result);
         }
 
         /// <summary>

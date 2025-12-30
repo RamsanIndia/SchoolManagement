@@ -3,12 +3,7 @@ using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Entities=SchoolManagement.Domain.Entities;
+using AttendanceEntity = SchoolManagement.Domain.Entities.Attendance;
 
 namespace SchoolManagement.Application.Services
 {
@@ -100,8 +95,8 @@ namespace SchoolManagement.Application.Services
                     return;
                 }
 
-                // Create attendance using simplified factory method
-                var attendance = Entities.Attendance.Create(
+                // Create attendance using factory method
+                var attendance = AttendanceEntity.Create(
                     studentId: student.Id,
                     date: record.CheckInTime.Date,
                     status: AttendanceStatus.Present,
@@ -111,9 +106,6 @@ namespace SchoolManagement.Application.Services
                     isFromBiometric: true,
                     biometricDeviceId: record.DeviceId,
                     remarks: $"Synced from device {record.DeviceId}");
-
-                // Set audit fields from BaseEntity
-                //attendance.SetCreated("SYSTEM", "Device");
 
                 await _attendanceRepository.AddAsync(attendance, cancellationToken);
 
@@ -157,7 +149,7 @@ namespace SchoolManagement.Application.Services
                 }
 
                 // Create attendance using factory method
-                var attendance = Entities.Attendance.Create(
+                var attendance = AttendanceEntity.Create(
                     studentId: studentId,
                     date: date.Date,
                     status: AttendanceStatus.Present,
@@ -167,9 +159,6 @@ namespace SchoolManagement.Application.Services
                     isFromBiometric: false,
                     biometricDeviceId: null,
                     remarks: "Manually marked");
-
-                // Set audit fields
-                //attendance.SetCreated("SYSTEM", "Manual");
 
                 await _attendanceRepository.AddAsync(attendance, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -184,34 +173,40 @@ namespace SchoolManagement.Application.Services
             }
         }
 
-        public async Task<IEnumerable<Entities.Attendance>> GetAttendanceByDateAsync(
+        public async Task<IEnumerable<AttendanceEntity>> GetAttendanceByDateAsync(
             DateTime date,
             CancellationToken cancellationToken = default)
         {
-            return await _attendanceRepository.GetByDateAsync(date.Date, cancellationToken);
+            try
+            {
+                return await _attendanceRepository.GetByDateAsync(date.Date, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting attendance for date {Date}", date);
+                return Enumerable.Empty<AttendanceEntity>();
+            }
         }
 
-        public async Task<IEnumerable<Entities.Attendance>> GetStudentAttendanceAsync(
+        public async Task<IEnumerable<AttendanceEntity>> GetStudentAttendanceAsync(
             Guid studentId,
             DateTime startDate,
             DateTime endDate,
             CancellationToken cancellationToken = default)
         {
-            return await _attendanceRepository.GetStudentAttendanceAsync(
-                studentId,
-                startDate.Date,
-                endDate.Date,
-                cancellationToken);
-        }
-
-        Task<IEnumerable<Domain.Entities.Attendance>> IAttendanceService.GetAttendanceByDateAsync(DateTime date, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
-        Task<IEnumerable<Domain.Entities.Attendance>> IAttendanceService.GetStudentAttendanceAsync(Guid studentId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
+            try
+            {
+                return await _attendanceRepository.GetStudentAttendanceAsync(
+                    studentId,
+                    startDate.Date,
+                    endDate.Date,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting student attendance for {StudentId}", studentId);
+                return Enumerable.Empty<AttendanceEntity>();
+            }
         }
     }
 }

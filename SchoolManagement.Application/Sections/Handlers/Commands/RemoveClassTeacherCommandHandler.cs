@@ -12,10 +12,12 @@ namespace SchoolManagement.Application.Sections.Handlers.Commands
         : IRequestHandler<RemoveClassTeacherCommand, Result>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUserService;
 
-        public RemoveClassTeacherCommandHandler(IUnitOfWork unitOfWork)
+        public RemoveClassTeacherCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Result> Handle(RemoveClassTeacherCommand request, CancellationToken cancellationToken)
@@ -31,7 +33,8 @@ namespace SchoolManagement.Application.Sections.Handlers.Commands
             }
 
             // Domain logic
-            section.RemoveClassTeacher();
+            var currentUser = _currentUserService.Username;
+            section.RemoveClassTeacher(currentUser);
 
             await _unitOfWork.SectionsRepository.UpdateAsync(section, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

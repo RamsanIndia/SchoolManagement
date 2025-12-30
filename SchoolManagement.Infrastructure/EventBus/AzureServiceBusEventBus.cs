@@ -24,7 +24,7 @@ public class AzureServiceBusEventBus : IEventBus, IAsyncDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _client = serviceBusClient ?? throw new ArgumentNullException(nameof(serviceBusClient));
 
-        // ✅ Use single topic name from configuration
+        // Use single topic name from configuration
         _topicName = configuration["AzureServiceBus:TopicName"]
             ?? throw new InvalidOperationException("AzureServiceBus:TopicName configuration is required");
 
@@ -48,7 +48,7 @@ public class AzureServiceBusEventBus : IEventBus, IAsyncDisposable
 
         try
         {
-            // ✅ Get sender for the single topic
+            // Get sender for the single topic
             var sender = await GetOrCreateSenderAsync(_topicName);
 
             // Serialize event
@@ -58,13 +58,13 @@ public class AzureServiceBusEventBus : IEventBus, IAsyncDisposable
             var message = new ServiceBusMessage(body)
             {
                 ContentType = "application/json",
-                Subject = eventType, // ✅ Use Subject for filtering
+                Subject = eventType, // Use Subject for filtering
                 MessageId = @event.EventId.ToString(),
                 CorrelationId = @event.EventId.ToString(),
                 TimeToLive = TimeSpan.FromHours(24)
             };
 
-            // ✅ Add properties for subscription filtering
+            // Add properties for subscription filtering
             message.ApplicationProperties.Add("EventType", eventType);
             message.ApplicationProperties.Add("FullEventType", typeof(T).AssemblyQualifiedName);
             message.ApplicationProperties.Add("OccurredOn", @event.OccurredOn);
@@ -229,7 +229,7 @@ public class AzureServiceBusEventBus : IEventBus, IAsyncDisposable
         }
     }
 
-    // ✅ Remove the GetTopicName method - no longer needed
+    // Remove the GetTopicName method - no longer needed
 
     public async ValueTask DisposeAsync()
     {

@@ -10,6 +10,8 @@ namespace SchoolManagement.Application.DTOs
     {
         public string AccessToken { get; set; }
         public string RefreshToken { get; set; }
+        public int ExpiresIn { get; set; } // Seconds until access token expires
+        public string TokenType { get; set; } = "Bearer";
         public UserDto User { get; set; }
     }
 }

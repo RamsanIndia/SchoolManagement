@@ -9,7 +9,6 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
-//using static System.Collections.Specialized.BitVector32;
 
 namespace SchoolManagement.Domain.Entities
 {

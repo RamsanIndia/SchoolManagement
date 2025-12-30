@@ -7,23 +7,35 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Domain.ValueObjects
 {
-    public class BiometricInfo
+    public class BiometricInfo : ValueObject
     {
-        public string TemplateHash { get; private set; }
-        public BiometricType Type { get; private set; }
-        public DateTime EnrolledAt { get; private set; }
-        public string DeviceId { get; private set; }
-        public int Quality { get; private set; }
+        public string DeviceId { get; }
+        public string TemplateHash { get; }
+        public DateTime EnrollmentDate { get; }
+        public bool IsActive { get; }
 
-        private BiometricInfo() { } // EF Constructor
+        private BiometricInfo() { } // EF Core
 
-        public BiometricInfo(string templateHash, BiometricType type, string deviceId, int quality)
+        public BiometricInfo(string deviceId, string templateHash, DateTime? enrollmentDate = null, bool isActive = true)
         {
-            TemplateHash = templateHash ?? throw new ArgumentNullException(nameof(templateHash));
-            Type = type;
+            if (string.IsNullOrWhiteSpace(deviceId))
+                throw new ArgumentException("Device ID is required.", nameof(deviceId));
+
+            if (string.IsNullOrWhiteSpace(templateHash))
+                throw new ArgumentException("Template hash is required.", nameof(templateHash));
+
             DeviceId = deviceId;
-            Quality = quality;
-            EnrolledAt = DateTime.UtcNow;
+            TemplateHash = templateHash;
+            EnrollmentDate = enrollmentDate ?? DateTime.UtcNow;
+            IsActive = isActive;
+        }
+
+        protected override IEnumerable<object> GetEqualityComponents()
+        {
+            yield return DeviceId;
+            yield return TemplateHash;
+            yield return EnrollmentDate;
+            yield return IsActive;
         }
     }
 }

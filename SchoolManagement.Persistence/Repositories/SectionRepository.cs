@@ -15,64 +15,82 @@ namespace SchoolManagement.Persistence.Repositories
         {
         }
 
-        public async Task<Section> GetByIdWithDetailsAsync(Guid id,CancellationToken cancellationToken)
+        public async Task<bool> IsSectionNameExistsAsync(
+            Guid classId,
+            string sectionName,
+            CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .AnyAsync(s => s.ClassId == classId &&
+                              s.Name.ToLower() == sectionName.ToLower(),
+                         cancellationToken);
+        }
+
+        public async Task<bool> IsSectionNameExistsExceptAsync(
+            Guid classId,
+            string sectionName,
+            Guid exceptSectionId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .AnyAsync(s => s.ClassId == classId &&
+                              s.Name.ToLower() == sectionName.ToLower() &&
+                              s.Id != exceptSectionId,
+                         cancellationToken);
+        }
+
+        public async Task<Section?> GetByIdWithDetailsAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
         {
             return await _dbSet
                 .Include(s => s.Class)
+                .Include(s => s.Students)
                 .Include(s => s.SectionSubjects)
                 .Include(s => s.TimeTableEntries)
-                .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         }
 
-        public async Task<IEnumerable<Section>> GetByClassIdAsync(Guid classId,CancellationToken cancellationToken)
+        public async Task<int> GetActiveSectionCountByClassAsync(
+            Guid classId,
+            CancellationToken cancellationToken = default)
         {
             return await _dbSet
-                .Where(s => s.ClassId == classId && !s.IsDeleted)
-                .Include(s => s.Class)
-                .Include(s => s.SectionSubjects)
+                .CountAsync(s => s.ClassId == classId && s.IsActive, cancellationToken);
+        }
+
+        public async Task<IEnumerable<Section>> GetSectionsByClassIdAsync(
+            Guid classId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Where(s => s.ClassId == classId)
                 .OrderBy(s => s.Name)
-                .ToListAsync();
-        }
-
-        public async Task<IEnumerable<Section>> GetActiveSectionsAsync(CancellationToken cancellationToken)
-        {
-            return await _dbSet
-                .Where(s => s.IsActive && !s.IsDeleted)
-                .Include(s => s.Class)
-                .OrderBy(s => s.Class.Grade)
-                .ThenBy(s => s.Name)
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<bool> IsSectionNameExistsAsync(Guid classId, string sectionName, Guid? excludeId = null)
+        public async Task<Section?> GetSectionByClassTeacherIdAsync(
+    Guid teacherId,
+    CancellationToken cancellationToken = default)
         {
-            var query = _dbSet.Where(s =>
-                s.ClassId == classId &&
-                s.Name == sectionName &&
-                !s.IsDeleted);
-
-            if (excludeId.HasValue)
-            {
-                query = query.Where(s => s.Id != excludeId.Value);
-            }
-
-            return await query.AnyAsync();
-        }
-
-        public async Task<IEnumerable<Section>> GetSectionsByTeacherAsync(Guid teacherId)
-        {
-            return await _dbSet
-                .Where(s => s.ClassTeacherId == teacherId && !s.IsDeleted)
+            return await _context.Sections
                 .Include(s => s.Class)
-                .OrderBy(s => s.Class.Grade)
-                .ThenBy(s => s.Name)
-                .ToListAsync();
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    s => s.ClassTeacherId == teacherId && s.IsActive,
+                    cancellationToken
+                );
         }
 
-        public async Task<int> GetStudentCountAsync(Guid sectionId)
+        public async Task<IEnumerable<Section>> GetSectionsByClassIdWithTeachersAsync(
+            Guid classId,
+            CancellationToken cancellationToken = default)
         {
-            var section = await _dbSet.FindAsync(sectionId);
-            return section?.CurrentStrength ?? 0;
+            return await _context.Sections
+                .Include(s => s.Class)
+                .Where(s => s.ClassId == classId && s.IsActive)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
         }
     }
 }

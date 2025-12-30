@@ -17,6 +17,9 @@ namespace SchoolManagement.Domain.Entities
         public string? ReasonRevoked { get; private set; }
         public Guid UserId { get; private set; }
 
+        // NEW: Token family tracking for rotation and security
+        public string TokenFamily { get; private set; }
+
         // Navigation property
         public virtual User User { get; private set; }
 
@@ -27,12 +30,15 @@ namespace SchoolManagement.Domain.Entities
         // Private constructor for EF Core
         private RefreshToken() : base() { }
 
-        // ✅ FIXED: Factory method with createdByIp parameter
+        /// <summary>
+        /// Creates a new refresh token
+        /// </summary>
         public static RefreshToken Create(
             Guid userId,
             string token,
             DateTime expiresAt,
-            string createdByIp)
+            string createdByIp,
+            string? tokenFamily = null)
         {
             if (userId == Guid.Empty)
                 throw new ArgumentException("User ID cannot be empty", nameof(userId));
@@ -51,8 +57,11 @@ namespace SchoolManagement.Domain.Entities
                 UserId = userId,
                 Token = token,
                 ExpiryDate = expiresAt,
-                //CreatedByIp = createdByIp,
-                IsRevoked = false
+                CreatedIP = createdByIp,
+                IsRevoked = false,
+                // First token in rotation chain uses its own value as family ID
+                // Subsequent rotations inherit the family ID
+                TokenFamily = tokenFamily ?? token
             };
 
             // Set audit fields
@@ -64,8 +73,10 @@ namespace SchoolManagement.Domain.Entities
             return refreshToken;
         }
 
-        // Business logic methods
-        public void Revoke(string revokedByIp, string reason = null)
+        /// <summary>
+        /// Revokes the token with reason and IP tracking
+        /// </summary>
+        public void Revoke(string revokedByIp, string? reason = null)
         {
             if (IsRevoked)
                 throw new InvalidOperationException("Token is already revoked");
@@ -76,15 +87,17 @@ namespace SchoolManagement.Domain.Entities
             IsRevoked = true;
             RevokedAt = DateTime.UtcNow;
             RevokedByIp = revokedByIp;
-            ReasonRevoked = reason;
+            ReasonRevoked = reason ?? "Revoked by user or system";
 
-            // ✅ FIXED: Set updated audit fields
             SetUpdated("SYSTEM", revokedByIp);
 
             // Raise domain event
-            AddDomainEvent(new RefreshTokenRevokedEvent(UserId, Id, reason));
+            AddDomainEvent(new RefreshTokenRevokedEvent(UserId, Id, ReasonRevoked));
         }
 
+        /// <summary>
+        /// Marks token as replaced by a new token and revokes it
+        /// </summary>
         public void ReplaceWith(string newToken, string replacedByIp)
         {
             if (string.IsNullOrWhiteSpace(newToken))
@@ -93,30 +106,62 @@ namespace SchoolManagement.Domain.Entities
             if (string.IsNullOrWhiteSpace(replacedByIp))
                 throw new ArgumentException("Replaced by IP cannot be null or empty", nameof(replacedByIp));
 
+            if (IsRevoked)
+                throw new InvalidOperationException(
+                    "Cannot replace an already revoked token. Possible token reuse attack.");
+
             ReplacedByToken = newToken;
-            Revoke(replacedByIp, "Replaced by new token");
+            Revoke(replacedByIp, "Replaced by new token during rotation");
 
             // Raise domain event
             AddDomainEvent(new RefreshTokenReplacedEvent(UserId, Id, newToken));
         }
 
+        /// <summary>
+        /// Validates token is not expired
+        /// </summary>
         public void ValidateNotExpired()
         {
             if (IsExpired)
-                throw new InvalidOperationException($"Refresh token expired at {ExpiryDate}");
+                throw new InvalidOperationException(
+                    $"Refresh token expired at {ExpiryDate:yyyy-MM-dd HH:mm:ss} UTC");
         }
 
+        /// <summary>
+        /// Validates token is active (not revoked and not expired)
+        /// </summary>
         public void ValidateActive()
         {
             if (!IsActive)
             {
                 if (IsRevoked)
-                    throw new InvalidOperationException($"Refresh token was revoked at {RevokedAt}. Reason: {ReasonRevoked}");
+                    throw new InvalidOperationException(
+                        $"Refresh token was revoked at {RevokedAt:yyyy-MM-dd HH:mm:ss} UTC. " +
+                        $"Reason: {ReasonRevoked ?? "Unknown"}");
+
                 if (IsExpired)
-                    throw new InvalidOperationException($"Refresh token expired at {ExpiryDate}");
+                    throw new InvalidOperationException(
+                        $"Refresh token expired at {ExpiryDate:yyyy-MM-dd HH:mm:ss} UTC");
 
                 throw new InvalidOperationException("Refresh token is not active");
             }
+        }
+
+        /// <summary>
+        /// Checks if this token belongs to the specified token family
+        /// </summary>
+        public bool BelongsToFamily(string familyId)
+        {
+            return !string.IsNullOrWhiteSpace(TokenFamily) &&
+                   TokenFamily.Equals(familyId, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Checks if token was replaced (part of rotation chain)
+        /// </summary>
+        public bool WasReplaced()
+        {
+            return !string.IsNullOrWhiteSpace(ReplacedByToken);
         }
     }
 }

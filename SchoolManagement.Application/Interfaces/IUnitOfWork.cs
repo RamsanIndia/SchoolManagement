@@ -21,8 +21,12 @@ namespace SchoolManagement.Application.Interfaces
         IRoleMenuPermissionRepository RoleMenuPermissionRepository { get; } 
         IClassRepository ClassesRepository { get; }
         ISectionRepository SectionsRepository { get; }
+        ITeacherRepository TeachersRepository { get; }
         ISectionSubjectRepository SectionSubjectsRepository { get; }
         ITimeTableRepository TimeTablesRepository { get; }
+        IDepartmentRepository DepartmentRepository { get; }
+        IAcademicYearRepository AcademicYearRepository { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
         Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default);

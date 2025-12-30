@@ -54,5 +54,6 @@ namespace SchoolManagement.Application.Interfaces
         Task<IEnumerable<User>> GetUsersWithExpiringRolesAsync(DateTime expiryDate, CancellationToken cancellationToken = default);
         Task<IEnumerable<User>> GetLockedOutUsersAsync(CancellationToken cancellationToken = default);
         Task<IEnumerable<User>> GetUnverifiedEmailUsersAsync(CancellationToken cancellationToken = default);
+        Task<User> GetByEmailWithTokensAsync(string email, CancellationToken cancellationToken = default);
     }
 }

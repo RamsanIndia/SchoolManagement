@@ -47,14 +47,14 @@ namespace SchoolManagement.Test.Application.Auth
             // Real helper using mocked accessor
             _ipAddressHelper = new IpAddressHelper(_mockHttpContextAccessor.Object);
 
-            _handler = new RegisterCommandHandler(
-                _mockUserRepository.Object,      // IUserRepository
-                _ipAddressHelper,               // IpAddressHelper
-                _mockUnitOfWork.Object,         // IUnitOfWork
-                _mockPasswordService.Object,    // IPasswordService
-                _mockLogger.Object,             // ILogger<RegisterCommandHandler>
-                _mockHttpContextAccessor.Object // IHttpContextAccessor
-            );
+            //_handler = new RegisterCommandHandler(
+            //    _mockUserRepository.Object,      // IUserRepository
+            //    _ipAddressHelper,               // IpAddressHelper
+            //    _mockUnitOfWork.Object,         // IUnitOfWork
+            //    _mockPasswordService.Object,    // IPasswordService
+            //    _mockLogger.Object,             // ILogger<RegisterCommandHandler>
+            //    _mockHttpContextAccessor.Object // IHttpContextAccessor
+            //);
         }
 
             #region Successful Registration Tests

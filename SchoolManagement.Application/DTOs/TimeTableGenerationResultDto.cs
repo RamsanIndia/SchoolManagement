@@ -8,9 +8,10 @@ namespace SchoolManagement.Application.DTOs
 {
     public class TimeTableGenerationResultDto
     {
-        public int TotalEntriesCreated { get; set; }
         public Guid SectionId { get; set; }
+        public int TotalEntriesCreated { get; set; }
         public int EntriesSkipped { get; set; }
-        public List<string> SkippedSubjects { get; set; } = new List<string>();
+        public List<SkippedSlotDto> SkippedSlots { get; set; } = new();
+        public List<string> Warnings { get; set; } = new();
     }
 }

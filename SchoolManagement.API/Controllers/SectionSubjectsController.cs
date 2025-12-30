@@ -26,16 +26,40 @@ namespace SchoolManagement.API.Controllers
         /// Get all subjects mapped to a section
         /// </summary>
         /// <param name="sectionId">Section ID</param>
-        /// <returns>List of mapped subjects</returns>
+        /// <param name="pageNumber">Page number (default: 1)</param>
+        /// <param name="pageSize">Page size (default: 10, max: 100)</param>
+        /// <returns>Paginated list of mapped subjects</returns>
         [HttpGet]
-        //[ProducesResponseType(typeof(ApiResponse<List<SectionSubjectDto>>), 200)]
-        public async Task<IActionResult> GetSectionSubjects(Guid sectionId)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetSectionSubjects(
+            [FromRoute] Guid sectionId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] bool? isMandatory = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDirection = "asc")
         {
-            var query = new GetSectionSubjectsQuery { SectionId = sectionId };
+            // Constructor applies validation automatically
+            var query = new GetSectionSubjectsQuery(
+                sectionId,
+                pageNumber,
+                pageSize,
+                searchTerm,
+                isMandatory,
+                sortBy,
+                sortDirection
+            );
+
             var result = await _mediator.Send(query);
 
-            return Ok();
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
         }
+
 
         /// <summary>
         /// Map a subject to a section
@@ -44,28 +68,24 @@ namespace SchoolManagement.API.Controllers
         /// <param name="request">Subject mapping details</param>
         /// <returns>Created mapping ID</returns>
         [HttpPost]
-        //[ProducesResponseType(typeof(ApiResponse<Guid>), 201)]
-        //[ProducesResponseType(typeof(ApiResponse<Guid>), 400)]
-        public async Task<IActionResult> MapSubject(Guid sectionId, [FromBody] MapSubjectCommand request)
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> MapSubject(
+            [FromRoute] Guid sectionId,
+            [FromBody] MapSubjectCommand request)
         {
-            var command = new MapSubjectCommand
-            {
-                SectionId = sectionId,
-                SubjectId = request.SubjectId,
-                SubjectName = request.SubjectName,
-                SubjectCode = request.SubjectCode,
-                TeacherId = request.TeacherId,
-                TeacherName = request.TeacherName,
-                WeeklyPeriods = request.WeeklyPeriods,
-                IsMandatory = request.IsMandatory,
-            };
+            // Set sectionId from route parameter
+            request.SectionId = sectionId;
 
-            var mappingId = await _mediator.Send(command);
+            var result = await _mediator.Send(request);
+
+            if (!result.Status)
+                return BadRequest(result);
 
             return CreatedAtAction(
                 nameof(GetSectionSubjects),
-                new { sectionId }
-                //ApiResponse<Guid>.SuccessResponse(mappingId, "Subject mapped successfully")
+                new { sectionId },
+                result
             );
         }
 
@@ -77,21 +97,25 @@ namespace SchoolManagement.API.Controllers
         /// <param name="request">Updated mapping details</param>
         /// <returns>Success response</returns>
         [HttpPut("{mappingId}")]
-        //[ProducesResponseType(typeof(ApiResponse<Unit>), 200)]
-        //[ProducesResponseType(typeof(ApiResponse<Unit>), 400)]
-        //[ProducesResponseType(typeof(ApiResponse<Unit>), 404)]
-        public async Task<IActionResult> UpdateSubjectMapping(Guid sectionId, Guid mappingId, [FromBody] UpdateSubjectMappingCommand request)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateSubjectMapping(
+            [FromRoute] Guid sectionId,
+            [FromRoute] Guid mappingId,
+            [FromBody] UpdateSubjectMappingCommand request)
         {
-            var command = new UpdateSubjectMappingCommand
-            {
-                MappingId = mappingId,
-                TeacherId = request.TeacherId,
-                TeacherName = request.TeacherName,
-                WeeklyPeriods = request.WeeklyPeriods,
-            };
+            // Set mappingId from route parameter
+            request.MappingId = mappingId;
 
-            await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(request);
+
+            if (!result.Status)
+                return result.Message.Contains("not found")
+                    ? NotFound(result)
+                    : BadRequest(result);
+
+            return Ok(result);
         }
 
         /// <summary>
@@ -101,17 +125,26 @@ namespace SchoolManagement.API.Controllers
         /// <param name="mappingId">Mapping ID</param>
         /// <returns>Success response</returns>
         [HttpDelete("{mappingId}")]
-        //[ProducesResponseType(typeof(ApiResponse<Unit>), 200)]
-        //[ProducesResponseType(typeof(ApiResponse<Unit>), 404)]
-        public async Task<IActionResult> RemoveSubjectMapping(Guid sectionId, Guid mappingId)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> RemoveSubjectMapping(
+            [FromRoute] Guid sectionId,
+            [FromRoute] Guid mappingId)
         {
             var command = new RemoveSubjectMappingCommand
             {
                 MappingId = mappingId,
+                SectionId = sectionId  // Optional: for additional validation
             };
 
-            await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(command);
+
+            if (!result.Status)
+                return result.Message.Contains("not found")
+                    ? NotFound(result)
+                    : BadRequest(result);
+
+            return Ok(result);
         }
 
         /// <summary>
@@ -121,52 +154,21 @@ namespace SchoolManagement.API.Controllers
         /// <param name="request">Bulk mapping request</param>
         /// <returns>Bulk operation result</returns>
         [HttpPost("bulk")]
-        //[ProducesResponseType(typeof(ApiResponse<BulkMapResult>), 200)]
-        //[ProducesResponseType(typeof(ApiResponse<BulkMapResult>), 400)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> BulkMapSubjects(
-            Guid sectionId,
+            [FromRoute] Guid sectionId,
             [FromBody] BulkMapSubjectsCommand request)
         {
-            var command = new BulkMapSubjectsCommand
-            {
-                SectionId = sectionId,
-                SubjectMappings = request.SubjectMappings,
-            };
+            // Set sectionId from route parameter
+            request.SectionId = sectionId;
 
-            var result = await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(request);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
         }
     }
-
-    ///// <summary>
-    ///// Request model for mapping a subject
-    ///// </summary>
-    //public class MapSubjectRequest
-    //{
-    //    public Guid SubjectId { get; set; }
-    //    public string SubjectName { get; set; }
-    //    public string SubjectCode { get; set; }
-    //    public Guid TeacherId { get; set; }
-    //    public string TeacherName { get; set; }
-    //    public int WeeklyPeriods { get; set; }
-    //    public bool IsMandatory { get; set; }
-    //}
-
-    ///// <summary>
-    ///// Request model for updating subject mapping
-    ///// </summary>
-    //public class UpdateSubjectMappingRequest
-    //{
-    //    public Guid TeacherId { get; set; }
-    //    public string TeacherName { get; set; }
-    //    public int WeeklyPeriods { get; set; }
-    //}
-
-    ///// <summary>
-    ///// Request model for bulk mapping subjects
-    ///// </summary>
-    //public class BulkMapSubjectsRequest
-    //{
-    //    public List<SubjectMappingDto> SubjectMappings { get; set; }
-    //}
 }

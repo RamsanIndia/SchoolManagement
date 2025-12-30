@@ -12,7 +12,7 @@ namespace SchoolManagement.Application.Behaviors
     /// <summary>
     /// Monitors performance and logs slow requests
     /// </summary>
-    public class PerformanceBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+    public sealed class  PerformanceBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : IRequest<TResponse>
     {
         private readonly ILogger<PerformanceBehavior<TRequest, TResponse>> _logger;

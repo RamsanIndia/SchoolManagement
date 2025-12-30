@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// SchoolManagement.Application/Interfaces/IAttendanceService.cs
 using SchoolManagement.Domain.Entities;
-
+using AttendanceEntity = SchoolManagement.Domain.Entities.Attendance; // ✅ Create alias
 
 namespace SchoolManagement.Application.Interfaces
 {
@@ -17,7 +13,7 @@ namespace SchoolManagement.Application.Interfaces
 
         // Regular attendance methods
         Task MarkAttendanceAsync(Guid studentId, DateTime date, string status, CancellationToken cancellationToken = default);
-        Task<IEnumerable<SchoolManagement.Domain.Entities.Attendance>> GetAttendanceByDateAsync(DateTime date, CancellationToken cancellationToken = default);
-        Task<IEnumerable<SchoolManagement.Domain.Entities.Attendance>> GetStudentAttendanceAsync(Guid studentId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
+        Task<IEnumerable<AttendanceEntity>> GetAttendanceByDateAsync(DateTime date, CancellationToken cancellationToken = default);
+        Task<IEnumerable<AttendanceEntity>> GetStudentAttendanceAsync(Guid studentId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
     }
 }

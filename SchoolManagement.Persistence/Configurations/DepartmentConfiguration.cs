@@ -6,26 +6,56 @@ namespace SchoolManagement.Persistence.Configurations
 {
     public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
     {
-        public void Configure(EntityTypeBuilder<Department> entity)
+        public void Configure(EntityTypeBuilder<Department> builder)
         {
-            entity.HasKey(d => d.Id);
+            builder.ToTable("Departments");
 
-            entity.Property(d => d.Name).IsRequired().HasMaxLength(100);
-            entity.Property(d => d.Code).IsRequired().HasMaxLength(50);
+            builder.HasKey(d => d.Id);
 
-            entity.HasMany(d => d.Employees)
-                  .WithOne(e => e.Department)
-                  .HasForeignKey(e => e.DepartmentId)
-                  .OnDelete(DeleteBehavior.Restrict);
+            builder.Property(d => d.Name)
+                .IsRequired()
+                .HasMaxLength(100);
 
-            entity.HasOne(d => d.HeadOfDepartment)
-                  .WithMany()
-                  .HasForeignKey(d => d.HeadOfDepartmentId)
-                  .OnDelete(DeleteBehavior.Restrict);
+            builder.HasIndex(d => d.Name)
+                .IsUnique();
 
-            entity.Property(e => e.RowVersion)
-                  .IsRowVersion()
-                  .IsConcurrencyToken();
+            builder.Property(d => d.Code)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            builder.HasIndex(d => d.Code)
+                .IsUnique();
+
+            builder.Property(d => d.Description)
+                .HasMaxLength(500);
+
+            builder.Property(d => d.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            // Head of Department relationship (self-referencing to Teacher)
+            builder.HasOne(d => d.HeadOfDepartment)
+                .WithMany() // Teacher doesn't need a back-reference
+                .HasForeignKey(d => d.HeadOfDepartmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Teachers relationship
+            builder.HasMany(d => d.Teachers)
+                .WithOne(t => t.Department)
+                .HasForeignKey(t => t.DepartmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Audit fields
+            builder.Property(d => d.CreatedAt)
+                .IsRequired();
+
+            builder.Property(d => d.UpdatedAt);
+
+            builder.Property(d => d.CreatedBy)
+                .HasMaxLength(100);
+
+            builder.Property(d => d.UpdatedBy)
+                .HasMaxLength(100);
         }
     }
 }

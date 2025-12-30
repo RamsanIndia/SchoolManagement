@@ -10,6 +10,6 @@ namespace SchoolManagement.Application.Classes.Commands
 {
     public class DeactivateClassCommand : IRequest<Result>
     {
-        public Guid Id { get; set; }
+        public Guid ClassId { get; set; }
     }
 }

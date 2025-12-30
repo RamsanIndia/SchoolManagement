@@ -19,6 +19,7 @@ using SchoolManagement.API.Extensions;
 using SchoolManagement.API.Middleware;
 using SchoolManagement.Application.Behaviors;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Students.Commands;
 using SchoolManagement.Infrastructure.BackgroundServices;
 using SchoolManagement.Infrastructure.Data;
@@ -31,6 +32,7 @@ using Serilog;
 using Serilog.Events;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Reflection;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using static System.Net.Mime.MediaTypeNames;
@@ -141,6 +143,7 @@ try
 
     // ============= HTTP CONTEXT ACCESSOR =============
     builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
     // ============= AUTOMAPPER =============
     builder.Services.AddAutoMapper(cfg =>
@@ -211,42 +214,78 @@ try
     {
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.SaveToken = true;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+
             ValidateIssuer = true,
             ValidIssuer = jwtSettings["Issuer"] ?? "SchoolManagementSystem",
+
             ValidateAudience = true,
             ValidAudience = jwtSettings["Audience"] ?? "SchoolManagementUsers",
+
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
-            RequireExpirationTime = true
+            RequireExpirationTime = true,
+
+            // ⚠️ CRITICAL FIX - Maps claims to ClaimsPrincipal Identity
+            NameClaimType = ClaimTypes.Name, 
+            RoleClaimType = ClaimTypes.Role  
         };
 
-        // For SignalR/WebSocket support
+        // Enhanced JWT Bearer Events
         options.Events = new JwtBearerEvents
         {
+            // For SignalR/WebSocket support
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
 
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/NotificationHub"))
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/NotificationHub"))
                 {
                     context.Token = accessToken;
+                    Log.Debug("Token received from query string for SignalR: {Path}", path);
                 }
 
                 return Task.CompletedTask;
             },
+
             OnAuthenticationFailed = context =>
             {
-                Log.Warning("JWT Authentication failed: {Error}", context.Exception.Message);
+                if (context.Exception is SecurityTokenExpiredException)
+                {
+                    context.Response.Headers.Add("Token-Expired", "true");
+                    Log.Warning("JWT Authentication failed: Token expired");
+                }
+                else
+                {
+                    Log.Warning("JWT Authentication failed: {Error}", context.Exception.Message);
+                }
+
                 return Task.CompletedTask;
             },
+
             OnTokenValidated = context =>
             {
-                Log.Debug("JWT Token validated for user: {User}", context.Principal?.Identity?.Name);
+                var username = context.Principal?.Identity?.Name;
+                var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                Log.Debug("JWT Token validated successfully. User: {Username}, UserId: {UserId}",
+                    username, userId);
+
+                return Task.CompletedTask;
+            },
+
+            OnChallenge = context =>
+            {
+                Log.Warning("JWT Authentication challenge: {Error}, {ErrorDescription}",
+                    context.Error ?? "No error",
+                    context.ErrorDescription ?? "No description");
+
                 return Task.CompletedTask;
             }
         };
@@ -577,7 +616,7 @@ try
     await InitializeDatabaseAsync(app);
 
     // ============= MIDDLEWARE PIPELINE =============
-
+    app.UseMiddleware<CorrelationIdMiddleware>();
     // Response compression (first for all responses)
     app.UseResponseCompression();
 

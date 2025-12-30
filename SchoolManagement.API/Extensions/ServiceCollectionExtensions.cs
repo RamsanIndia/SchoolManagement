@@ -131,6 +131,9 @@ namespace SchoolManagement.API.Extensions
                 return new UserRoleRepository(context);
             });
 
+            services.AddScoped<IAcademicYearRepository, AcademicYearRepository>();
+            services.AddScoped<ITeacherRepository, TeacherRepository>();
+
             return services;
         }
 
@@ -143,7 +146,10 @@ namespace SchoolManagement.API.Extensions
             services.AddScoped<ITokenService, CachedTokenService>(); // Cached decorator
             services.AddScoped<IPasswordService, PasswordService>();
             services.AddScoped<IpAddressHelper>();
-            services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
+            //services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
+            services.AddSingleton<ICorrelationIdAccessor, CorrelationIdAccessor>();
+            services.AddSingleton<ICorrelationIdService, CorrelationIdService>();
+
 
             return services;
         }
@@ -159,8 +165,10 @@ namespace SchoolManagement.API.Extensions
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IAuditService, AuditService>();
             services.AddScoped<IChangeTrackerService, ChangeTrackerService>();
+            services.AddScoped<ITimeTableGenerationService, TimeTableGenerationService>();
 
-            
+
+
             return services;
         }
 

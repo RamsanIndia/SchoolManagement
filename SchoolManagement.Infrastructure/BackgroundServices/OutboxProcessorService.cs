@@ -99,7 +99,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
 
                 _logger.LogInformation("Processing {Count} outbox messages", messages.Count);
 
-                // ✅ Re-attach entities to the context for tracking
+                // Re-attach entities to the context for tracking
                 foreach (var message in messages)
                 {
                     dbContext.OutboxMessages.Attach(message);
@@ -111,7 +111,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     await ProcessSingleMessageAsync(message, publisher, cancellationToken);
                 }
 
-                // ✅ CRITICAL: Save all changes in one batch
+                // CRITICAL: Save all changes in one batch
                 try
                 {
                     var savedCount = await dbContext.SaveChangesAsync(cancellationToken);
@@ -152,7 +152,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     message.Error = "Payload is null or empty";
                     message.ProcessedAt = DateTime.UtcNow;
                     message.RetryCount = _maxRetries;
-                    return; // ✅ EF Core tracks this change, will be saved
+                    return; // EF Core tracks this change, will be saved
                 }
 
                 // Load event type
@@ -167,7 +167,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     message.Error = $"Type '{message.EventType}' not found";
                     message.ProcessedAt = DateTime.UtcNow;
                     message.RetryCount = _maxRetries;
-                    return; // ✅ EF Core tracks this change
+                    return; // EF Core tracks this change
                 }
 
                 // Verify type implements IDomainEvent
@@ -180,7 +180,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     message.Error = $"Type '{message.EventType}' does not implement IDomainEvent";
                     message.ProcessedAt = DateTime.UtcNow;
                     message.RetryCount = _maxRetries;
-                    return; // ✅ EF Core tracks this change
+                    return; // EF Core tracks this change
                 }
 
                 // Deserialize
@@ -203,7 +203,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     message.Error = "Deserialization returned null";
                     message.ProcessedAt = DateTime.UtcNow;
                     message.RetryCount = _maxRetries;
-                    return; // ✅ EF Core tracks this change
+                    return; // EF Core tracks this change
                 }
 
                 // Cast to IDomainEvent
@@ -219,10 +219,10 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                     message.Error = $"Object of type '{deserializedObject.GetType().FullName}' cannot be cast to IDomainEvent";
                     message.ProcessedAt = DateTime.UtcNow;
                     message.RetryCount = _maxRetries;
-                    return; // ✅ EF Core tracks this change
+                    return; // EF Core tracks this change
                 }
 
-                // ✅ Publish to Service Bus using reflection
+                // Publish to Service Bus using reflection
                 var publishMethod = publisher.GetType()
                     .GetMethod(nameof(IEventBus.PublishAsync))
                     ?.MakeGenericMethod(eventType);
@@ -234,7 +234,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
 
                 await (Task)publishMethod.Invoke(publisher, new object[] { domainEvent, cancellationToken });
 
-                // ✅ Mark as successfully processed
+                // Mark as successfully processed
                 message.ProcessedAt = DateTime.UtcNow;
                 message.Error = null;
                 // Don't increment RetryCount on success - leave it as is for audit trail
@@ -265,7 +265,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                 // Transient error - increment retry count
                 message.RetryCount = (message.RetryCount ?? 0) + 1;
                 message.Error = TruncateError(ex.ToString(), 4000);
-                // ✅ Don't set ProcessedAt yet - allow retry
+                // Don't set ProcessedAt yet - allow retry
 
                 _logger.LogError(
                     ex,
@@ -292,7 +292,7 @@ namespace SchoolManagement.Infrastructure.BackgroundServices
                         message.Error);
                 }
             }
-            // ✅ All changes tracked by EF Core - will be saved in ProcessOutboxMessagesAsync
+            // All changes tracked by EF Core - will be saved in ProcessOutboxMessagesAsync
         }
 
         /// <summary>
