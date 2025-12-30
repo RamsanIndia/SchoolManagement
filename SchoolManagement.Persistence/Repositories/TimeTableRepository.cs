@@ -53,12 +53,10 @@ namespace SchoolManagement.Persistence.Repositories
             int periodNumber,
             CancellationToken cancellationToken = default)
         {
-            var normalizedRoom = roomNumber.Trim().ToUpperInvariant();
-
             return await _dbSet
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
-                    t => t.RoomNumber.Value == normalizedRoom &&
+                    t => t.RoomNumber.Value == roomNumber &&
                          t.DayOfWeek == dayOfWeek &&
                          t.PeriodNumber == periodNumber &&
                          !t.IsDeleted,
@@ -83,9 +81,9 @@ namespace SchoolManagement.Persistence.Repositories
         {
             return await _dbSet
                 .AsNoTracking()
-                .Where(tt => tt.TeacherId == teacherId && !tt.IsDeleted)
                 .Include(tt => tt.Section)
                     .ThenInclude(s => s.Class)
+                .Where(tt => tt.TeacherId == teacherId && !tt.IsDeleted)
                 .OrderBy(tt => tt.DayOfWeek)
                 .ThenBy(tt => tt.PeriodNumber)
                 .ToListAsync(cancellationToken);
@@ -140,15 +138,14 @@ namespace SchoolManagement.Persistence.Repositories
             Guid? excludeEntryId = null,
             CancellationToken cancellationToken = default)
         {
-            var normalizedRoom = roomNumber.Trim().ToUpperInvariant();
-
             var query = _dbSet
+                .AsNoTracking()
                 .Where(tt => !tt.IsDeleted &&
                            tt.DayOfWeek == dayOfWeek &&
                            tt.PeriodNumber == periodNumber &&
                            (tt.SectionId == sectionId ||
                             tt.TeacherId == teacherId ||
-                            tt.RoomNumber.Value == normalizedRoom));
+                            tt.RoomNumber.Value == roomNumber));
 
             if (excludeEntryId.HasValue)
             {
@@ -166,11 +163,13 @@ namespace SchoolManagement.Persistence.Repositories
             CancellationToken cancellationToken = default,
             Guid? excludeId = null)
         {
-            var query = _dbSet.Where(tt =>
-                tt.SectionId == sectionId &&
-                tt.DayOfWeek == day &&
-                tt.PeriodNumber == periodNumber &&
-                !tt.IsDeleted);
+            var query = _dbSet
+                .AsNoTracking()
+                .Where(tt =>
+                    tt.SectionId == sectionId &&
+                    tt.DayOfWeek == day &&
+                    tt.PeriodNumber == periodNumber &&
+                    !tt.IsDeleted);
 
             if (excludeId.HasValue)
             {
@@ -187,11 +186,13 @@ namespace SchoolManagement.Persistence.Repositories
             CancellationToken cancellationToken = default,
             Guid? excludeId = null)
         {
-            var query = _dbSet.Where(tt =>
-                tt.TeacherId == teacherId &&
-                tt.DayOfWeek == day &&
-                tt.PeriodNumber == periodNumber &&
-                !tt.IsDeleted);
+            var query = _dbSet
+                .AsNoTracking()
+                .Where(tt =>
+                    tt.TeacherId == teacherId &&
+                    tt.DayOfWeek == day &&
+                    tt.PeriodNumber == periodNumber &&
+                    !tt.IsDeleted);
 
             if (excludeId.HasValue)
             {

@@ -1,30 +1,49 @@
-﻿using MediatR;
+﻿// Application/TimeTables/Handlers/Queries/CheckSlotAvailabilityQueryHandler.cs
+using MediatR;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Domain.Common;
+using SchoolManagement.Application.Services;
 using SchoolManagement.Application.TimeTables.Queries;
+using SchoolManagement.Application.TimeTables.Validators;
+using SchoolManagement.Application.TimeTables.Mappers;
+using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Services;
 using SchoolManagement.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.TimeTables.Handlers.Queries
 {
-    public class CheckSlotAvailabilityQueryHandler
+    /// <summary>
+    /// Query handler for checking time slot availability
+    /// Orchestrates validation, application service, domain events, and mapping
+    /// Uses Unit of Work for all data access through Application Service
+    /// </summary>
+    public sealed class CheckSlotAvailabilityQueryHandler
         : IRequestHandler<CheckSlotAvailabilityQuery, Result<SlotAvailabilityDto>>
     {
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly ISlotAvailabilityApplicationService _applicationService;
+        private readonly ISlotAvailabilityValidator _validator;
+        private readonly ISlotAvailabilityMapper _mapper;
         private readonly ILogger<CheckSlotAvailabilityQueryHandler> _logger;
 
         public CheckSlotAvailabilityQueryHandler(
-            IUnitOfWork unitOfWork,
+            ISlotAvailabilityApplicationService applicationService,
+            ISlotAvailabilityValidator validator,
+            ISlotAvailabilityMapper mapper,
             ILogger<CheckSlotAvailabilityQueryHandler> logger)
         {
-            _unitOfWork = unitOfWork;
-            _logger = logger;
+            _applicationService = applicationService
+                ?? throw new ArgumentNullException(nameof(applicationService));
+            _validator = validator
+                ?? throw new ArgumentNullException(nameof(validator));
+            _mapper = mapper
+                ?? throw new ArgumentNullException(nameof(mapper));
+            _logger = logger
+                ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public async Task<Result<SlotAvailabilityDto>> Handle(
@@ -34,34 +53,41 @@ namespace SchoolManagement.Application.TimeTables.Handlers.Queries
             try
             {
                 _logger.LogInformation(
-                    "Checking slot availability for Section {SectionId}, Teacher {TeacherId}, Room {RoomNumber} on {DayOfWeek} Period {PeriodNumber}",
-                    request.SectionId, request.TeacherId, request.RoomNumber,
-                    request.DayOfWeek, request.PeriodNumber);
+                    "Checking slot availability for Section {SectionId}, Teacher {TeacherId}, " +
+                    "Room {RoomNumber} on {DayOfWeek} Period {PeriodNumber}",
+                    request.SectionId,
+                    request.TeacherId,
+                    request.RoomNumber,
+                    request.DayOfWeek,
+                    request.PeriodNumber);
 
-                // Validate inputs
-                await ValidateRequestAsync(request, cancellationToken);
+                // Step 1: Validate the request (uses Unit of Work internally)
+                await _validator.ValidateAsync(request, cancellationToken);
 
-                // Check all conflicts in parallel for better performance
-                var (sectionEntry, teacherEntry, roomEntry) = await CheckAllConflictsAsync(
-                    request, cancellationToken);
+                // Step 2: Create domain request object
+                var availabilityRequest = new SlotAvailabilityRequest(
+                    request.SectionId,
+                    request.TeacherId,
+                    request.RoomNumber,
+                    request.DayOfWeek,
+                    request.PeriodNumber);
 
-                // Build detailed availability response
-                var dto = BuildAvailabilityDto(
-                    sectionEntry,
-                    teacherEntry,
-                    roomEntry,
-                    request);
+                // Step 3: Check availability using Application Service 
+                // (handles Unit of Work and Domain Service)
+                var availabilityResult = await _applicationService
+                    .CheckAvailabilityAsync(availabilityRequest, cancellationToken);
 
-                var message = dto.IsAvailable
-                    ? "Time slot is available for scheduling"
-                    : BuildConflictMessage(dto);
+                // Step 4: Map domain result to DTO
+                var dto = _mapper.MapToDto(request, availabilityResult);
+
+                // Step 5: Build response message
+                var message = BuildResponseMessage(availabilityResult);
 
                 _logger.LogInformation(
-                    "Slot availability check completed. Available: {IsAvailable}, Conflicts: Section={SectionConflict}, Teacher={TeacherConflict}, Room={RoomConflict}",
-                    dto.IsAvailable,
-                    dto.SectionConflict?.HasConflict ?? false,
-                    dto.TeacherConflict?.HasConflict ?? false,
-                    dto.RoomConflict?.HasConflict ?? false);
+                    "Slot availability check completed. Available: {IsAvailable}, " +
+                    "Conflicts: {ConflictCount}",
+                    availabilityResult.IsAvailable,
+                    availabilityResult.Conflicts.Count);
 
                 return Result<SlotAvailabilityDto>.Success(dto, message);
             }
@@ -76,210 +102,28 @@ namespace SchoolManagement.Application.TimeTables.Handlers.Queries
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Unexpected error occurred while checking slot availability for Section {SectionId}, Teacher {TeacherId}",
-                    request.SectionId, request.TeacherId);
+                    "Unexpected error occurred while checking slot availability for " +
+                    "Section {SectionId}, Teacher {TeacherId}",
+                    request.SectionId,
+                    request.TeacherId);
 
                 return Result<SlotAvailabilityDto>.Failure(
                     "Failed to check slot availability.");
             }
         }
 
-        private async Task ValidateRequestAsync(
-            CheckSlotAvailabilityQuery request,
-            CancellationToken cancellationToken)
+        private static string BuildResponseMessage(SlotAvailabilityResult result)
         {
-            // Validate section exists
-            var section = await _unitOfWork.SectionsRepository
-                .GetByIdAsync(request.SectionId, cancellationToken);
-
-            if (section == null)
+            if (result.IsAvailable)
             {
-                throw new InvalidSectionException(
-                    $"Section with ID {request.SectionId} not found");
-            }
-
-            // Validate teacher exists
-            var teacher = await _unitOfWork.TeachersRepository
-                .GetByIdAsync(request.TeacherId, cancellationToken);
-
-            if (teacher == null)
-            {
-                throw new InvalidTimeTableEntryException(
-                    $"Teacher with ID {request.TeacherId} not found");
-            }
-
-            // Validate day of week
-            if (!Enum.IsDefined(typeof(DayOfWeek), request.DayOfWeek))
-            {
-                throw new InvalidDayOfWeekException(
-                    $"Invalid day of week: {request.DayOfWeek}");
-            }
-
-            if (request.DayOfWeek == DayOfWeek.Sunday)
-            {
-                throw new InvalidDayOfWeekException(
-                    "Cannot schedule classes on Sunday");
-            }
-
-            // Validate period number
-            if (request.PeriodNumber <= 0 || request.PeriodNumber > 10)
-            {
-                throw new InvalidPeriodNumberException(request.PeriodNumber, 10);
-            }
-        }
-
-        private async Task<(Domain.Entities.TimeTableEntry sectionEntry,
-                           Domain.Entities.TimeTableEntry teacherEntry,
-                           Domain.Entities.TimeTableEntry roomEntry)> CheckAllConflictsAsync(
-            CheckSlotAvailabilityQuery request,
-            CancellationToken cancellationToken)
-        {
-            // Execute all checks in parallel for better performance
-            var sectionTask = _unitOfWork.TimeTablesRepository.GetBySlotAsync(
-                request.SectionId,
-                request.DayOfWeek,
-                request.PeriodNumber,
-                cancellationToken);
-
-            var teacherTask = _unitOfWork.TimeTablesRepository.GetTeacherScheduleAsync(
-                request.TeacherId,
-                request.DayOfWeek,
-                request.PeriodNumber,
-                cancellationToken);
-
-            var roomTask = string.IsNullOrWhiteSpace(request.RoomNumber)
-                ? Task.FromResult<Domain.Entities.TimeTableEntry>(null)
-                : _unitOfWork.TimeTablesRepository.GetByRoomAndSlotAsync(
-                    request.RoomNumber,
-                    request.DayOfWeek,
-                    request.PeriodNumber,
-                    cancellationToken);
-
-            await Task.WhenAll(sectionTask, teacherTask, roomTask);
-
-            return (await sectionTask, await teacherTask, await roomTask);
-        }
-
-        private SlotAvailabilityDto BuildAvailabilityDto(
-            Domain.Entities.TimeTableEntry sectionEntry,
-            Domain.Entities.TimeTableEntry teacherEntry,
-            Domain.Entities.TimeTableEntry roomEntry,
-            CheckSlotAvailabilityQuery request)
-        {
-            var dto = new SlotAvailabilityDto
-            {
-                SectionId = request.SectionId,
-                TeacherId = request.TeacherId,
-                RoomNumber = request.RoomNumber,
-                DayOfWeek = request.DayOfWeek.ToString(),
-                PeriodNumber = request.PeriodNumber,
-                CheckedAt = DateTime.UtcNow
-            };
-
-            // Check section conflict
-            if (sectionEntry != null)
-            {
-                dto.SectionConflict = new ConflictInfo
-                {
-                    HasConflict = true,
-                    ConflictingEntryId = sectionEntry.Id,
-                    ConflictType = "Section",
-                    ConflictDetails = $"Section already has '{GetSubjectName(sectionEntry.SubjectId)}' scheduled with teacher {sectionEntry.TeacherId}",
-                    ConflictingTeacherId = sectionEntry.TeacherId,
-                    ConflictingSubjectId = sectionEntry.SubjectId,
-                    ConflictingRoomNumber = sectionEntry.RoomNumber.Value,
-                    TimeSlot = $"{sectionEntry.TimePeriod.StartTime:hh\\:mm} - {sectionEntry.TimePeriod.EndTime:hh\\:mm}"
-                };
-            }
-
-            // Check teacher conflict
-            if (teacherEntry != null)
-            {
-                dto.TeacherConflict = new ConflictInfo
-                {
-                    HasConflict = true,
-                    ConflictingEntryId = teacherEntry.Id,
-                    ConflictType = "Teacher",
-                    ConflictDetails = $"Teacher is already teaching Section '{GetSectionName(teacherEntry.SectionId)}' in Room {teacherEntry.RoomNumber.Value}",
-                    ConflictingSectionId = teacherEntry.SectionId,
-                    ConflictingSubjectId = teacherEntry.SubjectId,
-                    ConflictingRoomNumber = teacherEntry.RoomNumber.Value,
-                    TimeSlot = $"{teacherEntry.TimePeriod.StartTime:hh\\:mm} - {teacherEntry.TimePeriod.EndTime:hh\\:mm}"
-                };
-            }
-
-            // Check room conflict
-            if (roomEntry != null)
-            {
-                dto.RoomConflict = new ConflictInfo
-                {
-                    HasConflict = true,
-                    ConflictingEntryId = roomEntry.Id,
-                    ConflictType = "Room",
-                    ConflictDetails = $"Room {request.RoomNumber} is already booked for Section '{GetSectionName(roomEntry.SectionId)}'",
-                    ConflictingSectionId = roomEntry.SectionId,
-                    ConflictingTeacherId = roomEntry.TeacherId,
-                    ConflictingSubjectId = roomEntry.SubjectId,
-                    TimeSlot = $"{roomEntry.TimePeriod.StartTime:hh\\:mm} - {roomEntry.TimePeriod.EndTime:hh\\:mm}"
-                };
-            }
-
-            // Determine overall availability
-            dto.IsAvailable = dto.SectionConflict == null &&
-                            dto.TeacherConflict == null &&
-                            dto.RoomConflict == null;
-
-            // Build conflicts summary
-            dto.Conflicts = BuildConflictsSummary(dto);
-
-            return dto;
-        }
-
-        private List<string> BuildConflictsSummary(SlotAvailabilityDto dto)
-        {
-            var conflicts = new List<string>();
-
-            if (dto.SectionConflict?.HasConflict == true)
-                conflicts.Add($"Section: {dto.SectionConflict.ConflictDetails}");
-
-            if (dto.TeacherConflict?.HasConflict == true)
-                conflicts.Add($"Teacher: {dto.TeacherConflict.ConflictDetails}");
-
-            if (dto.RoomConflict?.HasConflict == true)
-                conflicts.Add($"Room: {dto.RoomConflict.ConflictDetails}");
-
-            return conflicts;
-        }
-
-        private string BuildConflictMessage(SlotAvailabilityDto dto)
-        {
-            if (dto.IsAvailable)
                 return "Time slot is available for scheduling";
+            }
 
-            var conflictTypes = new List<string>();
-
-            if (dto.SectionConflict?.HasConflict == true)
-                conflictTypes.Add("section");
-
-            if (dto.TeacherConflict?.HasConflict == true)
-                conflictTypes.Add("teacher");
-
-            if (dto.RoomConflict?.HasConflict == true)
-                conflictTypes.Add("room");
+            var conflictTypes = result.Conflicts
+                .Select(c => c.Type.ToString().ToLower())
+                .Distinct();
 
             return $"Time slot has conflicts: {string.Join(", ", conflictTypes)}";
-        }
-
-        private string GetSubjectName(Guid subjectId)
-        {
-            // TODO: Fetch from repository or cache
-            return "Subject";
-        }
-
-        private string GetSectionName(Guid sectionId)
-        {
-            // TODO: Fetch from repository or cache
-            return "Section";
         }
     }
 }
