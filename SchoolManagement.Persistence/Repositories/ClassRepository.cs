@@ -91,6 +91,9 @@ namespace SchoolManagement.Persistence.Repositories
             return (items, totalCount);
         }
 
-       
+        public async Task<bool> IsClassNameExistsAsync(string className, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.AnyAsync(c => c.Name.ToLower() == className.ToLower(), cancellationToken);
+        }
     }
 }

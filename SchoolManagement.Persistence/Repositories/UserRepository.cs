@@ -308,6 +308,25 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        //public async Task<User> GetByEmailWithTokensAsync(string email, CancellationToken cancellationToken = default)
+        //{
+        //    return await _context.Users
+        //        .Include(u => u.RefreshTokens) // Load all refresh tokens
+        //        .FirstOrDefaultAsync(u => u.Email.Value == email && !u.IsDeleted, cancellationToken);
+        //}
+
+        public async Task<User?> GetByEmailWithTokensAsync(string email, CancellationToken cancellationToken = default)
+        {
+            var emailVo = new Email(email);
+
+            return await _context.Users
+                .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted))
+                .FirstOrDefaultAsync(
+                    u => u.Email == emailVo.Value,
+                    cancellationToken);
+        }
+
+
         #endregion
     }
 }

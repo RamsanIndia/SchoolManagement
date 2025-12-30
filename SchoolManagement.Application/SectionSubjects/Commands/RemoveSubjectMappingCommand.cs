@@ -11,5 +11,6 @@ namespace SchoolManagement.Application.SectionSubjects.Commands
     public class RemoveSubjectMappingCommand : IRequest<Result>
     {
         public Guid MappingId { get; set; }
+        public Guid SectionId { get; set; }
     }
 }

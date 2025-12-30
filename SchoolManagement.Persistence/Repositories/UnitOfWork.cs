@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
@@ -17,6 +18,8 @@ namespace SchoolManagement.Persistence.Repositories
     {
         private readonly SchoolManagementDbContext _context;
         private readonly ILogger<UnitOfWork> _logger;
+        private readonly ICurrentUserService _currentUserService;  // ✅ Add this
+        private readonly IpAddressHelper _ipAddressHelper;          // ✅ Add this
         private IDbContextTransaction _transaction;
 
         private const int MaxRetries = 3;
@@ -34,15 +37,25 @@ namespace SchoolManagement.Persistence.Repositories
         private IMenuRepository _menuRepository;
         private IUserRoleRepository _userRoleRepository;
         private IPermissionRepository _permissionRepository;
-        public IClassRepository _classesRepository;
-        public ISectionRepository _sectionsRepository;
-        public ISectionSubjectRepository _sectionSubjectsRepository;
-        public ITimeTableRepository _timeTablesRepository;
+        private IClassRepository _classesRepository;
+        private ISectionRepository _sectionsRepository;
+        private ISectionSubjectRepository _sectionSubjectsRepository;
+        private ITimeTableRepository _timeTablesRepository;
+        private ITeacherRepository? _teachersRepository;
+        private IDepartmentRepository? _departmentRepository;
+        private IAcademicYearRepository? _academicYearRepository;
 
-        public UnitOfWork(SchoolManagementDbContext context, ILogger<UnitOfWork> logger)
+        // ✅ UPDATED CONSTRUCTOR - Inject audit services
+        public UnitOfWork(
+            SchoolManagementDbContext context,
+            ILogger<UnitOfWork> logger,
+            ICurrentUserService currentUserService,  // ✅ Add this
+            IpAddressHelper ipAddressHelper)          // ✅ Add this
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _currentUserService = currentUserService ?? throw new ArgumentNullException(nameof(currentUserService));
+            _ipAddressHelper = ipAddressHelper ?? throw new ArgumentNullException(nameof(ipAddressHelper));
         }
 
         #region Repository Properties
@@ -90,9 +103,20 @@ namespace SchoolManagement.Persistence.Repositories
 
         public ITimeTableRepository TimeTablesRepository =>
             _timeTablesRepository ??= new TimeTableRepository(_context);
+
+        public ITeacherRepository TeachersRepository =>
+            _teachersRepository ??= new TeacherRepository(_context);
+
+        public IDepartmentRepository DepartmentRepository =>
+            _departmentRepository ??= new DepartmentRepository(_context);
+
+        public IAcademicYearRepository AcademicYearRepository =>
+            _academicYearRepository ??= new AcademicYearRepository(_context);
+
+
         #endregion
 
-        #region SaveChanges with Concurrency Retry Logic
+        #region SaveChanges with Concurrency Retry Logic & Audit
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var retryCount = 0;
@@ -103,7 +127,10 @@ namespace SchoolManagement.Persistence.Repositories
                 {
                     _logger.LogDebug("💾 UnitOfWork: Attempting SaveChanges, attempt {Attempt}", retryCount + 1);
 
-                    // ✅ FIX: Log what's being tracked BEFORE save
+                    // ✅ APPLY AUDIT INFO BEFORE SAVING
+                    ApplyAuditInfo();
+
+                    // Log what's being tracked
                     LogTrackedEntities();
 
                     var result = await _context.SaveChangesAsync(cancellationToken);
@@ -228,88 +255,118 @@ namespace SchoolManagement.Persistence.Repositories
             }
         }
 
-        // ✅ ADD: Helper method to log tracked entities
+        // ✅ NEW METHOD: Apply audit information to tracked entities
+        private void ApplyAuditInfo()
+        {
+            var entries = _context.ChangeTracker
+                .Entries<BaseEntity>()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified)
+                .ToList();
+
+            if (!entries.Any())
+            {
+                _logger.LogDebug("📝 No entities require audit info");
+                return;
+            }
+
+            // Get current user info from services
+            var currentUser = _currentUserService.Username;
+            var currentIp = _ipAddressHelper.GetIpAddress();
+            var isAuthenticated = _currentUserService.IsAuthenticated;
+
+            _logger.LogInformation(
+                "📝 Applying audit info to {Count} entities - User: {User}, IP: {IP}, IsAuth: {IsAuth}",
+                entries.Count,
+                currentUser,
+                currentIp,
+                isAuthenticated
+            );
+
+            foreach (var entry in entries)
+            {
+                var entityType = entry.Entity.GetType().Name;
+                var entityId = entry.Entity.Id;
+
+                if (entry.State == EntityState.Added)
+                {
+                    _logger.LogDebug(
+                        "   ➕ Setting Created audit for {EntityType} ({Id}): CreatedBy={User}",
+                        entityType,
+                        entityId,
+                        currentUser
+                    );
+                    entry.Entity.SetCreated(currentUser, currentIp);
+                }
+
+                if (entry.State == EntityState.Modified)
+                {
+                    _logger.LogDebug(
+                        "   ✏️ Setting Updated audit for {EntityType} ({Id}): UpdatedBy={User}",
+                        entityType,
+                        entityId,
+                        currentUser
+                    );
+                    entry.Entity.SetUpdated(currentUser, currentIp);
+                }
+            }
+        }
+
+        // Helper method to log tracked entities
         private void LogTrackedEntities()
         {
             var entries = _context.ChangeTracker.Entries().ToList();
+
+            if (!entries.Any())
+            {
+                _logger.LogDebug("📊 ChangeTracker: No tracked entities");
+                return;
+            }
+
             _logger.LogDebug("📊 ChangeTracker has {Count} tracked entities:", entries.Count);
 
             foreach (var entry in entries)
             {
                 var entityType = entry.Entity.GetType().Name;
                 var id = entry.Entity is BaseEntity be ? be.Id.ToString() : "N/A";
+
                 _logger.LogDebug("   - {EntityType} (ID: {Id}): {State}", entityType, id, entry.State);
+
+                // Special logging for entities with audit info
+                if (entry.Entity is BaseEntity baseEntity)
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        _logger.LogDebug(
+                            "      📝 Audit: CreatedBy={CreatedBy}, CreatedAt={CreatedAt}, CreatedIp={CreatedIp}",
+                            baseEntity.CreatedBy,
+                            baseEntity.CreatedAt,
+                            baseEntity.CreatedIP
+                        );
+                    }
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        _logger.LogDebug(
+                            "      📝 Audit: UpdatedBy={UpdatedBy}, UpdatedAt={UpdatedAt}, UpdatedIp={UpdatedIp}",
+                            baseEntity.UpdatedBy,
+                            baseEntity.UpdatedAt,
+                            baseEntity.CreatedIP
+                        );
+                    }
+                }
 
                 // Special logging for RefreshToken
                 if (entry.Entity is RefreshToken rt && entry.State == EntityState.Added)
                 {
-                    _logger.LogDebug("      🔑 RefreshToken details - UserId: {UserId}, Token: {Token}..., Expiry: {Expiry}",
+                    _logger.LogDebug(
+                        "      🔑 RefreshToken: UserId={UserId}, Token={Token}..., Expiry={Expiry}",
                         rt.UserId,
                         rt.Token?.Substring(0, Math.Min(10, rt.Token?.Length ?? 0)),
-                        rt.ExpiryDate);
+                        rt.ExpiryDate
+                    );
                 }
             }
         }
         #endregion
-
-        //#region Debug Methods (for troubleshooting - can remove after fixing)
-
-        ///// <summary>
-        ///// ✅ Get information about tracked entities for debugging
-        ///// </summary>
-        //public IEnumerable<string> GetTrackedEntitiesDebugInfo()
-        //{
-        //    var entries = _context.ChangeTracker.Entries().ToList();
-        //    var debugInfo = new List<string>
-        //    {
-        //        $"Total tracked entities: {entries.Count}"
-        //    };
-
-        //    foreach (var entry in entries)
-        //    {
-        //        var entityType = entry.Entity.GetType().Name;
-        //        var state = entry.State;
-        //        var id = entry.Entity is BaseEntity baseEntity ? baseEntity.Id.ToString() : "N/A";
-
-        //        var info = $"{entityType} (ID: {id}): {state}";
-
-        //        // Add extra details for RefreshToken
-        //        if (entry.Entity is RefreshToken rt)
-        //        {
-        //            info += $" | UserId: {rt.UserId}, Token: {rt.Token?.Substring(0, Math.Min(20, rt.Token?.Length ?? 0))}..., Expiry: {rt.ExpiryDate}";
-        //        }
-
-        //        debugInfo.Add(info);
-        //    }
-
-        //    return debugInfo;
-        //}
-
-        ///// <summary>
-        ///// ✅ Check if a refresh token exists in the database
-        ///// </summary>
-        //public async Task<bool> RefreshTokenExistsInDatabaseAsync(string token, CancellationToken cancellationToken = default)
-        //{
-        //    try
-        //    {
-        //        var exists = await _context.RefreshTokens
-        //            .AsNoTracking()
-        //            .AnyAsync(rt => rt.Token == token, cancellationToken);
-
-        //        _logger.LogDebug("🔍 Token exists check: {Exists} for token {Token}...",
-        //            exists,
-        //            token?.Substring(0, Math.Min(20, token?.Length ?? 0)));
-
-        //        return exists;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "❌ Error checking if token exists in database");
-        //        return false;
-        //    }
-        //}
-
-        //#endregion
 
         #region Transaction Handling
         public async Task BeginTransactionAsync(CancellationToken cancellationToken)
@@ -476,6 +533,11 @@ namespace SchoolManagement.Persistence.Repositories
             }
 
             GC.SuppressFinalize(this);
+        }
+
+        public async Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default)
+        {
+            await _context.Set<RefreshToken>().AddAsync(refreshToken, cancellationToken);
         }
         #endregion
     }

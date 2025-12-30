@@ -10,6 +10,10 @@ namespace SchoolManagement.Application.DTOs
     {
         public Guid TeacherId { get; set; }
         public string TeacherName { get; set; }
+        public string Email { get; set; }
         public Dictionary<DayOfWeek, List<TeacherTimeTableEntryDto>> Schedule { get; set; }
+        public TeacherScheduleStatistics Statistics { get; set; }
+        public int TotalPeriodsPerWeek { get; set; }
+        public DateTime LastUpdated { get; set; }
     }
 }

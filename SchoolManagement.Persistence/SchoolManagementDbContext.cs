@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
@@ -25,17 +26,23 @@ namespace SchoolManagement.Persistence
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<SchoolManagementDbContext> _logger;
         private readonly IpAddressHelper _ipAddressHelper;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly ICorrelationIdService _correlationIdService;
 
         public SchoolManagementDbContext(
             DbContextOptions<SchoolManagementDbContext> options,
-            IHttpContextAccessor httpContextAccessor,
-            ILogger<SchoolManagementDbContext> logger,
-            IpAddressHelper ipAddressHelper)
+            IHttpContextAccessor httpContextAccessor = null,
+            ILogger<SchoolManagementDbContext> logger = null,
+            IpAddressHelper ipAddressHelper = null,
+            ICurrentUserService currentUserService = null,
+            ICorrelationIdService correlationIdService = null)
             : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
             _ipAddressHelper = ipAddressHelper;
+            _currentUserService = currentUserService;
+            _correlationIdService = correlationIdService;
         }
 
         #region DbSets
@@ -57,11 +64,13 @@ namespace SchoolManagement.Persistence
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Class> Classes { get; set; }
         public DbSet<Section> Sections { get; set; }
+        public DbSet<Teacher> Teachers { get; set; }
         public DbSet<SectionSubject> SectionSubjects { get; set; }
         public DbSet<TimeTableEntry> TimeTableEntries { get; set; }
         public DbSet<ExamResult> ExamResults { get; set; }
         public DbSet<StudentParent> StudentParents { get; set; }
         public DbSet<FeePayment> FeePayments { get; set; }
+        public DbSet<AcademicYear> AcademicYears { get; set; }
 
         // Employee Data
         public DbSet<Employee> Employees { get; set; }
@@ -109,21 +118,11 @@ namespace SchoolManagement.Persistence
             base.OnModelCreating(modelBuilder);
         }
 
-        /// <summary>
-        /// Synchronous SaveChanges - not recommended for production
-        /// Use SaveChangesAsync instead
-        /// </summary>
-        //public override int SaveChanges()
-        //{
-        //    _logger.LogWarning("Synchronous SaveChanges called. Consider using SaveChangesAsync for better performance.");
-        //    return SaveChanges(acceptAllChangesOnSuccess: true);
-        //}
-
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
         {
             try
             {
-                ApplyAuditInfo();
+                //ApplyAuditInfo();
                 var domainEvents = CollectDomainEvents();
 
                 if (domainEvents.Any())
@@ -168,7 +167,7 @@ namespace SchoolManagement.Persistence
             try
             {
                 // Step 1: Apply audit information
-                ApplyAuditInfo();
+                //ApplyAuditInfo();
 
                 // Step 2: Collect domain events BEFORE saving
                 var domainEvents = CollectDomainEvents();
@@ -237,10 +236,6 @@ namespace SchoolManagement.Persistence
                        && (pgEx.ConstraintName == "PK_OutboxMessages"
                            || pgEx.ConstraintName == "IX_OutboxMessages_EventId_Unique");
             }
-
-            // Optional: keep SQL Server handling if you still run SQL Server in dev
-            // if (ex.InnerException is SqlException sqlEx)
-            //     return (sqlEx.Number == 2627 || sqlEx.Number == 2601);
 
             return false;
         }
@@ -392,9 +387,9 @@ namespace SchoolManagement.Persistence
         /// </summary>
         private void AddEventsToOutbox(List<IDomainEvent> domainEvents)
         {
-            var correlationId = _ipAddressHelper.GetCorrelationId();
-            var userId = _ipAddressHelper.GetCurrentUserId();
-            var ipAddress = _ipAddressHelper.GetClientIpAddress();
+            var correlationId = _correlationIdService.GetCorrelationId();
+            var userId = _currentUserService.UserId;
+            var ipAddress = _ipAddressHelper.GetIpAddress();
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
 
             foreach (var domainEvent in domainEvents)
@@ -407,11 +402,12 @@ namespace SchoolManagement.Persistence
                 {
                     Id = Guid.NewGuid(),
                     EventId = eventId,
-                    EventType = domainEvent.GetType().FullName,
+                    EventType = domainEvent.GetType().AssemblyQualifiedName!,
                     Payload = JsonSerializer.Serialize(domainEvent, new JsonSerializerOptions
                     {
                         WriteIndented = false,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        PropertyNameCaseInsensitive = true
                     }),
                     CreatedAt = DateTime.UtcNow,
                     ProcessedAt = null,
@@ -445,9 +441,9 @@ namespace SchoolManagement.Persistence
             List<IDomainEvent> domainEvents,
             CancellationToken cancellationToken)
         {
-            var correlationId = _ipAddressHelper.GetCorrelationId();
-            var userId = _ipAddressHelper.GetCurrentUserId();
-            var ipAddress = _ipAddressHelper.GetClientIpAddress();
+            var correlationId = _correlationIdService?.GetCorrelationId() ?? "unknown";
+            var userId = _currentUserService?.UserId ?? "System";
+            var ipAddress = _ipAddressHelper?.GetIpAddress() ?? "Unknown";
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
 
             // Get all event IDs to check for duplicates
@@ -486,11 +482,12 @@ namespace SchoolManagement.Persistence
                 {
                     Id = Guid.NewGuid(),
                     EventId = eventId,
-                    EventType = domainEvent.GetType().FullName,
+                    EventType = domainEvent.GetType().AssemblyQualifiedName!,
                     Payload = JsonSerializer.Serialize(domainEvent, new JsonSerializerOptions
                     {
                         WriteIndented = false,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        PropertyNameCaseInsensitive = true
                     }),
                     CreatedAt = DateTime.UtcNow,
                     ProcessedAt = null,
@@ -544,63 +541,27 @@ namespace SchoolManagement.Persistence
         /// <summary>
         /// Apply audit information to entities
         /// </summary>
-        private void ApplyAuditInfo()
-        {
-            var entries = ChangeTracker
-                .Entries<BaseEntity>()
-                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-            var currentUser = _ipAddressHelper.GetCurrentUserId();
-            var currentIp = _ipAddressHelper.GetClientIpAddress();
-
-            foreach (var entry in entries)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    entry.Entity.SetCreated(currentUser, currentIp);
-                }
-
-                if (entry.State == EntityState.Modified)
-                {
-                    entry.Entity.SetUpdated(currentUser, currentIp);
-                }
-            }
-        }
-
-        ///// <summary>
-        ///// Get current user ID from HTTP context
-        ///// </summary>
-        //private string GetCurrentUserId()
+        //private void ApplyAuditInfo()
         //{
-        //    return _httpContextAccessor?.HttpContext?.User?.FindFirst("sub")?.Value
-        //           ?? _httpContextAccessor?.HttpContext?.User?.FindFirst("userId")?.Value
-        //           ?? _httpContextAccessor?.HttpContext?.User?.Identity?.Name
-        //           ?? "System";
-        //}
+        //    var entries = ChangeTracker
+        //        .Entries<BaseEntity>()
+        //        .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
-        ///// <summary>
-        ///// Get current IP address from HTTP context
-        ///// </summary>
-        //private string GetCurrentIpAddress()
-        //{
-        //    return _httpContextAccessor?.HttpContext?.Connection?.RemoteIpAddress?.ToString()
-        //           ?? "Unknown";
-        //}
+        //    var currentUser = _currentUserService.Username ?? "System";
+        //    var currentIp = _ipAddressHelper.GetClientIpAddress();
 
-        ///// <summary>
-        ///// Get or generate correlation ID for request tracing
-        ///// </summary>
-        //private string GetCorrelationId()
-        //{
-        //    var correlationId = _httpContextAccessor?.HttpContext?.TraceIdentifier;
-
-        //    if (string.IsNullOrEmpty(correlationId))
+        //    foreach (var entry in entries)
         //    {
-        //        correlationId = _httpContextAccessor?.HttpContext?.Request?.Headers["X-Correlation-ID"]
-        //            .FirstOrDefault();
-        //    }
+        //        if (entry.State == EntityState.Added)
+        //        {
+        //            entry.Entity.SetCreated(currentUser, currentIp);
+        //        }
 
-        //    return correlationId ?? Guid.NewGuid().ToString();
+        //        if (entry.State == EntityState.Modified)
+        //        {
+        //            entry.Entity.SetUpdated(currentUser, currentIp);
+        //        }
+        //    }
         //}
     }
 }

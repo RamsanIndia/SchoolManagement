@@ -12,10 +12,12 @@ namespace SchoolManagement.Application.SectionSubjects.Handlers.Commands
         : IRequestHandler<UpdateSubjectMappingCommand, Result<bool>>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUserService;
 
-        public UpdateSubjectMappingCommandHandler(IUnitOfWork unitOfWork)
+        public UpdateSubjectMappingCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Result<bool>> Handle(UpdateSubjectMappingCommand request, CancellationToken cancellationToken)
@@ -30,10 +32,10 @@ namespace SchoolManagement.Application.SectionSubjects.Handlers.Commands
                     $"No mapping exists with Id: {request.MappingId}"
                 );
             }
-
+            var userId = _currentUserService.Username ?? "System";
             // Update domain entity
-            mapping.UpdateTeacher(request.TeacherId, request.TeacherName);
-            mapping.UpdateWeeklyPeriods(request.WeeklyPeriods);
+            mapping.UpdateTeacher(request.TeacherId, request.TeacherName, userId);
+            mapping.UpdateWeeklyPeriods(request.WeeklyPeriods, userId);
 
             await _unitOfWork.SectionSubjectsRepository.UpdateAsync(mapping, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

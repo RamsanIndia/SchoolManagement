@@ -12,5 +12,16 @@ namespace SchoolManagement.Application.TimeTables.Queries
     public class GetTeacherTimeTableQuery : IRequest<Result<TeacherTimeTableDto>>
     {
         public Guid TeacherId { get; set; }
+        public bool IncludeStatistics { get; set; } = true;
+
+        public GetTeacherTimeTableQuery()
+        {
+        }
+
+        public GetTeacherTimeTableQuery(Guid teacherId, bool includeStatistics = true)
+        {
+            TeacherId = teacherId;
+            IncludeStatistics = includeStatistics;
+        }
     }
 }

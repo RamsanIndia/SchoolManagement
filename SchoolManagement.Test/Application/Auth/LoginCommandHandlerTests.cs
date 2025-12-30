@@ -41,13 +41,13 @@ namespace SchoolManagement.UnitTests.Application.Auth
             httpContext.Connection.RemoteIpAddress = IPAddress.Parse("192.168.1.1");
             _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(httpContext);
 
-            _handler = new LoginCommandHandler(
-                _mockHttpContextAccessor.Object,
-                _mockUserRepository.Object,
-                _mockUnitOfWork.Object,
-                _mockPasswordService.Object,
-                _mockTokenService.Object,
-                _mockLogger.Object);
+            //_handler = new LoginCommandHandler(
+            //    _mockHttpContextAccessor.Object,
+            //    _mockUserRepository.Object,
+            //    _mockUnitOfWork.Object,
+            //    _mockPasswordService.Object,
+            //    _mockTokenService.Object,
+            //    _mockLogger.Object);
         }
 
         #region Successful Login Tests

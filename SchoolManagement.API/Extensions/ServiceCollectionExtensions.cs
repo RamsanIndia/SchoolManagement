@@ -3,6 +3,7 @@ using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Shared.Correlation;
 using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Services;
+using SchoolManagement.Infrastructure.BackgroundServices;
 using SchoolManagement.Infrastructure.Configuration;
 using SchoolManagement.Infrastructure.EventBus;
 using SchoolManagement.Infrastructure.Events;
@@ -17,7 +18,7 @@ namespace SchoolManagement.API.Extensions
     public static class ServiceCollectionExtensions
     {
         /// <summary>
-        /// ✅ Register repositories to share the same DbContext instance
+        /// Register repositories to share the same DbContext instance
         /// This ensures proper change tracking across all repositories
         /// </summary>
         public static IServiceCollection AddRepositories(this IServiceCollection services)
@@ -25,7 +26,7 @@ namespace SchoolManagement.API.Extensions
             // Register UnitOfWork
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-            // ✅ Register all repositories using factory pattern to share DbContext
+            //  Register all repositories using factory pattern to share DbContext
             // This ensures IUserRepository and IUnitOfWork.UserRepository use the SAME context
 
             services.AddScoped<IUserRepository>(sp =>
@@ -130,6 +131,26 @@ namespace SchoolManagement.API.Extensions
                 return new UserRoleRepository(context);
             });
 
+            services.AddScoped<IAcademicYearRepository, AcademicYearRepository>();
+            services.AddScoped<ITeacherRepository, TeacherRepository>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddAuthenticationServices(this IServiceCollection services)
+        {
+            services.AddScoped<IAccountSecurityService, AccountSecurityService>();
+            services.AddScoped<IAuthenticationTokenManager, AuthenticationTokenManager>();
+            services.AddScoped<IAuthResponseBuilder, AuthResponseBuilder>();
+            services.AddScoped<TokenService>(); // Concrete implementation
+            services.AddScoped<ITokenService, CachedTokenService>(); // Cached decorator
+            services.AddScoped<IPasswordService, PasswordService>();
+            services.AddScoped<IpAddressHelper>();
+            //services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
+            services.AddSingleton<ICorrelationIdAccessor, CorrelationIdAccessor>();
+            services.AddSingleton<ICorrelationIdService, CorrelationIdService>();
+
+
             return services;
         }
 
@@ -144,13 +165,8 @@ namespace SchoolManagement.API.Extensions
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IAuditService, AuditService>();
             services.AddScoped<IChangeTrackerService, ChangeTrackerService>();
+            services.AddScoped<ITimeTableGenerationService, TimeTableGenerationService>();
 
-            // Auth Services with Decorator Pattern
-            services.AddScoped<TokenService>(); // Concrete implementation
-            services.AddScoped<ITokenService, CachedTokenService>(); // Cached decorator
-            services.AddScoped<IPasswordService, PasswordService>();
-            services.AddScoped<IpAddressHelper>();
-            services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
 
 
             return services;
@@ -183,11 +199,13 @@ namespace SchoolManagement.API.Extensions
             services.Configure<AttendanceSettings>(configuration.GetSection("AttendanceSettings"));
 
             // Register EventBus
-            //services.AddSingleton<IEventBus, EventBus>();
+            services.AddSingleton<IEventBus, AzureServiceBusEventBus>();
 
             // Register DomainEventPublisher
-            services.AddScoped<IEventPublisher, AzureServiceBusPublisher>();
-            services.AddScoped<IIntegrationEventMapper, IntegrationEventMapper>();
+            //services.AddScoped<IEventPublisher, AzureServiceBusPublisher>();
+            //services.AddScoped<IIntegrationEventMapper, IntegrationEventMapper>();
+            services.AddSingleton<IEventRouter, EventRouter>();
+            services.AddHostedService<NotificationEventConsumer>();
 
             return services;
         }

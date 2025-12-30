@@ -25,6 +25,8 @@ namespace SchoolManagement.Application.Auth.Handlers
         private readonly ILogger<RegisterCommandHandler> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IpAddressHelper _ipAddressHelper;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly ICorrelationIdService _correlationIdService;
 
         public RegisterCommandHandler(
             IUserRepository userRepository,
@@ -32,21 +34,25 @@ namespace SchoolManagement.Application.Auth.Handlers
             IUnitOfWork unitOfWork,
             IPasswordService passwordService,
             ILogger<RegisterCommandHandler> logger,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            ICurrentUserService currentUserService,
+            ICorrelationIdService correlationIdService)
         {
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _passwordService = passwordService;
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
-            _ipAddressHelper=ipAddressHelper;
+            _ipAddressHelper = ipAddressHelper;
+            _currentUserService = currentUserService;
+            _correlationIdService = correlationIdService;
         }
 
         public async Task<Result<UserDto>> Handle(
             RegisterCommand request,
             CancellationToken cancellationToken)
         {
-            var correlationId = _ipAddressHelper.GetCorrelationId();
+            var correlationId = _correlationIdService.GetCorrelationId();
 
             try
             {
@@ -76,7 +82,7 @@ namespace SchoolManagement.Application.Auth.Handlers
                 var passwordHash = _passwordService.HashPassword(request.Password);
 
                 // Get client IP for audit trail
-                var clientIp = _ipAddressHelper.GetClientIpAddress(); 
+                var clientIp = _ipAddressHelper.GetIpAddress(); 
 
                 // Create user aggregate using factory method (raises UserCreatedEvent)
                 var user = User.Create(
@@ -117,7 +123,7 @@ namespace SchoolManagement.Application.Auth.Handlers
                     IsPhoneVerified = user.PhoneVerified,
                     //UserType = user.UserType.ToString(),
                     Roles = new List<string> { user.UserType.ToString() },
-                    //LastLoginAt=user.LastLoginAt,
+                    LastLoginAt= (DateTime)user.LastLoginAt,
                     CreatedAt = user.CreatedAt
                 };
 

@@ -17,5 +17,7 @@ namespace SchoolManagement.Application.DTOs
         public int TotalSections { get; set; }
         public int TotalStudents { get; set; }
         public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public int Capacity { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Domain.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,10 +8,15 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Sections.Commands
 {
-    public class MapSubjectCommand : IRequest<Unit>
+    public class MapSubjectCommand : IRequest<Result<Guid>>
     {
         public Guid SectionId { get; set; }
+        public Guid SubjectId { get; set; }
+        public string SubjectName { get; set; }
+        public string SubjectCode { get; set; }
         public Guid TeacherId { get; set; }
-        
+        public string TeacherName { get; set; }
+        public int WeeklyPeriods { get; set; }
+        public bool IsMandatory { get; set; }
     }
 }

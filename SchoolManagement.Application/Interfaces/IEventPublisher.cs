@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Text;
+//using System.Threading.Tasks;
 
-namespace SchoolManagement.Application.Interfaces
-{
-    public interface IEventPublisher
-    {
-        Task PublishAsync(string eventType, string payload, CancellationToken cancellationToken = default);
-    }
-}
+//namespace SchoolManagement.Application.Interfaces
+//{
+//    public interface IEventPublisher
+//    {
+//        Task PublishAsync(string eventType, string payload, CancellationToken cancellationToken = default);
+//    }
+//}

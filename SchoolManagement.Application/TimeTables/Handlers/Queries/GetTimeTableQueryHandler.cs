@@ -47,8 +47,8 @@ namespace SchoolManagement.Application.TimeTables.Handlers.Queries
                         {
                             Id = e.Id,
                             PeriodNumber = e.PeriodNumber,
-                            StartTime = e.StartTime,
-                            EndTime = e.EndTime,
+                            StartTime = e.TimePeriod.StartTime,
+                            EndTime = e.TimePeriod.StartTime,
                             SubjectId = e.SubjectId,
                             RoomNumber = e.RoomNumber
                         })

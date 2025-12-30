@@ -3,6 +3,8 @@ using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.TimeTables.Commands;
 using SchoolManagement.Domain.Entities;
+using SchoolManagement.Domain.Exceptions;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,40 +15,34 @@ namespace SchoolManagement.Application.TimeTables.Handlers.Commands
         : IRequestHandler<CreateTimeTableEntryCommand, Result<Guid>>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<CreateTimeTableEntryCommandHandler> _logger;
+        private readonly IMediator _mediator;
 
-        public CreateTimeTableEntryCommandHandler(IUnitOfWork unitOfWork)
+        public CreateTimeTableEntryCommandHandler(
+            IUnitOfWork unitOfWork,
+            ILogger<CreateTimeTableEntryCommandHandler> logger,
+            IMediator mediator)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
+            _mediator = mediator;
         }
 
-        public async Task<Result<Guid>> Handle(CreateTimeTableEntryCommand request, CancellationToken cancellationToken)
+        public async Task<Result<Guid>> Handle(
+            CreateTimeTableEntryCommand request,
+            CancellationToken cancellationToken)
         {
             try
             {
-                // Check if slot is available
-                var slotAvailable = await _unitOfWork.TimeTablesRepository.IsSlotAvailableAsync(
-                    request.SectionId,
-                    request.DayOfWeek,
-                    request.PeriodNumber,
-                    cancellationToken
-                );
+                _logger.LogInformation(
+                    "Creating TimeTable entry for Section {SectionId}, Subject {SubjectId}, Day {DayOfWeek}, Period {PeriodNumber}",
+                    request.SectionId, request.SubjectId, request.DayOfWeek, request.PeriodNumber);
 
-                if (!slotAvailable)
-                    return Result<Guid>.Failure("This slot is already occupied.");
+                // Validate business rules
+                await ValidateBusinessRulesAsync(request, cancellationToken);
 
-                // Check if teacher is available
-                var teacherAvailable = await _unitOfWork.TimeTablesRepository.IsTeacherAvailableAsync(
-                    request.TeacherId,
-                    request.DayOfWeek,
-                    request.PeriodNumber,
-                    cancellationToken
-                );
-
-                if (!teacherAvailable)
-                    return Result<Guid>.Failure("Teacher is not available at this time.");
-
-                // Create new TimeTableEntry
-                var entry = new TimeTableEntry(
+                // Create aggregate using factory method
+                var entry = TimeTableEntry.Create(
                     request.SectionId,
                     request.SubjectId,
                     request.TeacherId,
@@ -57,14 +53,105 @@ namespace SchoolManagement.Application.TimeTables.Handlers.Commands
                     request.RoomNumber
                 );
 
+                // Persist the aggregate
                 await _unitOfWork.TimeTablesRepository.AddAsync(entry, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                return Result<Guid>.Success(entry.Id, "Time table entry created successfully.");
+                // Dispatch domain events
+                await DispatchDomainEventsAsync(entry, cancellationToken);
+
+                _logger.LogInformation(
+                    "TimeTable entry {EntryId} created successfully",
+                    entry.Id);
+
+                return Result<Guid>.Success(
+                    entry.Id,
+                    "Time table entry created successfully.");
+            }
+            catch (DomainException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Domain validation failed while creating TimeTable entry: {Message}",
+                    ex.Message);
+
+                return Result<Guid>.Failure(ex.Message);
             }
             catch (Exception ex)
             {
-                return Result<Guid>.Failure("Failed to create time table entry.", ex.Message);
+                _logger.LogError(ex,
+                    "Unexpected error occurred while creating TimeTable entry");
+
+                return Result<Guid>.Failure(
+                    "Failed to create time table entry.",
+                    ex.Message);
+            }
+        }
+
+        private async Task ValidateBusinessRulesAsync(
+            CreateTimeTableEntryCommand request,
+            CancellationToken cancellationToken)
+        {
+            // Check if section slot is available
+            var sectionEntry = await _unitOfWork.TimeTablesRepository
+                .GetBySlotAsync(
+                    request.SectionId,
+                    request.DayOfWeek,
+                    request.PeriodNumber,
+                    cancellationToken);
+
+            if (sectionEntry != null)
+            {
+                throw new TimeTableConflictException(
+                    sectionEntry.Id,
+                    request.DayOfWeek,
+                    request.PeriodNumber);
+            }
+
+            // Check if teacher is available at this time
+            var teacherEntry = await _unitOfWork.TimeTablesRepository
+                .GetTeacherScheduleAsync(
+                    request.TeacherId,
+                    request.DayOfWeek,
+                    request.PeriodNumber,
+                    cancellationToken);
+
+            if (teacherEntry != null)
+            {
+                throw new TimeTableConflictException(
+                    $"Teacher is already assigned to Section {teacherEntry.SectionId} at {request.DayOfWeek}, Period {request.PeriodNumber}",
+                    teacherEntry.Id,
+                    request.DayOfWeek,
+                    request.PeriodNumber);
+            }
+
+            // Check if room is available
+            var roomEntry = await _unitOfWork.TimeTablesRepository
+                .GetByRoomAndSlotAsync(
+                    request.RoomNumber,
+                    request.DayOfWeek,
+                    request.PeriodNumber,
+                    cancellationToken);
+
+            if (roomEntry != null)
+            {
+                throw new TimeTableConflictException(
+                    $"Room {request.RoomNumber} is already booked for Section {roomEntry.SectionId} at {request.DayOfWeek}, Period {request.PeriodNumber}",
+                    roomEntry.Id,
+                    request.DayOfWeek,
+                    request.PeriodNumber);
+            }
+        }
+
+        private async Task DispatchDomainEventsAsync(
+            TimeTableEntry entry,
+            CancellationToken cancellationToken)
+        {
+            var events = entry.DomainEvents;
+            entry.ClearDomainEvents();
+
+            foreach (var domainEvent in events)
+            {
+                await _mediator.Publish(domainEvent, cancellationToken);
             }
         }
     }

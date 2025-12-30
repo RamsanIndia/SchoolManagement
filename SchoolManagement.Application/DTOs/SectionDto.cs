@@ -17,8 +17,12 @@ namespace SchoolManagement.Application.DTOs
         public int AvailableSeats { get; set; }
         public string RoomNumber { get; set; }
         public Guid? ClassTeacherId { get; set; }
-        public string ClassTeacherName { get; set; }
         public bool IsActive { get; set; }
         public int TotalSubjects { get; set; }
+        public int MaxCapacity { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string CreatedBy { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public string UpdatedBy { get; set; }
     }
 }

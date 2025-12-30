@@ -11,6 +11,6 @@ namespace SchoolManagement.Application.Sections.Queries
 {
     public class GetSectionByIdQuery : IRequest<Result<SectionDto>>
     {
-        public Guid Id { get; set; }
+        public Guid SectionId { get; set; }
     }
 }

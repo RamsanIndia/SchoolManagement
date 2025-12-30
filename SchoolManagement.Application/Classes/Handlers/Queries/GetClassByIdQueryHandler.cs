@@ -39,7 +39,7 @@ namespace SchoolManagement.Application.Classes.Handlers.Queries
                     AcademicYearId = classEntity.AcademicYearId,
                     IsActive = classEntity.IsActive,
                     TotalSections = classEntity.Sections?.Count ?? 0,
-                    TotalStudents = classEntity.Sections?.Sum(s => s.CurrentStrength) ?? 0
+                    TotalStudents = classEntity.Sections?.Sum(s => s.Capacity.CurrentStrength) ?? 0
                 };
 
                 return Result<ClassDto>.Success(classDto);
