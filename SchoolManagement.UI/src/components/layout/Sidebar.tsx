@@ -1,204 +1,98 @@
-import React, { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import {
-  ChevronDown,
-  ChevronRight,
-  GraduationCap,
-  Circle,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSidebar } from "@/components/ui/sidebar";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { MenuItem, getMenus } from "@/services/MenuService";
-import { buildMenuTree } from "@/utils/menuUtils";
-import * as LucideIcons from "lucide-react";
+// import { memo } from "react";
+// import { GraduationCap, AlertCircle, Loader2 } from "lucide-react";
+// import { cn } from "@/lib/utils";
+// import { useAuth, useUserFullName } from "@/contexts/AuthContext";
+// import { useNavigation } from "@/contexts/NavigationContext";
+// import {
+//   Sidebar,
+//   SidebarContent,
+//   SidebarGroup,
+//   SidebarGroupContent,
+//   SidebarGroupLabel,
+//   SidebarMenu,
+//   useSidebar,
+// } from "@/components/ui/sidebar";
+// import { SidebarNavItem } from "@/components/sidebar/SidebarNavItem";
+// //import { SidebarUserProfile } from "@/components/sidebar/SidebarUserProfile";
+// import { Alert, AlertDescription } from "@/components/ui/alert";
+// import { Button } from "@/components/ui/button";
 
-function getIconByName(name?: string): React.ComponentType<{ className?: string }> {
-  if (!name) return Circle;
-  const formattedName = name
-    .replace(/[-_ ](\w)/g, (_, c) => c.toUpperCase())
-    .replace(/^(\w)/, (_, c) => c.toUpperCase());
-  const icon = (LucideIcons as any)[formattedName];
-  return icon || Circle;
-}
+// export const AppSidebar = memo(() => {
+//   const { user } = useAuth();
+//   const { menuItems, isLoading, error, refreshMenu } = useNavigation();
+//   const { state } = useSidebar();
+//   const isCollapsed = state === "collapsed";
 
-interface NavItemProps {
-  item: MenuItem;
-  level?: number;
-}
+//   if (!user) return null;
 
-function NavItemComponent({ item, level = 0 }: NavItemProps) {
-  const location = useLocation();
-  const [isOpen, setIsOpen] = useState(false);
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
-  const Icon = getIconByName(item.icon);
+//   return (
+//     <Sidebar className={cn(isCollapsed ? "w-16" : "w-64")} collapsible="icon">
+//       <SidebarContent>
+//         {/* Header */}
+//         <div className="p-4 border-b">
+//           <div className="flex items-center gap-3">
+//             <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center flex-shrink-0">
+//               <GraduationCap className="h-6 w-6 text-white" />
+//             </div>
+//             {!isCollapsed && (
+//               <div className="min-w-0 flex-1">
+//                 <h2 className="text-lg font-semibold truncate">EduManage</h2>
+//                 <p className="text-xs text-muted-foreground truncate">
+//                   School Management
+//                 </p>
+//               </div>
+//             )}
+//           </div>
+//         </div>
 
-  const isActive = location.pathname === item.route;
-  const isChildActive =
-    Array.isArray(item.children) &&
-    item.children.some((child) => location.pathname.startsWith(child.route ?? ""));
+//         {/* Dynamic Navigation */}
+//         <SidebarGroup>
+//           {!isCollapsed && <SidebarGroupLabel>Navigation</SidebarGroupLabel>}
+//           <SidebarGroupContent>
+//             {isLoading ? (
+//               <div className="flex items-center justify-center p-8">
+//                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+//               </div>
+//             ) : error ? (
+//               <div className="p-4">
+//                 <Alert variant="destructive">
+//                   <AlertCircle className="h-4 w-4" />
+//                   <AlertDescription className="text-xs">
+//                     {error}
+//                   </AlertDescription>
+//                 </Alert>
+//                 {!isCollapsed && (
+//                   <Button
+//                     variant="outline"
+//                     size="sm"
+//                     className="w-full mt-2"
+//                     onClick={refreshMenu}
+//                   >
+//                     Retry
+//                   </Button>
+//                 )}
+//               </div>
+//             ) : menuItems.length === 0 ? (
+//               !isCollapsed && (
+//                 <div className="p-4 text-center text-sm text-muted-foreground">
+//                   No menu items available
+//                 </div>
+//               )
+//             ) : (
+//               <SidebarMenu>
+//                 {menuItems.map((item) => (
+//                   <SidebarNavItem key={item.id} item={item} />
+//                 ))}
+//               </SidebarMenu>
+//             )}
+//           </SidebarGroupContent>
+//         </SidebarGroup>
 
-  const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+//         {/* User Profile */}
+//         <SidebarUserProfile />
+//       </SidebarContent>
+//     </Sidebar>
+//   );
+// });
 
-  useEffect(() => {
-    if (isChildActive) {
-      setIsOpen(true);
-    }
-  }, [isChildActive]);
-
-  const sortedSubMenus = hasChildren
-    ? [...item.children!].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-    : [];
-
-  if (hasChildren) {
-    return (
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => setIsOpen((prev) => !prev)}
-          className={cn(
-            "w-full justify-between transition-colors rounded-md",
-            (isActive || isChildActive) && "bg-brand-primary text-white"
-          )}
-        >
-          <div className="flex items-center">
-            <Icon
-              className={cn(
-                "mr-3 h-4 w-4 shrink-0 transition-colors",
-                (isActive || isChildActive) && "text-white"
-              )}
-            />
-            {!isCollapsed && <span>{item.displayName}</span>}
-          </div>
-          {!isCollapsed &&
-            (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
-        </SidebarMenuButton>
-
-        {isOpen && !isCollapsed && (
-          <div className="ml-4 mt-1 space-y-1">
-            {sortedSubMenus.map((child) => (
-              <NavItemComponent key={child.id} item={child} level={level + 1} />
-            ))}
-          </div>
-        )}
-      </SidebarMenuItem>
-    );
-  }
-
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild>
-        <NavLink
-          to={item.route ?? "#"}
-          className={({ isActive: linkActive }) =>
-            cn(
-              "flex items-center w-full px-3 py-2 text-sm rounded-lg transition-colors",
-              linkActive ? "bg-brand-primary text-white" : "text-foreground hover:bg-muted"
-            )
-          }
-        >
-          {({ isActive: linkActive }) => (
-            <>
-              <Icon
-                className={cn(
-                  "mr-3 h-4 w-4 shrink-0 transition-colors",
-                  linkActive && "text-white"
-                )}
-              />
-              {!isCollapsed && <span>{item.displayName}</span>}
-            </>
-          )}
-        </NavLink>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-}
-
-export function AppSidebar() {
-  const { user } = useAuth();
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
-  const [menus, setMenus] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchMenus = async () => {
-      try {
-        const flatMenus = await getMenus();
-        // Build sorted tree structure; the response already has nested children
-        const treeMenus = buildMenuTree(flatMenus);
-        setMenus(treeMenus);
-      } catch (error) {
-        console.error("Failed to load menus:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMenus();
-  }, []);
-
-  if (!user) return null;
-
-  return (
-    <Sidebar className={cn(isCollapsed ? "w-16" : "w-64")} collapsible="icon">
-      <SidebarContent>
-        <div className="p-4 border-b">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-white" />
-            </div>
-            {!isCollapsed && (
-              <div>
-                <h2 className="text-lg font-semibold">EduManage</h2>
-                <p className="text-xs text-muted-foreground">School Management</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <SidebarGroup>
-          {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {loading ? (
-                <div className="text-sm text-muted-foreground px-3 py-2">Loading menus...</div>
-              ) : (
-                menus.map((item) => <NavItemComponent key={item.id} item={item} />)
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {!isCollapsed && (
-          <div className="mt-auto p-4 border-t">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium">
-                  {`${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground capitalize">
-                  {user.roles.length > 0 ? user.roles[0] : "User"}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </SidebarContent>
-    </Sidebar>
-  );
-}
+// AppSidebar.displayName = "AppSidebar";

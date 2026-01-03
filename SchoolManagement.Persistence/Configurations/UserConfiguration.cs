@@ -124,10 +124,15 @@ namespace SchoolManagement.Persistence.Configurations
                   .UsePropertyAccessMode(PropertyAccessMode.Field);
 
             // UserRoles collection
+            //entity.HasMany(u => u.UserRoles)
+            //      .WithOne()
+            //      .HasForeignKey(ur => ur.UserId)
+            //      .OnDelete(DeleteBehavior.Cascade);
+
             entity.HasMany(u => u.UserRoles)
-                  .WithOne()
+                  .WithOne(ur => ur.User)  // Specify the User navigation
                   .HasForeignKey(ur => ur.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
+                  .OnDelete(DeleteBehavior.Restrict);
 
             // ✅ Indexes for performance (PostgreSQL syntax)
             entity.HasIndex(e => e.Username)

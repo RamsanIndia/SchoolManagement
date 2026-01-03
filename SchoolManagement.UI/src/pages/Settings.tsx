@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,37 +11,18 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, School, Bell, Shield, Database, Mail } from "lucide-react";
 
-// 🧩 Define a safe type for your user roles
-type UserRole = string | string[] | undefined;
-
 export default function Settings() {
-  const { user } = useAuth() as { user?: { roles?: UserRole } };
-
+  const { user } = useAuth();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [academicYear, setAcademicYear] = useState("2024-2025");
   const [schoolName, setSchoolName] = useState("Modern School Management System");
   const [timeZone, setTimeZone] = useState("UTC");
 
-  // Safe role-based access check
-  const hasAdminAccess = useMemo(() => {
-    if (!user?.roles) return false;
-
-    const rolesArray = Array.isArray(user.roles)
-      ? user.roles
-      : [user.roles];
-
-    return rolesArray.some(
-      (r) => typeof r === "string" && r.toLowerCase() === "admin"
-    );
-  }, [user]);
-
-  if (!hasAdminAccess) {
+  if (!user || user.role !== "admin") {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">
-          Access denied. This page is only available to administrators.
-        </p>
+        <p className="text-muted-foreground">Access denied. This page is only available to administrators.</p>
       </div>
     );
   }
@@ -57,6 +38,13 @@ export default function Settings() {
     toast({
       title: "Preferences saved",
       description: "Notification preferences have been updated successfully.",
+    });
+  };
+
+  const handleConfigureIntegration = (service: string) => {
+    toast({
+      title: "Configuration",
+      description: `Opening ${service} configuration...`,
     });
   };
 
@@ -336,7 +324,7 @@ export default function Settings() {
                     <p className="text-sm text-muted-foreground">SMTP configuration</p>
                   </div>
                 </div>
-                <Button variant="outline">Configure</Button>
+                <Button variant="outline" onClick={() => handleConfigureIntegration("Email Service")}>Configure</Button>
               </div>
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -346,7 +334,7 @@ export default function Settings() {
                     <p className="text-sm text-muted-foreground">Send SMS notifications</p>
                   </div>
                 </div>
-                <Button variant="outline">Configure</Button>
+                <Button variant="outline" onClick={() => handleConfigureIntegration("SMS Gateway")}>Configure</Button>
               </div>
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -356,7 +344,7 @@ export default function Settings() {
                     <p className="text-sm text-muted-foreground">Process fee payments</p>
                   </div>
                 </div>
-                <Button variant="outline">Configure</Button>
+                <Button variant="outline" onClick={() => handleConfigureIntegration("Payment Gateway")}>Configure</Button>
               </div>
             </CardContent>
           </Card>

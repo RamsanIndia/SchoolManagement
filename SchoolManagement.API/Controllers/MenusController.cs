@@ -7,6 +7,7 @@ using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Menus.Commands;
 using SchoolManagement.Application.Menus.Queries;
 using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
@@ -160,19 +161,58 @@ namespace SchoolManagement.API.Controllers
         /// <summary>
         /// Check user's access to specific menu
         /// </summary>
+        /// <summary>
+        /// Check user's access to specific menu
+        /// </summary>
         [HttpGet("{menuId:guid}/access")]
-        public async Task<ActionResult<MenuAccessDto>> CheckMenuAccess(Guid menuId)
+        [ProducesResponseType(typeof(Result<MenuAccessDto>), 200)]
+        [ProducesResponseType(typeof(Result), 400)]
+        [ProducesResponseType(typeof(Result), 401)]
+        public async Task<ActionResult<Result<MenuAccessDto>>> CheckMenuAccess(
+            Guid menuId,
+            CancellationToken cancellationToken)
         {
-            var userId = GetCurrentUserId();
-            var hasAccess = await _menuPermissionService.HasMenuAccessAsync(userId, menuId);
-            var permissions = await _menuPermissionService.GetUserMenuPermissionsAsync(userId, menuId);
-
-            return Ok(new MenuAccessDto
+            try
             {
-                MenuId = menuId,
-                HasAccess = hasAccess,
-                Permissions = permissions
-            });
+                var userId = GetCurrentUserId();
+
+                // Get access result and extract data
+                var hasAccessResult = await _menuPermissionService.HasMenuAccessAsync(userId, menuId);
+                if (!hasAccessResult.Status)
+                {
+                    return BadRequest(Result<MenuAccessDto>.Failure(
+                        hasAccessResult.Message,
+                        hasAccessResult.Errors
+                    ));
+                }
+
+                // Get permissions result and extract data
+                var permissionsResult = await _menuPermissionService.GetUserMenuPermissionsAsync(userId, menuId);
+
+                // Build the DTO
+                var accessDto = new MenuAccessDto
+                {
+                    MenuId = menuId,
+                    HasAccess = hasAccessResult.Data,  //  Extract bool from Result<bool>
+                    Permissions = permissionsResult.Status
+                        ? permissionsResult.Data  //  Extract MenuPermissions from Result<MenuPermissions>
+                        : new MenuPermissions()   // Default if permissions not found
+                };
+
+                // Return wrapped in Result
+                return Ok(Result<MenuAccessDto>.Success(
+                    accessDto,
+                    "Menu access information retrieved successfully"
+                ));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(Result.Failure("Unauthorized", ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(Result.Failure("Failed to check menu access", ex.Message));
+            }
         }
 
         private Guid GetCurrentUserId()

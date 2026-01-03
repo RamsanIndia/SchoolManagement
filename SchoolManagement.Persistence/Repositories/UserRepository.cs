@@ -31,14 +31,26 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
         }
 
+        //public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
+        //{
+        //    return await _context.Users
+        //        .Include(u => u.UserRoles)
+        //            .ThenInclude(ur => ur.Role)
+        //        .AsNoTracking()
+        //        .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+        //}
+
         public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Users
-                .Include(u => u.UserRoles)
+                .Where(u => u.Id == id && !u.IsDeleted)
+                .Include(u => u.UserRoles.Where(ur => ur.IsActive))
                     .ThenInclude(ur => ur.Role)
+                .AsSplitQuery()  // Better for PostgreSQL
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+                .FirstOrDefaultAsync(cancellationToken);
         }
+
 
         public async Task<User> GetByIdWithTokensAsync(Guid id, CancellationToken cancellationToken = default)
         {
