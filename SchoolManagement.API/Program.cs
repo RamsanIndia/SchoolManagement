@@ -492,8 +492,8 @@ try
             policy.WithOrigins(allowedOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials()
-                  .SetIsOriginAllowedToAllowWildcardSubdomains();
+                  .AllowCredentials();
+                  //.SetIsOriginAllowedToAllowWildcardSubdomains();
         });
     });
 
