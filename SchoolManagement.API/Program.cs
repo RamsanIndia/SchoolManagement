@@ -119,6 +119,7 @@ try
 
     // ============= MEMORY CACHE =============
     builder.Services.AddMemoryCache();
+    builder.Services.AddDistributedMemoryCache();
     //builder.Services.AddMemoryCache(options =>
     //{
     //    options.SizeLimit = 1024; // Limit cache size
