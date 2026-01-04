@@ -80,7 +80,7 @@ namespace SchoolManagement.API.Controllers
         /// <summary>
         /// Refreshes the access token using refresh token
         /// </summary>
-        [HttpPost("refresh")]
+        [HttpPost("refresh-token")]
         //[AllowAnonymous] // Add this attribute
         [ProducesResponseType(typeof(AuthResponseDto), 200)]
         [ProducesResponseType(401)]

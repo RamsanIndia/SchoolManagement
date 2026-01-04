@@ -22,16 +22,16 @@ interface CalendarEvent {
 }
 
 const mockEvents: CalendarEvent[] = [
-  { id: "1", title: "New Year's Day", date: new Date(2025, 0, 1), type: "holiday", description: "Public Holiday" },
-  { id: "2", title: "Republic Day", date: new Date(2025, 0, 26), type: "holiday", description: "Public Holiday" },
-  { id: "3", title: "Mid-Term Exams Begin", date: new Date(2025, 1, 15), type: "exam", location: "Main Building" },
-  { id: "4", title: "Holi", date: new Date(2025, 2, 14), type: "holiday", description: "Festival Holiday" },
-  { id: "5", title: "Spring Break", date: new Date(2025, 2, 20), type: "vacation", description: "One week break" },
-  { id: "6", title: "Independence Day", date: new Date(2025, 7, 15), type: "holiday", description: "Public Holiday" },
-  { id: "7", title: "Annual Sports Day", date: new Date(2025, 8, 5), type: "event", location: "Sports Ground" },
-  { id: "8", title: "Diwali", date: new Date(2025, 9, 20), type: "holiday", description: "Festival Holiday" },
-  { id: "9", title: "Final Exams", date: new Date(2025, 10, 15), type: "exam", location: "All Classrooms" },
-  { id: "10", title: "Christmas", date: new Date(2025, 11, 25), type: "holiday", description: "Public Holiday" },
+  { id: "1", title: "New Year's Day", date: new Date(2026, 0, 1), type: "holiday", description: "Public Holiday" },
+  { id: "2", title: "Republic Day", date: new Date(2026, 0, 26), type: "holiday", description: "Public Holiday" },
+  { id: "3", title: "Mid-Term Exams Begin", date: new Date(2026, 1, 15), type: "exam", location: "Main Building" },
+  { id: "4", title: "Holi", date: new Date(2026, 2, 14), type: "holiday", description: "Festival Holiday" },
+  { id: "5", title: "Spring Break", date: new Date(2026, 2, 20), type: "vacation", description: "One week break" },
+  { id: "6", title: "Independence Day", date: new Date(2026, 7, 15), type: "holiday", description: "Public Holiday" },
+  { id: "7", title: "Annual Sports Day", date: new Date(2026, 8, 5), type: "event", location: "Sports Ground" },
+  { id: "8", title: "Diwali", date: new Date(2026, 9, 20), type: "holiday", description: "Festival Holiday" },
+  { id: "9", title: "Final Exams", date: new Date(2026, 10, 15), type: "exam", location: "All Classrooms" },
+  { id: "10", title: "Christmas", date: new Date(2026, 11, 25), type: "holiday", description: "Public Holiday" },
 ];
 
 const AcademicCalendar = () => {

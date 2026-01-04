@@ -98,6 +98,8 @@ import MessMenu from "./pages/hostel/MessMenu";
 import VisitorTracking from "./pages/hostel/VisitorTracking";
 import HostelReports from "./pages/hostel/HostelReports";
 
+import ErrorBoundary from "./components/ErrorBoundary";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -110,7 +112,7 @@ const queryClient = new QueryClient({
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isAuthenticated } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
@@ -121,7 +123,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   return isAuthenticated && user ? <Layout>{children}</Layout> : <Navigate to="/login" replace />;
 }
 
@@ -129,10 +131,10 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      
+
       {/* Dashboard */}
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      
+
       {/* Students Management */}
       <Route path="/students" element={<PrivateRoute><Students /></PrivateRoute>} />
       <Route path="/students/add" element={<PrivateRoute><StudentForm /></PrivateRoute>} />
@@ -146,7 +148,7 @@ function AppRoutes() {
       <Route path="/students/report-cards/view/:id" element={<PrivateRoute><ReportCardView /></PrivateRoute>} />
       <Route path="/students/assignments" element={<PrivateRoute><StudentAssignments /></PrivateRoute>} />
       <Route path="/students/progress" element={<PrivateRoute><ProgressReports /></PrivateRoute>} />
-      
+
       {/* Attendance Management */}
       <Route path="/attendance" element={<PrivateRoute><AttendanceDashboard /></PrivateRoute>} />
       <Route path="/attendance/mark" element={<PrivateRoute><MarkAttendance /></PrivateRoute>} />
@@ -154,13 +156,13 @@ function AppRoutes() {
       <Route path="/attendance/student-detail" element={<PrivateRoute><StudentDetail /></PrivateRoute>} />
       <Route path="/attendance/reports" element={<PrivateRoute><AttendanceReports /></PrivateRoute>} />
       <Route path="/attendance/settings" element={<PrivateRoute><AttendanceSettings /></PrivateRoute>} />
-      
+
       {/* Examinations */}
       <Route path="/examinations" element={<PrivateRoute><ExamDashboard /></PrivateRoute>} />
       <Route path="/examinations/schedule" element={<PrivateRoute><ExamSchedule /></PrivateRoute>} />
       <Route path="/examinations/marks-entry" element={<PrivateRoute><MarksEntry /></PrivateRoute>} />
       <Route path="/examinations/results" element={<PrivateRoute><ResultSummary /></PrivateRoute>} />
-      
+
       {/* Fee Management */}
       <Route path="/fees" element={<PrivateRoute><FeeDashboard /></PrivateRoute>} />
       <Route path="/fees/master" element={<PrivateRoute><FeeMasterSetup /></PrivateRoute>} />
@@ -169,7 +171,7 @@ function AppRoutes() {
       <Route path="/fees/collection" element={<PrivateRoute><FeeCollection /></PrivateRoute>} />
       <Route path="/fees/defaulters" element={<PrivateRoute><DefaultersList /></PrivateRoute>} />
       <Route path="/fees/reports" element={<PrivateRoute><FeeReports /></PrivateRoute>} />
-      
+
       {/* HR Management */}
       <Route path="/hr" element={<PrivateRoute><HRDashboard /></PrivateRoute>} />
       <Route path="/hr/employees" element={<PrivateRoute><EmployeeManagement /></PrivateRoute>} />
@@ -180,7 +182,7 @@ function AppRoutes() {
       <Route path="/hr/performance" element={<PrivateRoute><PerformanceManagement /></PrivateRoute>} />
       <Route path="/hr/departments" element={<PrivateRoute><DepartmentManagement /></PrivateRoute>} />
       <Route path="/hr/substitution" element={<PrivateRoute><SubstitutionManagement /></PrivateRoute>} />
-      
+
       {/* Class Management */}
       <Route path="/classes" element={<PrivateRoute><ClassList /></PrivateRoute>} />
       <Route path="/classes/:classId/sections" element={<PrivateRoute><SectionManagement /></PrivateRoute>} />
@@ -193,7 +195,7 @@ function AppRoutes() {
       <Route path="/classes/teacher-workload" element={<PrivateRoute><TeacherWorkload /></PrivateRoute>} />
       <Route path="/classes/auto-scheduler" element={<PrivateRoute><AutoScheduler /></PrivateRoute>} />
       <Route path="/classes/room-allocation" element={<PrivateRoute><RoomAllocation /></PrivateRoute>} />
-      
+
       {/* User Management */}
       <Route path="/users" element={<PrivateRoute><UserDashboard /></PrivateRoute>} />
       <Route path="/users/list" element={<PrivateRoute><UsersList /></PrivateRoute>} />
@@ -207,16 +209,16 @@ function AppRoutes() {
       <Route path="/permissions/matrix" element={<PrivateRoute><PermissionMatrix /></PrivateRoute>} />
       <Route path="/menu-access" element={<PrivateRoute><MenuAccessControl /></PrivateRoute>} />
       <Route path="/audit-trail" element={<PrivateRoute><AuditTrail /></PrivateRoute>} />
-      
+
       {/* Parent Portal */}
       <Route path="/parent" element={<PrivateRoute><ParentDashboard /></PrivateRoute>} />
       <Route path="/parent/chat" element={<PrivateRoute><ParentTeacherChat /></PrivateRoute>} />
       <Route path="/parent/leave-apply" element={<PrivateRoute><LeaveApply /></PrivateRoute>} />
-      
+
       {/* Leave & Assignments */}
       <Route path="/leave/approval" element={<PrivateRoute><LeaveApproval /></PrivateRoute>} />
       <Route path="/assignments/manage" element={<PrivateRoute><TeacherAssignments /></PrivateRoute>} />
-      
+
       {/* Transport Management */}
       <Route path="/transport" element={<PrivateRoute><TransportDashboard /></PrivateRoute>} />
       <Route path="/transport/routes" element={<PrivateRoute><RouteManagement /></PrivateRoute>} />
@@ -224,14 +226,14 @@ function AppRoutes() {
       <Route path="/transport/drivers" element={<PrivateRoute><DriverManagement /></PrivateRoute>} />
       <Route path="/transport/tracking" element={<PrivateRoute><VehicleTracking /></PrivateRoute>} />
       <Route path="/transport/reports" element={<PrivateRoute><TransportReports /></PrivateRoute>} />
-      
+
       {/* Hostel Management */}
       <Route path="/hostel" element={<PrivateRoute><HostelDashboard /></PrivateRoute>} />
       <Route path="/hostel/rooms" element={<PrivateRoute><HostelRoomAllocation /></PrivateRoute>} />
       <Route path="/hostel/mess" element={<PrivateRoute><MessMenu /></PrivateRoute>} />
       <Route path="/hostel/visitors" element={<PrivateRoute><VisitorTracking /></PrivateRoute>} />
       <Route path="/hostel/reports" element={<PrivateRoute><HostelReports /></PrivateRoute>} />
-      
+
       {/* Common Routes */}
       <Route path="/student-portal" element={<PrivateRoute><StudentPortal /></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
@@ -239,7 +241,7 @@ function AppRoutes() {
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/calendar" element={<PrivateRoute><AcademicCalendar /></PrivateRoute>} />
       <Route path="/admit-card" element={<PrivateRoute><AdmitCard /></PrivateRoute>} />
-      
+
       {/* Default & Not Found Routes */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<NotFound />} />
@@ -250,15 +252,17 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
-      <AuthProvider>
-        <NavigationProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppRoutes />
-          </TooltipProvider>
-        </NavigationProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <NavigationProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes />
+            </TooltipProvider>
+          </NavigationProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   </QueryClientProvider>
 );

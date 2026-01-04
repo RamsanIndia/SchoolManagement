@@ -6,20 +6,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 
 const mockMonthlyData = [
-  { date: "2025-01-01", present: 780, absent: 60, late: 10, holiday: false },
-  { date: "2025-01-02", present: 770, absent: 70, late: 10, holiday: false },
-  { date: "2025-01-03", present: 790, absent: 50, late: 10, holiday: false },
-  { date: "2025-01-04", present: 760, absent: 80, late: 10, holiday: false },
-  { date: "2025-01-05", present: 0, absent: 0, late: 0, holiday: true },
-  { date: "2025-01-06", present: 785, absent: 55, late: 10, holiday: false },
-  { date: "2025-01-07", present: 780, absent: 60, late: 10, holiday: false },
-  { date: "2025-01-08", present: 775, absent: 65, late: 10, holiday: false },
-  { date: "2025-01-09", present: 790, absent: 50, late: 10, holiday: false },
-  { date: "2025-01-10", present: 765, absent: 75, late: 10, holiday: false },
+  { date: "2026-01-01", present: 780, absent: 60, late: 10, holiday: false },
+  { date: "2026-01-02", present: 770, absent: 70, late: 10, holiday: false },
+  { date: "2026-01-03", present: 790, absent: 50, late: 10, holiday: false },
+  { date: "2026-01-04", present: 760, absent: 80, late: 10, holiday: false },
+  { date: "2026-01-05", present: 0, absent: 0, late: 0, holiday: true },
+  { date: "2026-01-06", present: 785, absent: 55, late: 10, holiday: false },
+  { date: "2026-01-07", present: 780, absent: 60, late: 10, holiday: false },
+  { date: "2026-01-08", present: 775, absent: 65, late: 10, holiday: false },
+  { date: "2026-01-09", present: 790, absent: 50, late: 10, holiday: false },
+  { date: "2026-01-10", present: 765, absent: 75, late: 10, holiday: false },
 ];
 
 export default function MonthlyCalendar() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1));
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1));
   const [selectedDate, setSelectedDate] = useState<typeof mockMonthlyData[0] | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 

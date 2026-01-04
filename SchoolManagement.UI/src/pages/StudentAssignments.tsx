@@ -95,12 +95,27 @@ export default function StudentAssignments() {
     description: "",
   });
 
-  if (!user || !["admin", "teacher"].includes(user.role)) {
+  // Check if user has admin or teacher role
+  const hasAccess = user?.roles.some(role => 
+    ['Admin', 'Teacher'].includes(role)
+  );
+
+  if (!user || !hasAccess) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">
-          Access denied. This page is only available to administrators and teachers.
-        </p>
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-6 w-6 text-destructive" />
+              </div>
+              <h3 className="font-semibold text-lg">Access Denied</h3>
+              <p className="text-muted-foreground text-sm">
+                This page is only available to administrators and teachers.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -143,6 +158,16 @@ export default function StudentAssignments() {
   };
 
   const handleSaveAssignment = () => {
+    // Validate form
+    if (!formData.title || !formData.subject || !formData.class || !formData.dueDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (selectedAssignment) {
       setAssignments(
         assignments.map((a) =>
@@ -172,21 +197,26 @@ export default function StudentAssignments() {
   };
 
   const handleDeleteAssignment = (id: string) => {
-    setAssignments(assignments.filter((a) => a.id !== id));
-    toast({
-      title: "Success",
-      description: "Assignment deleted successfully",
-    });
+    if (confirm("Are you sure you want to delete this assignment?")) {
+      setAssignments(assignments.filter((a) => a.id !== id));
+      toast({
+        title: "Success",
+        description: "Assignment deleted successfully",
+      });
+    }
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: { [key: string]: "default" | "secondary" | "outline" } = {
-      pending: "secondary",
-      submitted: "default",
-      graded: "outline",
+    const config = {
+      pending: { variant: "secondary" as const, className: "bg-yellow-100 text-yellow-800" },
+      submitted: { variant: "default" as const, className: "bg-blue-100 text-blue-800" },
+      graded: { variant: "outline" as const, className: "bg-green-100 text-green-800" },
     };
+    
+    const { variant, className } = config[status as keyof typeof config] || config.pending;
+    
     return (
-      <Badge variant={variants[status] || "default"}>
+      <Badge variant={variant} className={className}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
@@ -226,28 +256,31 @@ export default function StudentAssignments() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground">Awaiting submission</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Submitted</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.submitted}</div>
+            <p className="text-xs text-muted-foreground">Ready for review</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Graded</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.graded}</div>
+            <p className="text-xs text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
       </div>
@@ -293,46 +326,65 @@ export default function StudentAssignments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAssignments.map((assignment) => (
-                <TableRow key={assignment.id}>
-                  <TableCell className="font-medium">{assignment.title}</TableCell>
-                  <TableCell>{assignment.subject}</TableCell>
-                  <TableCell>{assignment.class}</TableCell>
-                  <TableCell>{assignment.dueDate}</TableCell>
-                  <TableCell>{getStatusBadge(assignment.status)}</TableCell>
-                  <TableCell>{assignment.grade || "-"}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewAssignment(assignment)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditAssignment(assignment)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteAssignment(assignment.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+              {filteredAssignments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No assignments found
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredAssignments.map((assignment) => (
+                  <TableRow key={assignment.id}>
+                    <TableCell className="font-medium">{assignment.title}</TableCell>
+                    <TableCell>{assignment.subject}</TableCell>
+                    <TableCell>{assignment.class}</TableCell>
+                    <TableCell>{new Date(assignment.dueDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{getStatusBadge(assignment.status)}</TableCell>
+                    <TableCell>
+                      {assignment.grade ? (
+                        <span className="font-semibold text-lg">{assignment.grade}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewAssignment(assignment)}
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditAssignment(assignment)}
+                          title="Edit assignment"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteAssignment(assignment.id)}
+                          title="Delete assignment"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
+      {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -347,7 +399,9 @@ export default function StudentAssignments() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">
+                Title <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="title"
                 value={formData.title}
@@ -357,7 +411,9 @@ export default function StudentAssignments() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="subject">Subject</Label>
+                <Label htmlFor="subject">
+                  Subject <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="subject"
                   value={formData.subject}
@@ -366,7 +422,9 @@ export default function StudentAssignments() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="class">Class</Label>
+                <Label htmlFor="class">
+                  Class <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="class"
                   value={formData.class}
@@ -376,12 +434,15 @@ export default function StudentAssignments() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="dueDate">Due Date</Label>
+              <Label htmlFor="dueDate">
+                Due Date <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="dueDate"
                 type="date"
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div className="grid gap-2">
@@ -406,6 +467,7 @@ export default function StudentAssignments() {
         </DialogContent>
       </Dialog>
 
+      {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -427,11 +489,15 @@ export default function StudentAssignments() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Assigned Date</Label>
-                  <p className="font-medium">{selectedAssignment.assignedDate}</p>
+                  <p className="font-medium">
+                    {new Date(selectedAssignment.assignedDate).toLocaleDateString()}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Due Date</Label>
-                  <p className="font-medium">{selectedAssignment.dueDate}</p>
+                  <p className="font-medium">
+                    {new Date(selectedAssignment.dueDate).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
