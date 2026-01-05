@@ -34,9 +34,10 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
         public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Users
+                .AsSingleQuery()  // ADDED: Force single query to bypass split query cache
                 .Include(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
-                .AsNoTracking()
+                .AsNoTrackingWithIdentityResolution()
                 .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
         }
 
