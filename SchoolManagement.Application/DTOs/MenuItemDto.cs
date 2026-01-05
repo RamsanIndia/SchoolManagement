@@ -16,6 +16,7 @@ namespace SchoolManagement.Application.DTOs
         public string Route { get; set; }
         public string Component { get; set; }
         public string Type { get; set; }
+        public Guid? ParentId { get; set; }
         public int SortOrder { get; set; }
         public MenuPermissions Permissions { get; set; }
         public List<MenuItemDto> Children { get; set; } = new();

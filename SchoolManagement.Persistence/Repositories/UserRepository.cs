@@ -31,6 +31,15 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
         }
 
+        //public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
+        //{
+        //    return await _context.Users
+        //        .Include(u => u.UserRoles)
+        //            .ThenInclude(ur => ur.Role)
+        //        .AsNoTracking()
+        //        .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+        //}
+
         public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Users
@@ -40,6 +49,7 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
                 .AsNoTrackingWithIdentityResolution()
                 .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
         }
+
 
         public async Task<User> GetByIdWithTokensAsync(Guid id, CancellationToken cancellationToken = default)
         {

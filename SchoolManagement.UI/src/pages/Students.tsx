@@ -110,13 +110,32 @@ export default function Students() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
-  // if (!user || !["admin", "teacher"].includes(user.roles)) {
-  //   return (
-  //     <div className="flex items-center justify-center h-64">
-  //       <p className="text-muted-foreground">Access denied. This page is only available to administrators and teachers.</p>
-  //     </div>
-  //   );
-  // }
+  // Check if user has admin or teacher role
+  const hasAccess = user?.roles.some(role => 
+    ['Admin', 'Teacher'].includes(role)
+  );
+
+  const isAdmin = user?.roles.includes('Admin');
+
+  if (!user || !hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-6 w-6 text-destructive" />
+              </div>
+              <h3 className="font-semibold text-lg">Access Denied</h3>
+              <p className="text-muted-foreground text-sm">
+                This page is only available to administrators and teachers.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -217,6 +236,18 @@ export default function Students() {
     setSelectedStudent(null);
   };
 
+  // Calculate actual stats from current students
+  const stats = {
+    total: students.length,
+    active: students.filter(s => s.status === "Active").length,
+    averageAttendance: students.length > 0 
+      ? (students.reduce((sum, s) => sum + s.attendance, 0) / students.length).toFixed(1)
+      : "0",
+    newAdmissions: students.filter(s => 
+      parseInt(s.rollNumber.slice(0, 4)) === new Date().getFullYear()
+    ).length,
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -224,7 +255,7 @@ export default function Students() {
           <h1 className="text-3xl font-bold text-foreground">Students</h1>
           <p className="text-muted-foreground">Manage student information and records</p>
         </div>
-        {user.role === "admin" && (
+        {isAdmin && (
           <Button className="bg-gradient-primary" onClick={handleAddStudent}>
             <Plus className="mr-2 h-4 w-4" />
             Add Student
@@ -241,8 +272,8 @@ export default function Students() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,248</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">Enrolled students</p>
           </CardContent>
         </Card>
         <Card>
@@ -252,8 +283,10 @@ export default function Students() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,195</div>
-            <p className="text-xs text-muted-foreground">95.8% active rate</p>
+            <div className="text-2xl font-bold">{stats.active}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(1) : 0}% active rate
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -263,8 +296,8 @@ export default function Students() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">89.2%</div>
-            <p className="text-xs text-muted-foreground">+2.1% from last month</p>
+            <div className="text-2xl font-bold">{stats.averageAttendance}%</div>
+            <p className="text-xs text-muted-foreground">Overall attendance</p>
           </CardContent>
         </Card>
         <Card>
@@ -274,8 +307,8 @@ export default function Students() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">53</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <div className="text-2xl font-bold">{stats.newAdmissions}</div>
+            <p className="text-xs text-muted-foreground">This year</p>
           </CardContent>
         </Card>
       </div>
@@ -372,60 +405,79 @@ export default function Students() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar>
-                          <AvatarFallback>
-                            {student.name.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{student.name}</div>
-                          <div className="text-sm text-muted-foreground">{student.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono">{student.rollNumber}</TableCell>
-                    <TableCell>{student.class}</TableCell>
-                    <TableCell>
-                      <span className={`font-medium ${getAttendanceColor(student.attendance)}`}>
-                        {student.attendance}%
-                      </span>
-                    </TableCell>
-                    <TableCell>{student.parent}</TableCell>
-                    <TableCell>
-                      {getStatusBadge(student.status, student.attendance)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewStudent(student)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {user.role === "admin" && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => handleEditStudent(student)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(student)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                {filteredStudents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <p className="text-muted-foreground">
+                        No students found matching your criteria.
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredStudents.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <Avatar>
+                            <AvatarFallback>
+                              {student.name.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{student.name}</div>
+                            <div className="text-sm text-muted-foreground">{student.email}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono">{student.rollNumber}</TableCell>
+                      <TableCell>{student.class}</TableCell>
+                      <TableCell>
+                        <span className={`font-medium ${getAttendanceColor(student.attendance)}`}>
+                          {student.attendance}%
+                        </span>
+                      </TableCell>
+                      <TableCell>{student.parent}</TableCell>
+                      <TableCell>
+                        {getStatusBadge(student.status, student.attendance)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleViewStudent(student)}
+                            title="View details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleEditStudent(student)}
+                                title="Edit student"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDeleteClick(student)}
+                                title="Delete student"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
-
-          {filteredStudents.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No students found matching your criteria.</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -452,7 +504,10 @@ export default function Students() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
