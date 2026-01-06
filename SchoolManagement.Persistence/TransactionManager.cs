@@ -10,11 +10,15 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Persistence
 {
+    /// <summary>
+    /// Transaction manager that works with EF Core retry strategy
+    /// Handles database transactions with automatic retry support for transient failures
+    /// </summary>
     public class TransactionManager : ITransactionManager
     {
         private readonly SchoolManagementDbContext _context;
         private readonly ILogger<TransactionManager> _logger;
-        private IDbContextTransaction _currentTransaction;
+        private IDbContextTransaction? _currentTransaction;
 
         public TransactionManager(
             SchoolManagementDbContext context,
@@ -24,44 +28,56 @@ namespace SchoolManagement.Persistence
             _logger = logger;
         }
 
-        public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+        public IDbContextTransaction? GetCurrentTransaction() => _currentTransaction;
+
+        public bool HasActiveTransaction => _currentTransaction != null;
+
+        public async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken cancellationToken = default)
         {
+            // If already in a transaction, don't create a nested one
             if (_currentTransaction != null)
             {
-                _logger.LogDebug("Transaction already active, skipping BeginTransaction");
-                return;
+                _logger.LogDebug("Transaction already active, skipping nested transaction");
+                return null;
             }
 
-            _currentTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-            _logger.LogDebug("🔵 Transaction started: {TransactionId}", _currentTransaction.TransactionId);
+            // Use the execution strategy to ensure transaction works with retry logic
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            _currentTransaction = await strategy.ExecuteAsync(async () =>
+            {
+                var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+                _logger.LogInformation("Transaction {TransactionId} started", transaction.TransactionId);
+                return transaction;
+            });
+
+            return _currentTransaction;
         }
 
         public async Task CommitAsync(CancellationToken cancellationToken = default)
         {
             if (_currentTransaction == null)
             {
-                _logger.LogWarning("⚠️ CommitAsync called but no active transaction");
-                return;
+                throw new InvalidOperationException("No active transaction to commit");
             }
 
             try
             {
-                // IMPORTANT: Don't call SaveChangesAsync here!
-                // SaveChanges should be called BEFORE CommitAsync
-                // CommitAsync only commits the transaction that wraps the already-saved changes
+                await _context.SaveChangesAsync(cancellationToken);
                 await _currentTransaction.CommitAsync(cancellationToken);
-                _logger.LogDebug("✅ Transaction committed: {TransactionId}", _currentTransaction.TransactionId);
+
+                _logger.LogInformation("Transaction {TransactionId} committed successfully",
+                    _currentTransaction.TransactionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error committing transaction");
-                await RollbackAsync(cancellationToken);
+                _logger.LogError(ex, "Failed to commit transaction {TransactionId}",
+                    _currentTransaction.TransactionId);
                 throw;
             }
             finally
             {
-                await _currentTransaction.DisposeAsync();
-                _currentTransaction = null;
+                await DisposeTransactionAsync();
             }
         }
 
@@ -69,30 +85,79 @@ namespace SchoolManagement.Persistence
         {
             if (_currentTransaction == null)
             {
-                _logger.LogWarning("⚠️ RollbackAsync called but no active transaction");
+                _logger.LogWarning("Attempted to rollback but no active transaction exists");
                 return;
             }
 
             try
             {
                 await _currentTransaction.RollbackAsync(cancellationToken);
-                _logger.LogDebug("🔙 Transaction rolled back: {TransactionId}", _currentTransaction.TransactionId);
+
+                _logger.LogWarning("Transaction {TransactionId} rolled back",
+                    _currentTransaction.TransactionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error rolling back transaction");
+                _logger.LogError(ex, "Error rolling back transaction {TransactionId}",
+                    _currentTransaction.TransactionId);
+                throw;
             }
             finally
             {
-                await _currentTransaction.DisposeAsync();
-                _currentTransaction = null;
-
-                // Clear change tracker to prevent stale state
-                _context.ChangeTracker.Clear();
-                _logger.LogDebug("🧹 ChangeTracker cleared after rollback");
+                await DisposeTransactionAsync();
             }
         }
 
-        public bool HasActiveTransaction => _currentTransaction != null;
+        public async Task<T> ExecuteInTransactionAsync<T>(
+            Func<Task<T>> action,
+            CancellationToken cancellationToken = default)
+        {
+            // Use execution strategy to wrap the entire transaction
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+                try
+                {
+                    _logger.LogInformation("Executing action in transaction {TransactionId}",
+                        transaction.TransactionId);
+
+                    var result = await action();
+
+                    await _context.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    _logger.LogInformation("Transaction {TransactionId} completed successfully",
+                        transaction.TransactionId);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Transaction {TransactionId} failed, rolling back",
+                        transaction.TransactionId);
+
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
+        }
+
+        private async Task DisposeTransactionAsync()
+        {
+            if (_currentTransaction != null)
+            {
+                await _currentTransaction.DisposeAsync();
+                _currentTransaction = null;
+            }
+        }
+
+        public void Dispose()
+        {
+            _currentTransaction?.Dispose();
+            _currentTransaction = null;
+        }
     }
 }

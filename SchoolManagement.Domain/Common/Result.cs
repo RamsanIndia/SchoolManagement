@@ -118,5 +118,13 @@
 
             return Data;
         }
+
+        public static Result<T> FromException(Exception ex, string message = null)
+        {
+            return Failure(
+                message ?? "An unexpected error occurred.",
+                new[] { ex.Message }
+            );
+        }
     }
 }

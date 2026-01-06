@@ -7,11 +7,6 @@ namespace SchoolManagement.Domain.Entities
 {
     public class UserRole : BaseEntity
     {
-        private Guid id1;
-        private Guid id2;
-        private DateTime utcNow;
-        private bool v;
-
         public Guid UserId { get; private set; }
         public Guid RoleId { get; private set; }
         public DateTime AssignedAt { get; private set; }
@@ -33,8 +28,6 @@ namespace SchoolManagement.Domain.Entities
         {
             UserId = userId;
             RoleId = roleID;
-            this.utcNow = utcNow;
-            this.v = v;
             ExpiresAt = expiresAt;
         }
 

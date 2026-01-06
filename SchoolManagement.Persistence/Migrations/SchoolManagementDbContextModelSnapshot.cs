@@ -2331,9 +2331,6 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("interval");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -2343,11 +2340,6 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<int>("PeriodNumber")
                         .HasColumnType("integer");
 
-                    b.Property<string>("RoomNumber")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -2356,9 +2348,6 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.Property<Guid>("SectionId")
                         .HasColumnType("uuid");
-
-                    b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("interval");
 
                     b.Property<Guid>("SubjectId")
                         .HasColumnType("uuid");
@@ -2559,7 +2548,8 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("RoleId");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -2574,22 +2564,30 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId1")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("UserId");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExpiresAt");
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_UserRoles_ExpiresAt")
+                        .HasFilter("\"ExpiresAt\" IS NOT NULL");
 
-                    b.HasIndex("IsActive");
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("IX_UserRoles_IsActive");
 
-                    b.HasIndex("RoleId");
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("IX_UserRoles_RoleId");
 
-                    b.HasIndex("UserId1");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_UserRoles_UserId");
 
-                    b.HasIndex("UserId", "RoleId", "IsActive");
+                    b.HasIndex("UserId", "IsActive")
+                        .HasDatabaseName("IX_UserRoles_UserId_IsActive");
+
+                    b.HasIndex("UserId", "RoleId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserRoles_UserId_RoleId_Unique");
 
                     b.ToTable("UserRoles", (string)null);
                 });
@@ -3468,7 +3466,53 @@ namespace SchoolManagement.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Sections_TimeTableEntries");
 
+                    b.OwnsOne("SchoolManagement.Domain.ValueObjects.RoomNumber", "RoomNumber", b1 =>
+                        {
+                            b1.Property<Guid>("TimeTableEntryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("RoomNumber");
+
+                            b1.HasKey("TimeTableEntryId");
+
+                            b1.ToTable("TimeTableEntries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TimeTableEntryId");
+                        });
+
+                    b.OwnsOne("SchoolManagement.Domain.ValueObjects.TimePeriod", "TimePeriod", b1 =>
+                        {
+                            b1.Property<Guid>("TimeTableEntryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<TimeSpan>("EndTime")
+                                .HasColumnType("interval")
+                                .HasColumnName("EndTime");
+
+                            b1.Property<TimeSpan>("StartTime")
+                                .HasColumnType("interval")
+                                .HasColumnName("StartTime");
+
+                            b1.HasKey("TimeTableEntryId");
+
+                            b1.ToTable("TimeTableEntries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TimeTableEntryId");
+                        });
+
+                    b.Navigation("RoomNumber")
+                        .IsRequired();
+
                     b.Navigation("Section");
+
+                    b.Navigation("TimePeriod")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.User", b =>
@@ -3524,15 +3568,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SchoolManagement.Domain.Entities.User", null)
+                    b.HasOne("SchoolManagement.Domain.Entities.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SchoolManagement.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

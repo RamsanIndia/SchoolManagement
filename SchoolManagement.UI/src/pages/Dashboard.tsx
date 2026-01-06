@@ -1,4 +1,4 @@
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, useUserFullName } from "@/contexts/AuthContext";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,6 @@ function AdminDashboard() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="card-gradient shadow-elevated glow-on-hover group relative overflow-hidden">
-          {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-education-blue/5 via-transparent to-education-green/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
           <CardHeader className="relative z-10">
@@ -112,7 +111,6 @@ function AdminDashboard() {
         </Card>
 
         <Card className="card-gradient shadow-elevated glow-on-hover group relative overflow-hidden">
-          {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 via-transparent to-brand-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
           <CardHeader className="relative z-10">
@@ -327,29 +325,34 @@ function StudentDashboard() {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const fullName = useUserFullName();
 
   if (!user) return null;
 
-  const renderDashboard = () => {
-  if (user.roles.includes("admin")) {
-    return <AdminDashboard />;
-  }
-  if (user.roles.includes("teacher")) {
-    return <TeacherDashboard />;
-  }
-  if (user.roles.includes("student")) {
-    return <StudentDashboard />;
-  }
-  if (user.roles.includes("hr")) {
-    return <AdminDashboard />; // HR can use admin dashboard for now
-  }
-  if (user.roles.includes("accountant")) {
-    return <AdminDashboard />; // Accountant can use admin dashboard for now
-  }
+  // Get first name safely
+  const firstName = user.firstName || user.email.split('@')[0] || 'User';
+  
+  // Get primary role (first role in array)
+  const primaryRole = user.roles[0] || 'User';
 
-  // Default fallback
-  return <AdminDashboard />;
-};
+  const renderDashboard = () => {
+    // Check if user has specific role
+    const hasRole = (role: string) => user.roles.some(r => r.toLowerCase() === role.toLowerCase());
+
+    if (hasRole('Admin')) {
+      return <AdminDashboard />;
+    } else if (hasRole('Teacher')) {
+      return <TeacherDashboard />;
+    } else if (hasRole('Student')) {
+      return <StudentDashboard />;
+    } else if (hasRole('HR')) {
+      return <AdminDashboard />; // HR can use admin dashboard for now
+    } else if (hasRole('Accountant')) {
+      return <AdminDashboard />; // Accountant can use admin dashboard for now
+    } else {
+      return <AdminDashboard />; // Default dashboard
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -359,14 +362,14 @@ export default function Dashboard() {
             Dashboard
           </h1>
           <p className="text-lg text-muted-foreground">
-            Welcome to your {user.roles} dashboard, {user.firstName.split(' ')[0]} ✨
+            Welcome to your {primaryRole} dashboard, {firstName} ✨
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="premium" size="lg" className="hidden md:flex">
+          <Button variant="outline" size="lg" className="hidden md:flex">
             Generate Report
           </Button>
-          <Button variant="gradient" size="lg">
+          <Button size="lg">
             Quick Actions
           </Button>
         </div>
