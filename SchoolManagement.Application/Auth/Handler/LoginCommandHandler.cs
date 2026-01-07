@@ -59,7 +59,7 @@
         {
             try
             {
-                var clientIp = _ipAddressHelper.GetIpAddress();
+                var clientIp = _currentUserService.IpAddress;
 
                 _logger.LogInformation("🔵 LOGIN ATTEMPT for email: {Email} from IP: {IP}", request.Email, clientIp);
 

@@ -20,6 +20,12 @@ namespace SchoolManagement.Persistence
     {
         public SchoolManagementDbContext CreateDbContext(string[] args)
         {
+            // ✅ Determine environment
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+            var isProduction = environment.Equals("Production", StringComparison.OrdinalIgnoreCase);
+
+            Console.WriteLine($"🔧 Running in {environment} environment");
+
             // ✅ Determine base path for configuration
             var basePath = Path.Combine(Directory.GetCurrentDirectory(), "../SchoolManagement.API");
 
@@ -29,27 +35,33 @@ namespace SchoolManagement.Persistence
                 basePath = Directory.GetCurrentDirectory();
             }
 
-            // ✅ Build configuration
+            // ✅ Build configuration (Environment variables take precedence)
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json", optional: false)
-                .AddJsonFile(
-                    $"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development"}.json",
-                    optional: true)
-                .AddEnvironmentVariables()
+                .AddJsonFile($"appsettings.{environment}.json", optional: true)
+                .AddEnvironmentVariables() // This automatically prioritizes env vars
                 .Build();
 
-            // ✅ Get connection string
-            var connectionString = configuration.GetConnectionString("SchoolManagementDbConnectionString")
-                ?? configuration.GetConnectionString("DefaultConnection");
+            // ✅ Get connection string (automatically checks env vars first, then appsettings)
+            var connectionString = isProduction
+                ? Environment.GetEnvironmentVariable("ConnectionStrings__SchoolManagementDbConnectionString")
+                  ?? configuration.GetConnectionString("SchoolManagementDbConnectionString")
+                  ?? configuration.GetConnectionString("DefaultConnection")
+                : configuration.GetConnectionString("SchoolManagementDbConnectionString")
+                  ?? configuration.GetConnectionString("DefaultConnection");
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                throw new InvalidOperationException(
-                    "Connection string 'SchoolManagementDbConnectionString' or 'DefaultConnection' not found in configuration.");
+                var errorMessage = isProduction
+                    ? "❌ Production: Connection string must be set as environment variable 'ConnectionStrings__SchoolManagementDbConnectionString'"
+                    : "❌ Connection string 'SchoolManagementDbConnectionString' or 'DefaultConnection' not found in configuration.";
+
+                throw new InvalidOperationException(errorMessage);
             }
 
-            Console.WriteLine($"Using connection string: {MaskConnectionString(connectionString)}");
+            Console.WriteLine($"✅ Using connection string from: {(isProduction && Environment.GetEnvironmentVariable("ConnectionStrings__SchoolManagementDbConnectionString") != null ? "Environment Variable" : "appsettings.json")}");
+            Console.WriteLine($"   Masked: {MaskConnectionString(connectionString)}");
 
             // ✅ Setup service collection for DI
             var services = new ServiceCollection();
@@ -58,7 +70,7 @@ namespace SchoolManagement.Persistence
             services.AddLogging(builder =>
             {
                 builder.AddConsole();
-                builder.SetMinimumLevel(LogLevel.Information);
+                builder.SetMinimumLevel(isProduction ? LogLevel.Warning : LogLevel.Information);
             });
 
             // Register HttpContextAccessor (needed for IpAddressHelper)
@@ -87,9 +99,12 @@ namespace SchoolManagement.Persistence
                 npgsqlOptions.MigrationsAssembly("SchoolManagement.Persistence");
             });
 
-            // ✅ Enable detailed errors for migrations
-            optionsBuilder.EnableDetailedErrors();
-            optionsBuilder.EnableSensitiveDataLogging();
+            // ✅ Enable detailed errors only in non-production
+            if (!isProduction)
+            {
+                optionsBuilder.EnableDetailedErrors();
+                optionsBuilder.EnableSensitiveDataLogging();
+            }
 
             // ✅ Resolve services from DI container
             var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
@@ -146,33 +161,78 @@ namespace SchoolManagement.Persistence
     /// </summary>
     internal class DesignTimeCurrentUserService : ICurrentUserService
     {
-        public string? UserId => "00000000-0000-0000-0000-000000000000";
+        public bool IsAuthenticated => false;
+
+        public Guid? UserId => Guid.Empty; // 00000000-0000-0000-0000-000000000000
 
         public string Username => "System";
 
         public string? Email => "system@migration.local";
 
+        public string? FirstName => "System";
+
+        public string? LastName => "Migration";
+
         public string? FullName => "System Migration User";
 
         public string? UserType => "System";
 
-        public bool IsAuthenticated => false;
+        public string IpAddress => "127.0.0.1";
+
+        public string UserAgent => "EF Core Migration";
+
+        public string? GetClaim(string claimType)
+        {
+            return claimType switch
+            {
+                ClaimTypes.NameIdentifier => UserId.ToString(),
+                ClaimTypes.Name => Username,
+                ClaimTypes.Email => Email,
+                ClaimTypes.GivenName => FirstName,
+                ClaimTypes.Surname => LastName,
+                ClaimTypes.Role => UserType,
+                _ => null
+            };
+        }
+
+        public IEnumerable<string> GetRoles()
+        {
+            return new[] { "System" };
+        }
 
         public bool IsInRole(string role)
         {
-            // During migrations, no role checking needed
-            return false;
+            return role?.Equals("System", StringComparison.OrdinalIgnoreCase) ?? false;
+        }
+
+        public bool HasPermission(string permission)
+        {
+            // System user has all permissions during migrations
+            return true;
         }
 
         public IEnumerable<Claim> GetAllClaims()
         {
-            // Return empty claims for design-time
             return new List<Claim>
             {
+                new Claim(ClaimTypes.NameIdentifier, UserId.ToString()),
                 new Claim(ClaimTypes.Name, Username),
-                new Claim(ClaimTypes.NameIdentifier, UserId ?? string.Empty),
-                new Claim(ClaimTypes.Email, Email ?? string.Empty)
+                new Claim(ClaimTypes.Email, Email),
+                new Claim(ClaimTypes.GivenName, FirstName),
+                new Claim(ClaimTypes.Surname, LastName),
+                new Claim(ClaimTypes.Role, UserType),
+                new Claim("fullName", FullName)
             };
+        }
+
+        public string GetRequestPath()
+        {
+            return "/migrations";
+        }
+
+        public string GetRequestMethod()
+        {
+            return "MIGRATION";
         }
     }
 }

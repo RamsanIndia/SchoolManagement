@@ -1,4 +1,6 @@
-﻿using System;
+﻿using MediatR;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -9,24 +11,52 @@ namespace SchoolManagement.Domain.Common
         private readonly List<IDomainEvent> _domainEvents = new();
 
         public Guid Id { get; protected set; }
-        public DateTime CreatedAt { get; protected set; }
-        public DateTime? UpdatedAt { get; protected set; }
-        public string CreatedBy { get; protected set; }
-        public string? UpdatedBy { get; protected set; }
+
+        // Audit properties - CreatedAt is required, others are optional
+        public DateTime CreatedAt { get; set; }  // NOT nullable - every entity must have creation date
+        public string? CreatedBy { get; set; }
+        public string? CreatedIP { get; set; }
+
+        public DateTime? UpdatedAt { get; set; }  // Nullable - entity might not be updated yet
+        public string? UpdatedBy { get; set; }
+        public string? UpdatedIP { get; set; }
+
+        // Soft delete support
+        public bool IsDeleted { get; protected set; } = false;
+        public DateTime? DeletedAt { get; set; }  // Nullable - entity might not be deleted
+        public string? DeletedBy { get; set; }
+
+        // Active status
         public bool IsActive { get; set; } = true;
-        public bool IsDeleted { get; protected set; }
-        public string CreatedIP { get; set; }
 
         // PostgreSQL xmin concurrency token
         [Timestamp]
-        public uint RowVersion { get; set; }  // Changed from private set to set
+        public uint RowVersion { get; set; }
 
+        // Domain events
         [NotMapped]
-        public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents;
+        public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
+        protected BaseEntity()
+        {
+            Id = Guid.NewGuid();
+            CreatedAt = DateTime.UtcNow;
+            IsDeleted = false;
+            IsActive = true;
+        }
+
+        // Domain event management
         public void AddDomainEvent(IDomainEvent domainEvent)
         {
+            if (domainEvent == null)
+                throw new ArgumentNullException(nameof(domainEvent));
+
             _domainEvents.Add(domainEvent);
+        }
+
+        public void RemoveDomainEvent(IDomainEvent domainEvent)
+        {
+            _domainEvents.Remove(domainEvent);
         }
 
         public void ClearDomainEvents()
@@ -34,33 +64,61 @@ namespace SchoolManagement.Domain.Common
             _domainEvents.Clear();
         }
 
-        protected BaseEntity()
+        public void SetCreated(string userName, string ipAddress)
         {
-            Id = Guid.NewGuid();
+            CreatedBy = userName ?? "System";
             CreatedAt = DateTime.UtcNow;
-            IsDeleted = false;
+            CreatedIP = ipAddress ?? "Unknown";
         }
 
-        public void MarkAsDeleted(string user = "SYSTEM")
+        public void SetUpdated(string userName, string ipAddress)
+        {
+            UpdatedBy = userName ?? "System";
+            UpdatedAt = DateTime.UtcNow;
+            UpdatedIP = ipAddress ?? "Unknown";
+        }
+
+        // Soft delete with full audit trail
+        public void MarkAsDeleted(string userName = null)
         {
             IsDeleted = true;
+            IsActive = false;
+            DeletedAt = DateTime.UtcNow;
+            DeletedBy = userName ?? "System";
+
             UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = user;
+            UpdatedBy = userName;
         }
 
-        public void SetCreated(string user, string ipAddress)
+        // Restore from soft delete
+        public void Restore(string userName = null)
         {
-            CreatedAt = DateTime.UtcNow;
-            CreatedBy = user;
-            CreatedIP = ipAddress;
+            IsDeleted = false;
+            IsActive = true;
+            DeletedAt = null;
+            DeletedBy = null;
+
+            UpdatedAt = DateTime.UtcNow;
+            UpdatedBy = userName ?? "System";
         }
 
-        public void SetUpdated(string user, string ipAddress)
+        // Deactivate without deleting
+        public void Deactivate(string userName = null)
         {
+            IsActive = false;
             UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = user;
-            // Note: Consider adding UpdatedIP property if you want to track this
-            CreatedIP = ipAddress;
+            UpdatedBy = userName ?? "System";
+        }
+
+        // Activate
+        public void Activate(string userName = null)
+        {
+            if (IsDeleted)
+                throw new InvalidOperationException("Cannot activate a deleted entity. Use Restore() instead.");
+
+            IsActive = true;
+            UpdatedAt = DateTime.UtcNow;
+            UpdatedBy = userName ?? "System";
         }
     }
 }

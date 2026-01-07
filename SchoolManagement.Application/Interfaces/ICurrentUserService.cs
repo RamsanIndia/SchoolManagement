@@ -9,13 +9,29 @@ namespace SchoolManagement.Application.Interfaces
 {
     public interface ICurrentUserService
     {
-        string? UserId { get; }
+        // Core identity properties
+        bool IsAuthenticated { get; }
+        Guid? UserId { get; }
         string Username { get; }
         string? Email { get; }
+
+        // User details
+        string? FirstName { get; }
+        string? LastName { get; }
         string? FullName { get; }
         string? UserType { get; }
-        bool IsAuthenticated { get; }
+
+        // Request context (for audit logging)
+        string IpAddress { get; }
+        string UserAgent { get; }
+
+        // Additional methods
+        string? GetClaim(string claimType);
+        IEnumerable<string> GetRoles();
         bool IsInRole(string role);
+        bool HasPermission(string permission);
         IEnumerable<Claim> GetAllClaims();
+        string GetRequestPath();
+        string GetRequestMethod();
     }
 }

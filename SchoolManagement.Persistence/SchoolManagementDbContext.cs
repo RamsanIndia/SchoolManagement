@@ -8,6 +8,7 @@ using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Shared.Utilities;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
+using SchoolManagement.Persistence.Interceptors;
 using SchoolManagement.Persistence.Outbox;
 using System;
 using System.Collections.Generic;
@@ -28,6 +29,7 @@ namespace SchoolManagement.Persistence
         private readonly IpAddressHelper _ipAddressHelper;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICorrelationIdService _correlationIdService;
+        private readonly AuditInterceptor _auditInterceptor;
 
         public SchoolManagementDbContext(
             DbContextOptions<SchoolManagementDbContext> options,
@@ -35,7 +37,8 @@ namespace SchoolManagement.Persistence
             ILogger<SchoolManagementDbContext> logger = null,
             IpAddressHelper ipAddressHelper = null,
             ICurrentUserService currentUserService = null,
-            ICorrelationIdService correlationIdService = null)
+            ICorrelationIdService correlationIdService = null,
+            AuditInterceptor auditInterceptor=null)
             : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
@@ -43,6 +46,7 @@ namespace SchoolManagement.Persistence
             _ipAddressHelper = ipAddressHelper;
             _currentUserService = currentUserService;
             _correlationIdService = correlationIdService;
+            _auditInterceptor = auditInterceptor;
         }
 
         #region DbSets
@@ -87,6 +91,11 @@ namespace SchoolManagement.Persistence
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
         #endregion
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.AddInterceptors(_auditInterceptor);
+            base.OnConfiguring(optionsBuilder);
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -442,7 +451,7 @@ namespace SchoolManagement.Persistence
             CancellationToken cancellationToken)
         {
             var correlationId = _correlationIdService?.GetCorrelationId() ?? "unknown";
-            var userId = _currentUserService?.UserId ?? "System";
+            var userId = _currentUserService?.UserId?.ToString() ?? "System";
             var ipAddress = _ipAddressHelper?.GetIpAddress() ?? "Unknown";
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
 

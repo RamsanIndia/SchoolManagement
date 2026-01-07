@@ -13,6 +13,7 @@ namespace SchoolManagement.Domain.Entities
         public bool IsRevoked { get; private set; } = false;
         public DateTime? RevokedAt { get; private set; }
         public string? RevokedByIp { get; private set; }
+        public string? RevokedBy { get; private set; }
         public string? ReplacedByToken { get; private set; }
         public string? ReasonRevoked { get; private set; }
         public Guid UserId { get; private set; }
@@ -76,7 +77,7 @@ namespace SchoolManagement.Domain.Entities
         /// <summary>
         /// Revokes the token with reason and IP tracking
         /// </summary>
-        public void Revoke(string revokedByIp, string? reason = null)
+        public void Revoke(string revokedByIp, string revokedBy, string? reason = null)
         {
             if (IsRevoked)
                 throw new InvalidOperationException("Token is already revoked");
@@ -87,6 +88,7 @@ namespace SchoolManagement.Domain.Entities
             IsRevoked = true;
             RevokedAt = DateTime.UtcNow;
             RevokedByIp = revokedByIp;
+            RevokedBy = revokedBy;
             ReasonRevoked = reason ?? "Revoked by user or system";
 
             SetUpdated("SYSTEM", revokedByIp);

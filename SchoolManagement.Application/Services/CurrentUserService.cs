@@ -25,19 +25,34 @@ namespace SchoolManagement.Application.Services
         }
 
         private ClaimsPrincipal? User => _httpContextAccessor.HttpContext?.User;
+        private HttpContext? Context => _httpContextAccessor.HttpContext;
 
         public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
 
-        public string? UserId
+        public Guid? UserId
         {
             get
             {
                 if (!IsAuthenticated) return null;
 
-                // Your token uses "nameid" which maps to ClaimTypes.NameIdentifier
-                return User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User?.FindFirst("nameid")?.Value
                     ?? User?.FindFirst("userId")?.Value
                     ?? User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    _logger.LogWarning("UserId not found in claims");
+                    return null;
+                }
+
+                if (Guid.TryParse(userIdClaim, out var userId))
+                {
+                    return userId;
+                }
+
+                _logger.LogWarning("UserId claim '{UserIdClaim}' is not a valid GUID", userIdClaim);
+                return null;
             }
         }
 
@@ -50,28 +65,19 @@ namespace SchoolManagement.Application.Services
                     return "System";
                 }
 
-                // With NameClaimType = ClaimTypes.Name configured,
-                // Identity.Name should now work and map to "unique_name"
-                var username = User?.Identity?.Name;
-
-                if (!string.IsNullOrEmpty(username))
-                {
-                    return username;
-                }
-
-                // Fallback - try all possible claim types
-                username = User?.FindFirst(ClaimTypes.Name)?.Value       // Standard claim
-                    ?? User?.FindFirst("unique_name")?.Value            // JWT serialization
-                    ?? User?.FindFirst("username")?.Value               // Custom claim
-                    ?? User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                var username = User?.Identity?.Name
+                    ?? User?.FindFirst(ClaimTypes.Name)?.Value
+                    ?? User?.FindFirst("unique_name")?.Value
+                    ?? User?.FindFirst("username")?.Value
+                    ?? User?.FindFirst(JwtRegisteredClaimNames.UniqueName)?.Value;
 
                 if (string.IsNullOrEmpty(username))
                 {
                     _logger.LogWarning(
-                        "Username not found in any claim. Available claims: {Claims}",
+                        "Username not found in claims. Available claims: {Claims}",
                         string.Join(", ", User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>())
                     );
-                    return "System";
+                    return "Unknown";
                 }
 
                 return username;
@@ -84,7 +90,6 @@ namespace SchoolManagement.Application.Services
             {
                 if (!IsAuthenticated) return null;
 
-                // Your token uses "email" claim
                 return User?.FindFirst(ClaimTypes.Email)?.Value
                     ?? User?.FindFirst("email")?.Value
                     ?? User?.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
@@ -97,9 +102,9 @@ namespace SchoolManagement.Application.Services
             {
                 if (!IsAuthenticated) return null;
 
-                // Your token uses "given_name" which maps to ClaimTypes.GivenName
                 return User?.FindFirst(ClaimTypes.GivenName)?.Value
-                    ?? User?.FindFirst("given_name")?.Value;
+                    ?? User?.FindFirst("given_name")?.Value
+                    ?? User?.FindFirst(JwtRegisteredClaimNames.GivenName)?.Value;
             }
         }
 
@@ -109,9 +114,9 @@ namespace SchoolManagement.Application.Services
             {
                 if (!IsAuthenticated) return null;
 
-                // Your token uses "family_name" which maps to ClaimTypes.Surname
                 return User?.FindFirst(ClaimTypes.Surname)?.Value
-                    ?? User?.FindFirst("family_name")?.Value;
+                    ?? User?.FindFirst("family_name")?.Value
+                    ?? User?.FindFirst(JwtRegisteredClaimNames.FamilyName)?.Value;
             }
         }
 
@@ -121,7 +126,7 @@ namespace SchoolManagement.Application.Services
             {
                 if (!IsAuthenticated) return null;
 
-                // Your token has custom "fullName" claim
+                // Try custom fullName claim first
                 var fullName = User?.FindFirst("fullName")?.Value;
 
                 if (!string.IsNullOrEmpty(fullName))
@@ -129,7 +134,7 @@ namespace SchoolManagement.Application.Services
                     return fullName;
                 }
 
-                // Fallback: construct from first and last name
+                // Construct from first and last name
                 var firstName = FirstName;
                 var lastName = LastName;
 
@@ -138,7 +143,7 @@ namespace SchoolManagement.Application.Services
                     return $"{firstName} {lastName}";
                 }
 
-                return firstName ?? lastName;
+                return firstName ?? lastName ?? Username;
             }
         }
 
@@ -148,22 +153,113 @@ namespace SchoolManagement.Application.Services
             {
                 if (!IsAuthenticated) return null;
 
-                // Your token uses "role" which maps to ClaimTypes.Role
                 return User?.FindFirst(ClaimTypes.Role)?.Value
-                    ?? User?.FindFirst("role")?.Value;
+                    ?? User?.FindFirst("role")?.Value
+                    ?? User?.FindFirst(JwtRegisteredClaimNames.Typ)?.Value;
             }
+        }
+
+        public string IpAddress
+        {
+            get
+            {
+                if (Context == null) return "Unknown";
+
+                // Check for forwarded IP (behind proxy/load balancer)
+                var forwardedFor = Context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(forwardedFor))
+                {
+                    // X-Forwarded-For can contain multiple IPs, take the first one
+                    return forwardedFor.Split(',').FirstOrDefault()?.Trim() ?? "Unknown";
+                }
+
+                // Check for real IP header
+                var realIp = Context.Request.Headers["X-Real-IP"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(realIp))
+                {
+                    return realIp;
+                }
+
+                // Fall back to remote IP address
+                var remoteIpAddress = Context.Connection?.RemoteIpAddress?.ToString();
+
+                // Handle IPv6 loopback
+                if (remoteIpAddress == "::1")
+                {
+                    return "127.0.0.1";
+                }
+
+                return remoteIpAddress ?? "Unknown";
+            }
+        }
+
+        public string UserAgent
+        {
+            get
+            {
+                if (Context == null) return "Unknown";
+
+                var userAgent = Context.Request.Headers["User-Agent"].FirstOrDefault();
+
+                if (string.IsNullOrEmpty(userAgent))
+                {
+                    return "Unknown";
+                }
+
+                // Truncate if too long (safety measure)
+                const int maxLength = 500;
+                return userAgent.Length > maxLength
+                    ? userAgent.Substring(0, maxLength)
+                    : userAgent;
+            }
+        }
+
+        public string? GetClaim(string claimType)
+        {
+            if (!IsAuthenticated) return null;
+
+            return User?.FindFirst(claimType)?.Value;
+        }
+
+        public IEnumerable<string> GetRoles()
+        {
+            if (!IsAuthenticated) return Enumerable.Empty<string>();
+
+            return User?.FindAll(ClaimTypes.Role)
+                .Select(c => c.Value)
+                .Distinct()
+                ?? Enumerable.Empty<string>();
         }
 
         public bool IsInRole(string role)
         {
-            if (!IsAuthenticated) return false;
+            if (!IsAuthenticated || string.IsNullOrEmpty(role))
+                return false;
 
             return User?.IsInRole(role) ?? false;
+        }
+
+        public bool HasPermission(string permission)
+        {
+            if (!IsAuthenticated || string.IsNullOrEmpty(permission))
+                return false;
+
+            return User?.HasClaim("permission", permission) ?? false;
         }
 
         public IEnumerable<Claim> GetAllClaims()
         {
             return User?.Claims ?? Enumerable.Empty<Claim>();
+        }
+
+        public string GetRequestPath()
+        {
+            return Context?.Request?.Path.Value ?? "Unknown";
+        }
+
+        public string GetRequestMethod()
+        {
+            return Context?.Request?.Method ?? "Unknown";
         }
     }
 }

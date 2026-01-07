@@ -26,6 +26,7 @@ namespace SchoolManagement.Application.Interfaces
         ITimeTableRepository TimeTablesRepository { get; }
         IDepartmentRepository DepartmentRepository { get; }
         IAcademicYearRepository AcademicYearRepository { get; }
+        IAuditLogRepository AuditLogRepository { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
