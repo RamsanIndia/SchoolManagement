@@ -107,7 +107,7 @@ namespace SchoolManagement.Domain.Entities
                 classEntity.Name,
                 classEntity.Grade,
                 academicYearId,
-                classEntity.CreatedAt,
+                classEntity.CreatedAt, 
                 classEntity.CreatedBy));
 
             return classEntity;

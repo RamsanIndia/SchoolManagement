@@ -1,4 +1,5 @@
-﻿using SchoolManagement.Application.Interfaces;
+﻿using MediatR;
+using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Shared.Correlation;
 using SchoolManagement.Application.Shared.Utilities;
@@ -14,6 +15,8 @@ using SchoolManagement.Infrastructure.Events;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Infrastructure.Services;
 using SchoolManagement.Persistence;
+using SchoolManagement.Persistence.Behaviors;
+using SchoolManagement.Persistence.Interceptors;
 using SchoolManagement.Persistence.Repositories;
 using SchoolManagement.Persistence.Services;
 
@@ -243,6 +246,11 @@ namespace SchoolManagement.API.Extensions
             //services.AddScoped<IIntegrationEventMapper, IntegrationEventMapper>();
             services.AddSingleton<IEventRouter, EventRouter>();
             services.AddHostedService<NotificationEventConsumer>();
+
+            services.AddScoped<AuditInterceptor>();
+
+            // Register MediatR Pipeline Behaviors
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ActivityLogBehavior<,>));
 
             return services;
         }

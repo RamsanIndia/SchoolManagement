@@ -44,6 +44,7 @@ namespace SchoolManagement.Persistence.Repositories
         private ITeacherRepository? _teachersRepository;
         private IDepartmentRepository? _departmentRepository;
         private IAcademicYearRepository? _academicYearRepository;
+        private IAuditLogRepository _auditLogs;
 
         // ✅ UPDATED CONSTRUCTOR - Inject audit services
         public UnitOfWork(
@@ -112,6 +113,9 @@ namespace SchoolManagement.Persistence.Repositories
 
         public IAcademicYearRepository AcademicYearRepository =>
             _academicYearRepository ??= new AcademicYearRepository(_context);
+
+        public IAuditLogRepository AuditLogRepository =>
+            _auditLogs ??= new AuditLogRepository(_context);
 
 
         #endregion

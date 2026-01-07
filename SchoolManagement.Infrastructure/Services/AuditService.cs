@@ -33,17 +33,17 @@ namespace SchoolManagement.Infrastructure.Services
         {
             try
             {
-                var auditLog = new AuditLog(
-                    action,
-                    entityName,
-                    entityId,
-                    userId,
-                    userEmail,
-                    ipAddress,
-                    userAgent,
-                    details);
+                //var auditLog = new AuditLog(
+                //    action,
+                //    entityName,
+                //    entityId,
+                //    userId,
+                //    userEmail,
+                //    ipAddress,
+                //    userAgent,
+                //    details);
 
-                _context.AuditLogs.Add(auditLog);
+                //_context.AuditLogs.Add(auditLog);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Audit log created: {Action} on {EntityName} by {UserEmail}",

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SchoolManagement.Persistence;
@@ -11,9 +12,11 @@ using SchoolManagement.Persistence;
 namespace SchoolManagement.Persistence.Migrations
 {
     [DbContext(typeof(SchoolManagementDbContext))]
-    partial class SchoolManagementDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260107065420_AddAuditLogTable")]
+    partial class AddAuditLogTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -38,6 +41,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -216,6 +220,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("Date")
@@ -286,10 +291,6 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("Timestamp");
-
                     b.Property<long?>("Duration")
                         .HasColumnType("bigint");
 
@@ -312,12 +313,6 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.Property<string>("OldValues")
                         .HasColumnType("jsonb");
-
-                    b.Property<uint>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
@@ -365,9 +360,6 @@ namespace SchoolManagement.Persistence.Migrations
                     b.ToTable("AuditLogs", null, t =>
                         {
                             t.HasComment("Audit log table - Consider partitioning by Timestamp for large datasets");
-
-                            t.Property("Timestamp")
-                                .HasColumnName("Timestamp1");
                         });
                 });
 
@@ -384,6 +376,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -465,6 +458,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -555,6 +549,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -625,6 +620,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -696,6 +692,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -763,6 +760,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("DateOfBirth")
@@ -914,6 +912,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("Date")
@@ -990,6 +989,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1071,6 +1071,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1158,6 +1159,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1241,6 +1243,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1335,6 +1338,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1421,6 +1425,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1516,6 +1521,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1605,6 +1611,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1689,6 +1696,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -1798,6 +1806,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1892,6 +1901,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -1950,6 +1960,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -2020,6 +2031,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -2098,6 +2110,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -2211,6 +2224,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("DateOfBirth")
@@ -2355,6 +2369,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -2479,6 +2494,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("DateOfJoining")
@@ -2570,6 +2586,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("DayOfWeek")
@@ -2647,6 +2664,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -2783,6 +2801,7 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
