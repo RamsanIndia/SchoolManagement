@@ -148,12 +148,44 @@ namespace SchoolManagement.API.Controllers
             var result = await _mediator.Send(query);
             return Ok(result);
         }
+        
+        [HttpGet]
+        public async Task<IActionResult> GetUsers(
+        [FromQuery] string? searchTerm,
+        [FromQuery] string? userType,
+        [FromQuery] bool? isEmailVerified,
+        [FromQuery] bool? isPhoneVerified,
+        [FromQuery] bool? isActive,
+        [FromQuery] string? sortBy = "firstname",
+        [FromQuery] string sortDirection = "asc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+        {
+            var query = new GetUsersQuery
+            {
+                SearchTerm = searchTerm,
+                UserType = userType,
+                IsEmailVerified = isEmailVerified,
+                IsPhoneVerified = isPhoneVerified,
+                IsActive = isActive,
+                SortBy = sortBy,
+                SortDirection = sortDirection,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
 
+            var result = await _mediator.Send(query);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
         /// <summary>
         /// Validates the current token (useful for checking if user is still authenticated)
         /// </summary>
         [Authorize]
-        [HttpGet("validate")]
+        [HttpGet("verify-token")]
         [ProducesResponseType(200)]
         [ProducesResponseType(401)]
         public ActionResult ValidateToken()

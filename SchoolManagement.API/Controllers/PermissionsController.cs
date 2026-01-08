@@ -19,11 +19,38 @@ namespace SchoolManagement.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PermissionDto>>> GetAll(CancellationToken cancellationToken)
+        public async Task<IActionResult> GetPermissions(
+        [FromQuery] string? searchTerm,
+        [FromQuery] string? module,
+        [FromQuery] string? action,
+        [FromQuery] string? resource,
+        [FromQuery] bool? isSystemPermission,
+        [FromQuery] string? sortBy = "name",
+        [FromQuery] string sortDirection = "asc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
         {
-            var permissions = await _mediator.Send(new GetPermissionsQuery(), cancellationToken);
-            return Ok(permissions);
+            var query = new GetPermissionsQuery
+            {
+                SearchTerm = searchTerm,
+                Module = module,
+                Action = action,
+                Resource = resource,
+                IsSystemPermission = isSystemPermission,
+                SortBy = sortBy,
+                SortDirection = sortDirection,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            var result = await _mediator.Send(query);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
         }
+
 
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<PermissionDto>> GetById(Guid id, CancellationToken cancellationToken)

@@ -5,31 +5,34 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Persistence.Repositories
 {
-    public class RoleRepository : IRoleRepository
+    public class RoleRepository : Repository<Role>,IRoleRepository
     {
-        private readonly SchoolManagementDbContext _context;
-
-        public RoleRepository(SchoolManagementDbContext context)
+        public RoleRepository(SchoolManagementDbContext context) : base(context)
         {
-            _context = context;
         }
 
-        public async Task<Role> GetByIdAsync(Guid id,CancellationToken cancellationToken)
+        public IQueryable<Role> GetQueryable()
+        {
+            return _context.Roles.Where(r => !r.IsDeleted);
+        }
+
+        public async Task<Role> GetByIdAsync(Guid id, CancellationToken cancellationToken)
         {
             return await _context.Roles
                 .Include(r => r.RoleMenuPermissions)
                 .ThenInclude(rmp => rmp.Menu)
-                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, cancellationToken);
         }
 
-        public async Task<Role> GetByNameAsync(string name,CancellationToken cancellationToken)
+        public async Task<Role> GetByNameAsync(string name, CancellationToken cancellationToken)
         {
             return await _context.Roles
-                .FirstOrDefaultAsync(r => r.Name == name && !r.IsDeleted);
+                .FirstOrDefaultAsync(r => r.Name == name && !r.IsDeleted, cancellationToken);
         }
 
         public async Task<IEnumerable<Role>> GetAllAsync()
@@ -60,9 +63,9 @@ namespace SchoolManagement.Persistence.Repositories
             return role;
         }
 
-        public async Task DeleteAsync(Guid id,CancellationToken cancellationToken)
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
         {
-            var role = await GetByIdAsync(id,cancellationToken);
+            var role = await GetByIdAsync(id, cancellationToken);
             if (role != null && !role.IsSystemRole)
             {
                 role.MarkAsDeleted();

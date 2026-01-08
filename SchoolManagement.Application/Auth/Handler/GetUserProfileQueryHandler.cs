@@ -57,10 +57,11 @@ namespace SchoolManagement.Application.Auth.Handler
                     FirstName = user.FullName.FirstName,
                     LastName = user.FullName.LastName,
                     PhoneNumber = user.PhoneNumber?.Value,
+                    Username = user.Username,
                     IsEmailVerified = user.EmailVerified,
                     IsPhoneVerified = user.PhoneVerified,
-                    //IsActive = user.IsActive,
-                    //LastLoginAt = user.LastLoginAt,
+                    IsActive = user.IsActive.ToString(), 
+                    LastLoginAt = (DateTime)user.LastLoginAt,
                     Roles = new List<string> { user.UserType.ToString() }
                 };
 

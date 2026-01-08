@@ -42,11 +42,34 @@ namespace SchoolManagement.API.Controllers
         /// Get all roles
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<RoleDto>>> GetAllRoles()
+        public async Task<IActionResult> GetAllRoles(
+        [FromQuery] string? searchTerm,
+        [FromQuery] bool? isActive,
+        [FromQuery] bool? isSystemRole,
+        [FromQuery] int? level,
+        [FromQuery] string? sortBy = "name",
+        [FromQuery] string sortDirection = "asc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
         {
-            var query = new GetAllRolesQuery();
-            var roles = await _mediator.Send(query);
-            return Ok(roles);
+            var query = new GetAllRolesQuery
+            {
+                SearchTerm = searchTerm,
+                IsActive = isActive,
+                IsSystemRole = isSystemRole,
+                Level = level,
+                SortBy = sortBy,
+                SortDirection = sortDirection,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            var result = await _mediator.Send(query);
+
+            if (!result.Status)
+                return BadRequest(result);
+
+            return Ok(result);
         }
 
         /// <summary>

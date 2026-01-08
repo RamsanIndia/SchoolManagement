@@ -7,9 +7,10 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Interfaces
 {
-    public interface IUserRepository
+    public interface IUserRepository: IRepository<User>
     {
         // Query Methods
+        IQueryable<User> GetQueryable();
         Task<User> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default);
         Task<User> GetByIdWithTokensAsync(Guid id, CancellationToken cancellationToken = default);

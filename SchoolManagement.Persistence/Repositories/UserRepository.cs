@@ -5,6 +5,7 @@ using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.ValueObjects;
 using SchoolManagement.Persistence;
+using SchoolManagement.Persistence.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,16 +14,20 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Infrastructure.Persistence.Repositories
 {
-    public class UserRepository : IUserRepository
+    public class UserRepository : Repository<User>, IUserRepository
     {
-        private readonly SchoolManagementDbContext _context;
-
-        public UserRepository(SchoolManagementDbContext context)
+        public UserRepository(SchoolManagementDbContext context) : base(context)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
+
+
         #region Query Methods
+
+        public IQueryable<User> GetQueryable()
+        {
+            return _context.Users.Where(u => !u.IsDeleted);
+        }
 
         public async Task<User> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {

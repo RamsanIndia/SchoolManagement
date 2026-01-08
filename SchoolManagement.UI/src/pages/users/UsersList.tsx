@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -19,238 +20,444 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast";
-import { 
-  Users, Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, 
-  MoreHorizontal, Eye, Pencil, KeyRound, Trash2, Shield, 
-  UserCheck, UserX, Lock, Filter
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Users,
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
+  Mail,
+  Phone,
+  CheckCircle2,
+  XCircle,
+  User as UserIcon,
+  Clock,
+} from 'lucide-react';
 
-interface User {
-  id: string;
-  photo: string;
-  firstName: string;
-  lastName: string;
-  username: string;
-  email: string;
-  mobile: string;
-  role: string;
-  status: "active" | "inactive" | "locked";
-  lastLogin: string;
-  createdAt: string;
-}
+// Import API hooks
+import { useUsers } from '@/users/hooks/useUsers';
+import { useCreateUser } from '@/users/hooks/useCreateUser';
+import { useUpdateUser } from '@/users/hooks/useUpdateUser';
+import { useDeleteUser } from '@/users/hooks/useDeleteUser';
+import { useRoles } from '@/roles/hooks/useRoles';
+import { User, CreateUserDto, UpdateUserDto, UserQueryParams } from '@/users/types/user.types';
 
-const mockUsers: User[] = [
-  {
-    id: "1",
-    photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
-    firstName: "Naveen",
-    lastName: "Kumar",
-    username: "naveen.k",
-    email: "naveen@example.com",
-    mobile: "+91 98765 43210",
-    role: "Admin",
-    status: "active",
-    lastLogin: new Date(Date.now() - 3600000).toISOString(),
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "2",
-    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-    firstName: "Rohan",
-    lastName: "Verma",
-    username: "rohan.v",
-    email: "rohan@example.com",
-    mobile: "+91 98765 43211",
-    role: "Teacher",
-    status: "active",
-    lastLogin: new Date(Date.now() - 86400000).toISOString(),
-    createdAt: "2024-02-20",
-  },
-  {
-    id: "3",
-    photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-    firstName: "Neha",
-    lastName: "Singh",
-    username: "neha.s",
-    email: "neha@example.com",
-    mobile: "+91 98765 43212",
-    role: "Accountant",
-    status: "inactive",
-    lastLogin: new Date(Date.now() - 1209600000).toISOString(),
-    createdAt: "2024-03-10",
-  },
-  {
-    id: "4",
-    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-    firstName: "Amit",
-    lastName: "Sharma",
-    username: "amit.s",
-    email: "amit@example.com",
-    mobile: "+91 98765 43213",
-    role: "Librarian",
-    status: "locked",
-    lastLogin: new Date(Date.now() - 604800000).toISOString(),
-    createdAt: "2024-04-05",
-  },
-  {
-    id: "5",
-    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150",
-    firstName: "Priya",
-    lastName: "Patel",
-    username: "priya.p",
-    email: "priya@example.com",
-    mobile: "+91 98765 43214",
-    role: "Teacher",
-    status: "active",
-    lastLogin: new Date(Date.now() - 7200000).toISOString(),
-    createdAt: "2024-05-12",
-  },
-  {
-    id: "6",
-    photo: "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150",
-    firstName: "Rajesh",
-    lastName: "Gupta",
-    username: "rajesh.g",
-    email: "rajesh@example.com",
-    mobile: "+91 98765 43215",
-    role: "Transport Manager",
-    status: "active",
-    lastLogin: new Date(Date.now() - 172800000).toISOString(),
-    createdAt: "2024-06-18",
-  },
-  {
-    id: "7",
-    photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-    firstName: "Sunita",
-    lastName: "Rao",
-    username: "sunita.r",
-    email: "sunita@example.com",
-    mobile: "+91 98765 43216",
-    role: "Receptionist",
-    status: "active",
-    lastLogin: new Date(Date.now() - 1800000).toISOString(),
-    createdAt: "2024-07-22",
-  },
-];
+export default function UserManagement() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  
+  // ✅ Fixed: Proper type for sortBy
+  const [sortBy, setSortBy] = useState<UserQueryParams['sortBy']>(undefined);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize] = useState(10);
+  const [roleFilter, setRoleFilter] = useState<string>('all');
 
-const roles = ["All", "Admin", "Teacher", "Accountant", "Librarian", "Transport Manager", "Receptionist"];
-const statuses = ["All", "Active", "Inactive", "Locked"];
+  const [formData, setFormData] = useState({
+    username: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    password: '',
+    roleIds: [] as string[],
+  });
 
-export default function UsersList() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [sortColumn, setSortColumn] = useState<string>("");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+  // Fetch users from API
+  const {
+    data: usersData,
+    isLoading: isLoadingUsers,
+    error: usersError,
+    refetch: refetchUsers,
+    isFetching: isFetchingUsers,
+  } = useUsers({
+    params: {
+      pageNumber,
+      pageSize,
+      searchTerm: searchTerm || undefined,
+      sortBy: sortBy || undefined,
+      sortDirection: sortBy ? sortDirection : undefined,
+      role: roleFilter !== 'all' ? roleFilter : undefined,
+    },
+  });
+
+  // Fetch roles for dropdown
+  const {
+    data: rolesData,
+    isLoading: isLoadingRoles,
+  } = useRoles({
+    params: { pageSize: 100 },
+  });
+
+  // Mutations
+  const createMutation = useCreateUser();
+  const updateMutation = useUpdateUser();
+  const deleteMutation = useDeleteUser();
+
+  // Extract data from API responses
+  const users = usersData?.items || [];
+  const totalCount = usersData?.totalCount || 0;
+  const totalPages = usersData?.totalPages || 0;
+  const hasNextPage = usersData?.hasNextPage || false;
+  const hasPreviousPage = usersData?.hasPreviousPage || false;
+
+  const roles = rolesData?.items || [];
+
+  // Get unique roles from users for filter
+  const userRoles = useMemo(() => {
+    const allRoles = users.flatMap((u) => u.roles);
+    const uniqueRoles = ['all', ...new Set(allRoles)];
+    return uniqueRoles;
+  }, [users]);
+
+  // Calculate stats
+  const stats = useMemo(
+    () => ({
+      totalUsers: totalCount,
+      emailVerified: users.filter((u) => u.isEmailVerified).length,
+      phoneVerified: users.filter((u) => u.isPhoneVerified).length,
+      withRoles: users.filter((u) => u.roles.length > 0).length,
+    }),
+    [users, totalCount]
+  );
+
+  // ✅ Fixed: Proper type for column parameter
+  const handleSort = (column: UserQueryParams['sortBy']) => {
+    if (sortBy === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortColumn(column);
-      setSortDirection("asc");
+      setSortBy(column);
+      setSortDirection('asc');
     }
   };
 
+  // ✅ Fixed: Accepts any string for comparison but typed properly
   const getSortIcon = (column: string) => {
-    if (sortColumn !== column) return <ArrowUpDown className="h-4 w-4 ml-1" />;
-    return sortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+    if (sortBy !== column) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-4 w-4 ml-1" />
+    ) : (
+      <ArrowDown className="h-4 w-4 ml-1" />
+    );
   };
 
-  const getRelativeTime = (dateString: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (editingUser) {
+        const updateData: UpdateUserDto = {
+          username: formData.username,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phoneNumber: formData.phoneNumber,
+          roleIds: formData.roleIds,
+        };
+        await updateMutation.mutateAsync({
+          id: editingUser.id,
+          data: updateData,
+        });
+      } else {
+        const createData: CreateUserDto = {
+          username: formData.username,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phoneNumber: formData.phoneNumber,
+          password: formData.password,
+          roleIds: formData.roleIds,
+        };
+        await createMutation.mutateAsync(createData);
+      }
+      handleCloseDialog();
+    } catch (error) {
+      // Error handled by mutation hooks
+    }
+  };
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user);
+    
+    const roleIds = user.roles
+      .map((roleName) => {
+        const role = roles.find((r) => r.name === roleName);
+        return role?.id;
+      })
+      .filter((id): id is string => id !== undefined);
+
+    setFormData({
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      password: '',
+      roleIds,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteClick = (userId: string) => {
+    setDeleteUserId(userId);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteUserId) {
+      deleteMutation.mutate(deleteUserId);
+      setDeleteUserId(null);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingUser(null);
+    setFormData({
+      username: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      password: '',
+      roleIds: [],
+    });
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString || dateString === '0001-01-01T00:00:00') {
+      return 'Never';
+    }
+    
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
     
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24) return `${diffHours} hr ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 14) return "1 week ago";
-    return `${Math.floor(diffDays / 7)} weeks ago`;
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20">Active</Badge>;
-      case "inactive":
-        return <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20">Inactive</Badge>;
-      case "locked":
-        return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 hover:bg-red-500/20">Locked</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const handleDelete = (userId: string) => {
-    setUsers(users.filter(u => u.id !== userId));
-    toast({ title: "Success", description: "User deleted successfully" });
-  };
-
-  const handleResetPassword = (userId: string) => {
-    toast({ title: "Password Reset", description: "Password reset link has been sent to user's email" });
-  };
-
-  const filteredUsers = users
-    .filter(user => {
-      const matchesSearch = 
-        `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.username.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = roleFilter === "All" || user.role === roleFilter;
-      const matchesStatus = statusFilter === "All" || user.status === statusFilter.toLowerCase();
-      return matchesSearch && matchesRole && matchesStatus;
-    })
-    .sort((a, b) => {
-      if (!sortColumn) return 0;
-      let aValue: any = a[sortColumn as keyof typeof a];
-      let bValue: any = b[sortColumn as keyof typeof b];
-      if (sortColumn === "name") {
-        aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
-        bValue = `${b.firstName} ${b.lastName}`.toLowerCase();
-      }
-      if (typeof aValue === "string") aValue = aValue.toLowerCase();
-      if (typeof bValue === "string") bValue = bValue.toLowerCase();
-      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-      return 0;
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
-
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === "active").length,
-    inactive: users.filter(u => u.status === "inactive").length,
-    locked: users.filter(u => u.status === "locked").length,
   };
+
+  // Loading state
+  if (isLoadingUsers || isLoadingRoles) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading users...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (usersError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="text-center">
+          <p className="text-lg font-semibold text-destructive mb-2">
+            Failed to Load Users
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {usersError.message || 'An error occurred while loading users'}
+          </p>
+        </div>
+        <Button onClick={() => refetchUsers()} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Users</h1>
+          <h1 className="text-3xl font-bold text-foreground">User Management</h1>
           <p className="text-muted-foreground">Manage system users and their access</p>
         </div>
-        <Button onClick={() => navigate("/users/add")} className="bg-primary hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" />
-          Add User
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => refetchUsers()}
+            variant="outline"
+            disabled={isFetchingUsers}
+          >
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isFetchingUsers ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingUser ? 'Edit User' : 'Add New User'}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username *</Label>
+                  <Input
+                    id="username"
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
+                    placeholder="e.g., john.doe"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, firstName: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, lastName: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={!!editingUser}
+                    required={!editingUser}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">Phone Number *</Label>
+                  <Input
+                    id="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phoneNumber: e.target.value })
+                    }
+                    placeholder="+919876543210"
+                    required
+                  />
+                </div>
+                {!editingUser && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      required={!editingUser}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="roles">Roles</Label>
+                  <Select
+                    value={formData.roleIds[0] || ''}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, roleIds: value ? [value] : [] })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-primary hover:bg-primary/90"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {(createMutation.isPending || updateMutation.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {editingUser ? 'Update' : 'Create'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -263,40 +470,43 @@ export default function UsersList() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <UserCheck className="h-4 w-4" />
-              Active
+              <Mail className="h-4 w-4" />
+              Email Verified
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-emerald-600">
+              {stats.emailVerified}
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-amber-500">
+        <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <UserX className="h-4 w-4" />
-              Inactive
+              <Phone className="h-4 w-4" />
+              Phone Verified
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{stats.inactive}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {stats.phoneVerified}
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-red-500">
+        <Card className="border-l-4 border-l-violet-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              Locked
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              With Roles
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.locked}</div>
+            <div className="text-2xl font-bold text-violet-600">{stats.withRoles}</div>
           </CardContent>
         </Card>
       </div>
@@ -304,42 +514,36 @@ export default function UsersList() {
       {/* Users Table */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Users List
+              {isFetchingUsers && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </CardTitle>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role === 'all' ? 'All Roles' : role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name, email, username..."
+                  placeholder="Search users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 w-64"
                 />
               </div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
@@ -348,91 +552,225 @@ export default function UsersList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px] cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("name")}>
-                    <div className="flex items-center">User {getSortIcon("name")}</div>
+                  {/* ✅ Fixed: Cast to proper type */}
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort('username')}
+                  >
+                    <div className="flex items-center">
+                      User
+                      {getSortIcon('username')}
+                    </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("username")}>
-                    <div className="flex items-center">Username {getSortIcon("username")}</div>
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort('email')}
+                  >
+                    <div className="flex items-center">
+                      Contact
+                      {getSortIcon('email')}
+                    </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("email")}>
-                    <div className="flex items-center">Email {getSortIcon("email")}</div>
+                  <TableHead>Roles</TableHead>
+                  <TableHead>Verification</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort('lastLoginAt')}
+                  >
+                    <div className="flex items-center">
+                      Last Login
+                      {getSortIcon('lastLoginAt')}
+                    </div>
                   </TableHead>
-                  <TableHead>Mobile</TableHead>
-                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("role")}>
-                    <div className="flex items-center">Role {getSortIcon("role")}</div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("status")}>
-                    <div className="flex items-center">Status {getSortIcon("status")}</div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("lastLogin")}>
-                    <div className="flex items-center">Last Login {getSortIcon("lastLogin")}</div>
-                  </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={user.photo} alt={`${user.firstName} ${user.lastName}`} />
-                          <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{user.firstName} {user.lastName}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{user.username}</TableCell>
-                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{user.mobile}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        <Shield className="h-3 w-3 mr-1" />
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(user.status)}</TableCell>
-                    <TableCell className="text-muted-foreground">{getRelativeTime(user.lastLogin)}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 bg-popover">
-                          <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Profile
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/users/edit/${user.id}`)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleResetPassword(user.id)}>
-                            <KeyRound className="h-4 w-4 mr-2" />
-                            Reset Password
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleDelete(user.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center text-muted-foreground py-8"
+                    >
+                      {searchTerm || roleFilter !== 'all'
+                        ? 'No users found matching your filters'
+                        : 'No users available'}
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {getInitials(user.firstName, user.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium flex items-center gap-2">
+                              <UserIcon className="h-3 w-3 text-muted-foreground" />
+                              {user.username}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {user.firstName} {user.lastName}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            {user.email}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            {user.phoneNumber}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {user.roles.length > 0 ? (
+                            user.roles.map((role) => (
+                              <Badge key={role} variant="secondary">
+                                {role}
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              No Roles
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              user.isEmailVerified
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-600'
+                            }
+                          >
+                            {user.isEmailVerified ? (
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                            ) : (
+                              <XCircle className="h-3 w-3 mr-1" />
+                            )}
+                            Email
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={
+                              user.isPhoneVerified
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-600'
+                            }
+                          >
+                            {user.isPhoneVerified ? (
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                            ) : (
+                              <XCircle className="h-3 w-3 mr-1" />
+                            )}
+                            Phone
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(user.lastLoginAt)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(user)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteClick(user.id)}
+                            className="hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing page {pageNumber} of {totalPages} ({totalCount} total users)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPageNumber((p) => p - 1)}
+                  disabled={!hasPreviousPage || isFetchingUsers}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPageNumber((p) => p + 1)}
+                  disabled={!hasNextPage || isFetchingUsers}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user
+              account and remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

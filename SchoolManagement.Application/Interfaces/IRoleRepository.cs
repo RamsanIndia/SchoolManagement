@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Interfaces
 {
-    public interface IRoleRepository
+    public interface IRoleRepository: IRepository<Role>
     {
         Task<Role> GetByIdAsync(Guid id,CancellationToken cancellationToken);
         Task<Role> GetByNameAsync(string name, CancellationToken cancellationToken);
@@ -16,5 +16,6 @@ namespace SchoolManagement.Application.Interfaces
         Task<Role> CreateAsync(Role role);
         Task<Role> UpdateAsync(Role role);
         Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+        IQueryable<Role> GetQueryable();
     }
 }

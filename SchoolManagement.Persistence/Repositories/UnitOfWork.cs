@@ -18,8 +18,7 @@ namespace SchoolManagement.Persistence.Repositories
     {
         private readonly SchoolManagementDbContext _context;
         private readonly ILogger<UnitOfWork> _logger;
-        private readonly ICurrentUserService _currentUserService;  // ✅ Add this
-        private readonly IpAddressHelper _ipAddressHelper;          // ✅ Add this
+        private readonly ICurrentUserService _currentUserService;
         private IDbContextTransaction _transaction;
 
         private const int MaxRetries = 3;
@@ -46,17 +45,15 @@ namespace SchoolManagement.Persistence.Repositories
         private IAcademicYearRepository? _academicYearRepository;
         private IAuditLogRepository _auditLogs;
 
-        // ✅ UPDATED CONSTRUCTOR - Inject audit services
         public UnitOfWork(
             SchoolManagementDbContext context,
             ILogger<UnitOfWork> logger,
-            ICurrentUserService currentUserService,  // ✅ Add this
-            IpAddressHelper ipAddressHelper)          // ✅ Add this
+            ICurrentUserService currentUserService)  // ✅ Add this
+                      // ✅ Add this
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _currentUserService = currentUserService ?? throw new ArgumentNullException(nameof(currentUserService));
-            _ipAddressHelper = ipAddressHelper ?? throw new ArgumentNullException(nameof(ipAddressHelper));
         }
 
         #region Repository Properties
@@ -275,7 +272,7 @@ namespace SchoolManagement.Persistence.Repositories
 
             // Get current user info from services
             var currentUser = _currentUserService.Username;
-            var currentIp = _ipAddressHelper.GetIpAddress();
+            var currentIp = _currentUserService.IpAddress;
             var isAuthenticated = _currentUserService.IsAuthenticated;
 
             _logger.LogInformation(
