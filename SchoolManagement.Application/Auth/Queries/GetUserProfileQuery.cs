@@ -17,5 +17,10 @@ namespace SchoolManagement.Application.Auth.Queries
         {
             UserId = userId;
         }
+
+        // Parameterless constructor for potential future use
+        public GetUserProfileQuery()
+        {
+        }
     }
 }

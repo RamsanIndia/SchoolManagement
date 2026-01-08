@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SchoolManagement.Domain.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading;
@@ -7,8 +8,9 @@ using PermissionEntity = SchoolManagement.Domain.Entities.Permission;
 
 namespace SchoolManagement.Application.Interfaces
 {
-    public interface IPermissionRepository
+    public interface IPermissionRepository: IRepository<Permission>
     {
+        IQueryable<Permission> GetQueryable();
         Task<PermissionEntity> GetByIdAsync(Guid id, CancellationToken cancellationToken);
         Task<PermissionEntity> GetByNameAsync(string name, CancellationToken cancellationToken = default);
         Task<IEnumerable<PermissionEntity>> GetAllAsync(CancellationToken cancellationToken);

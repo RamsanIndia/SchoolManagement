@@ -10,13 +10,15 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Persistence.Repositories
 {
-    public class PermissionRepository : IPermissionRepository
+    public class PermissionRepository : Repository<Permission>, IPermissionRepository
     {
-        private readonly SchoolManagementDbContext _context;
-
-        public PermissionRepository(SchoolManagementDbContext context)
+        public PermissionRepository(SchoolManagementDbContext context) : base(context)
         {
-            _context = context;
+        }
+
+        public IQueryable<Permission> GetQueryable()
+        {
+            return _context.Permissions.Where(p => !p.IsDeleted);
         }
 
         public async Task<Permission> GetByIdAsync(Guid id, CancellationToken cancellationToken)
@@ -25,10 +27,10 @@ namespace SchoolManagement.Persistence.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
         }
 
-        public async Task<Permission> GetByNameAsync(string name)
+        public async Task<Permission> GetByNameAsync(string name, CancellationToken cancellationToken = default)
         {
             return await _context.Permissions
-                .FirstOrDefaultAsync(p => p.Name == name && !p.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Name == name && !p.IsDeleted, cancellationToken);
         }
 
         public async Task<IEnumerable<Permission>> GetAllAsync(CancellationToken cancellationToken)
@@ -40,12 +42,12 @@ namespace SchoolManagement.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<Permission>> GetByModuleAsync(string module)
+        public async Task<IEnumerable<Permission>> GetByModuleAsync(string module, CancellationToken cancellationToken = default)
         {
             return await _context.Permissions
                 .Where(p => p.Module == module && !p.IsDeleted)
                 .OrderBy(p => p.Action)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         public async Task<Permission> AddAsync(Permission permission, CancellationToken cancellationToken)
@@ -75,16 +77,6 @@ namespace SchoolManagement.Persistence.Repositories
             return await _context.Permissions
                 .Where(p => !p.IsDeleted)
                 .AnyAsync(predicate, cancellationToken);
-        }
-
-        public Task<Permission> GetByNameAsync(string name, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<IEnumerable<Permission>> GetByModuleAsync(string module, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
         }
     }
 }

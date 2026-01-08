@@ -66,7 +66,7 @@ namespace SchoolManagement.Infrastructure.Services
                         DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
                         ClaimValueTypes.Integer64)
                 }),
-                Expires = DateTime.UtcNow.AddMinutes(15), // ✅ Shorter expiry (15 min)
+                Expires = DateTime.UtcNow.AddMinutes(60), // ✅ Shorter expiry (15 min)
                 NotBefore = DateTime.UtcNow,
                 Issuer = _issuer,
                 Audience = _audience,
