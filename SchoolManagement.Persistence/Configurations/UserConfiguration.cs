@@ -9,189 +9,276 @@ namespace SchoolManagement.Persistence.Configurations;
 
 public class UserConfiguration : IEntityTypeConfiguration<User>
 {
-    public void Configure(EntityTypeBuilder<User> entity)
+    public void Configure(EntityTypeBuilder<User> builder)
     {
-        entity.ToTable("Users");
+        // ===== TABLE & SCHEMA =====
+        builder.ToTable("Users", "dbo");
 
-        entity.HasKey(e => e.Id);
+        // ===== PRIMARY KEY =====
+        builder.HasKey(e => e.Id);
 
-        // Basic properties
-        entity.Property(e => e.Username)
-              .IsRequired()
-              .HasMaxLength(50);
+        builder.Property(e => e.Id)
+            .IsRequired()
+            .ValueGeneratedNever(); // Generated in domain
 
-        entity.Property(e => e.PasswordHash)
-              .IsRequired()
-              .HasMaxLength(500);
+        // ===== USER IDENTITY PROPERTIES =====
 
-        entity.Property(e => e.IsActive)
-              .IsRequired();
+        builder.Property(e => e.Username)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasColumnType("varchar(50)");
 
-        entity.Property(e => e.EmailVerified)
-              .IsRequired();
+        builder.Property(e => e.PasswordHash)
+            .IsRequired()
+            .HasMaxLength(500)
+            .HasColumnType("varchar(500)");
 
-        entity.Property(e => e.PhoneVerified)
-              .IsRequired();
+        builder.Property(e => e.UserType)
+            .IsRequired()
+            .HasConversion<string>() // ✅ Store as string for readability
+            .HasMaxLength(50)
+            .HasColumnType("varchar(50)");
 
-        entity.Property(e => e.LastLoginAt)
-              .IsRequired(false)
-              .HasColumnType("timestamptz");
+        // ===== SECURITY PROPERTIES =====
 
-        entity.Property(e => e.LoginAttempts)
-              .IsRequired()
-              .HasDefaultValue(0);
+        builder.Property(e => e.EmailVerified)
+            .IsRequired()
+            .HasDefaultValue(false);
 
-        entity.Property(e => e.LockedUntil)
-              .IsRequired(false)
-              .HasColumnType("timestamptz");
+        builder.Property(e => e.PhoneVerified)
+            .IsRequired()
+            .HasDefaultValue(false);
 
-        // UserType enum
-        entity.Property(e => e.UserType)
-              .IsRequired()
-              .HasConversion<int>()
-              .HasMaxLength(50);
+        builder.Property(e => e.LastLoginAt)
+            .IsRequired(false)
+            .HasColumnType("timestamp with time zone");
 
-        // Email Value Object with HasConversion
-        entity.Property(e => e.Email)
-              .IsRequired()
-              .HasMaxLength(256)
-              .HasColumnName("Email")
-              .HasConversion(
-                  email => email.Value,
-                  value => new Email(value))
-              .Metadata.SetValueComparer(
-                  new ValueComparer<Email>(
-                      (left, right) => left != null && right != null && left.Value == right.Value,
-                      email => email != null ? email.Value.GetHashCode() : 0,
-                      email => email != null ? new Email(email.Value) : null));
+        builder.Property(e => e.LoginAttempts)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(e => e.LockedUntil)
+            .IsRequired(false)
+            .HasColumnType("timestamp with time zone");
+
+        // ===== DOMAIN PROPERTIES =====
+
+        builder.Property(e => e.StudentId)
+            .IsRequired(false);
+
+        builder.Property(e => e.EmployeeId)
+            .IsRequired(false);
+
+        // ===== VALUE OBJECTS =====
+
+        // Email Value Object
+        builder.Property(e => e.Email)
+    .IsRequired()
+    .HasMaxLength(100)
+    .HasColumnName("Email")
+    .HasColumnType("varchar(100)")
+    .HasConversion(
+        email => email.Value,
+        value => new Email(value))
+    .Metadata.SetValueComparer(
+        new ValueComparer<Email>(
+            (left, right) => left != null && right != null && left.Value == right.Value,
+            email => email != null ? email.Value.GetHashCode() : 0,
+            email => email != null ? new Email(email.Value) : null));
+
 
         // FullName Value Object as Owned Type
-        entity.OwnsOne(e => e.FullName, fullName =>
+        builder.OwnsOne(e => e.FullName, fullName =>
         {
             fullName.Property(fn => fn.FirstName)
-                    .HasColumnName("FirstName")
-                    .HasMaxLength(100)
-                    .IsRequired();
+                .HasColumnName("FirstName")
+                .HasMaxLength(100)
+                .IsRequired();
 
             fullName.Property(fn => fn.LastName)
-                    .HasColumnName("LastName")
-                    .HasMaxLength(100)
-                    .IsRequired();
+                .HasColumnName("LastName")
+                .HasMaxLength(100)
+                .IsRequired();
         });
 
         // PhoneNumber Value Object (nullable)
-        entity.Property(e => e.PhoneNumber)
-              .HasMaxLength(20)
-              .HasColumnName("PhoneNumber")
-              .HasConversion(
-                  phone => phone != null ? phone.Value : null,
-                  value => value != null ? new PhoneNumber(value) : null)
-              .Metadata.SetValueComparer(
-                  new ValueComparer<PhoneNumber>(
-                      (left, right) => (left == null && right == null) ||
-                                       (left != null && right != null && left.Value == right.Value),
-                      phone => phone != null ? phone.Value.GetHashCode() : 0,
-                      phone => phone != null ? new PhoneNumber(phone.Value) : null));
+        builder.Property(e => e.PhoneNumber)
+    .HasMaxLength(20)
+    .HasColumnName("PhoneNumber")
+    .HasColumnType("varchar(20)")
+    .HasConversion(
+        phone => phone != null ? phone.Value : null,
+        value => value != null ? new PhoneNumber(value) : null)
+    .Metadata.SetValueComparer(
+        new ValueComparer<PhoneNumber>(
+            (left, right) => (left == null && right == null) ||
+                           (left != null && right != null && left.Value == right.Value),
+            phone => phone != null ? phone.Value.GetHashCode() : 0,
+            phone => phone != null ? new PhoneNumber(phone.Value) : null));
 
-        // Foreign keys
-        entity.Property(e => e.StudentId)
-              .IsRequired(false);
+        // ===== BASE ENTITY PROPERTIES =====
 
-        entity.Property(e => e.EmployeeId)
-              .IsRequired(false);
+        // ✅ TenantId - REQUIRED for User
+        builder.Property(e => e.TenantId)
+            .IsRequired();
 
-        // Relationships
-        entity.HasOne(e => e.Student)
-              .WithOne()
-              .HasForeignKey<User>(e => e.StudentId)
-              .OnDelete(DeleteBehavior.SetNull)
-              .IsRequired(false);
+        // ✅ SchoolId - REQUIRED for User
+        builder.Property(e => e.SchoolId)
+            .IsRequired();
 
-        entity.HasOne(e => e.Employee)
-              .WithOne()
-              .HasForeignKey<User>(e => e.EmployeeId)
-              .OnDelete(DeleteBehavior.SetNull)
-              .IsRequired(false);
+        // ✅ Audit fields
+        builder.Property(e => e.CreatedAt)
+            .IsRequired()
+            .HasColumnType("timestamp with time zone")
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-        // RefreshTokens collection with private backing field
-        entity.HasMany(u => u.RefreshTokens)
-              .WithOne(rt => rt.User)
-              .HasForeignKey(rt => rt.UserId)
-              .OnDelete(DeleteBehavior.Cascade);
+        builder.Property(e => e.CreatedBy)
+            .HasMaxLength(100)
+            .HasColumnType("varchar(100)");
 
-        entity.Navigation(u => u.RefreshTokens)
-              .HasField("_refreshTokens")
-              .UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Property(e => e.CreatedIP)
+            .HasMaxLength(50)
+            .HasColumnType("varchar(50)");
 
-        // ========================================================================
-        // 🔧 CRITICAL FIX: UserRoles collection
-        // ========================================================================
-        // BEFORE (BROKEN):
-        // entity.HasMany(u => u.UserRoles)
-        //       .WithOne()  // ❌ Missing navigation property - causes UserId1!
-        //       .HasForeignKey(ur => ur.UserId)
-        //       .OnDelete(DeleteBehavior.Cascade);
+        builder.Property(e => e.UpdatedAt)
+            .IsRequired(false)
+            .HasColumnType("timestamp with time zone");
 
-        // AFTER (FIXED):
-        entity.HasMany(u => u.UserRoles)
-              .WithOne(ur => ur.User)  // ✅ Specify the navigation property!
-              .HasForeignKey(ur => ur.UserId)
-              .OnDelete(DeleteBehavior.Cascade);
-        // ========================================================================
+        builder.Property(e => e.UpdatedBy)
+            .HasMaxLength(100)
+            .HasColumnType("varchar(100)");
 
-        // Indexes for performance (PostgreSQL syntax)
-        entity.HasIndex(e => e.Username)
-              .IsUnique()
-              .HasDatabaseName("IX_Users_Username");
+        builder.Property(e => e.UpdatedIP)
+            .HasMaxLength(50)
+            .HasColumnType("varchar(50)");
 
-        entity.HasIndex(e => e.Email)
-              .IsUnique()
-              .HasDatabaseName("IX_Users_Email");
+        // ✅ Soft delete
+        builder.Property(e => e.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
 
-        entity.HasIndex(e => e.IsActive)
-              .HasDatabaseName("IX_Users_IsActive");
+        builder.Property(e => e.DeletedAt)
+            .IsRequired(false)
+            .HasColumnType("timestamp with time zone");
 
-        entity.HasIndex(e => e.UserType)
-              .HasDatabaseName("IX_Users_UserType");
+        builder.Property(e => e.DeletedBy)
+            .HasMaxLength(100)
+            .HasColumnType("varchar(100)");
 
-        // PostgreSQL filtered index syntax
-        entity.HasIndex(e => new { e.StudentId, e.IsActive })
-              .HasDatabaseName("IX_Users_StudentId_IsActive")
-              .HasFilter("\"StudentId\" IS NOT NULL"); // Double quotes for PostgreSQL
+        // ✅ Active status
+        builder.Property(e => e.IsActive)
+            .IsRequired()
+            .HasDefaultValue(true);
 
-        entity.HasIndex(e => new { e.EmployeeId, e.IsActive })
-              .HasDatabaseName("IX_Users_EmployeeId_IsActive")
-              .HasFilter("\"EmployeeId\" IS NOT NULL"); // Double quotes for PostgreSQL
+        // ===== CONCURRENCY TOKEN =====
 
-        // Concurrency token
-        entity.Property(e => e.RowVersion)
-              .IsRowVersion()
-              .IsConcurrencyToken();
+        // PostgreSQL xmin for row versioning
+        //builder.Property(e => e.RowVersion)
+        //    .HasColumnName("xmin")
+        //    .HasColumnType("xid")
+        //    .ValueGeneratedOnAddOrUpdate()
+        //    .IsConcurrencyToken();
 
-        // Soft delete query filter
-        entity.HasQueryFilter(u => !u.IsDeleted);
+        // ===== RELATIONSHIPS =====
 
-        // Audit fields with PostgreSQL timestamptz
-        entity.Property(e => e.CreatedAt)
-              .IsRequired()
-              .HasColumnType("timestamptz")
-              .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        // ✅ User belongs to School
+        builder.HasOne(e => e.School)
+            .WithMany(s => s.Users)
+            .HasForeignKey(e => e.SchoolId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        entity.Property(e => e.CreatedBy)
-              .HasMaxLength(100);
+        // ✅ User optionally linked to Student
+        builder.HasOne(e => e.Student)
+            .WithOne()
+            .HasForeignKey<User>(e => e.StudentId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
 
-        entity.Property(e => e.CreatedIP)
-              .HasMaxLength(50);
+        // ✅ User optionally linked to Employee
+        builder.HasOne(e => e.Employee)
+            .WithOne()
+            .HasForeignKey<User>(e => e.EmployeeId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
 
-        entity.Property(e => e.UpdatedAt)
-              .IsRequired(false)
-              .HasColumnType("timestamptz");
+        // ✅ User has many RefreshTokens (with private backing field)
+        builder.HasMany(u => u.RefreshTokens)
+            .WithOne()
+            .HasForeignKey(rt => rt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        entity.Property(e => e.UpdatedBy)
-              .HasMaxLength(100);
+        builder.Navigation(u => u.RefreshTokens)
+            .HasField("_refreshTokens")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        entity.Property(e => e.IsDeleted)
-              .IsRequired()
-              .HasDefaultValue(false);
+        // ✅ CRITICAL FIX: User has many UserRoles
+        builder.HasMany(u => u.UserRoles)
+            .WithOne(ur => ur.User) // ✅ Specify navigation property!
+            .HasForeignKey(ur => ur.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ===== INDEXES =====
+
+        // ✅ Composite unique index on TenantId + Email (email unique per tenant)
+        //builder.HasIndex(e => new { e.TenantId, e.Email.Value })
+        //    .IsUnique()
+        //    .HasDatabaseName("IX_Users_TenantId_Email");
+
+        //builder.HasIndex(e => new { e.TenantId, EmailValue = EF.Property<string>(e, "Email") })
+        //        .IsUnique()
+        //        .HasDatabaseName("IX_Users_TenantId_Email");
+
+        // ✅ Composite unique index on TenantId + Username
+        builder.HasIndex(e => new { e.TenantId, e.Username })
+            .IsUnique()
+            .HasDatabaseName("IX_Users_TenantId_Username");
+
+        // ✅ Index on TenantId for tenant isolation
+        builder.HasIndex(e => e.TenantId)
+            .HasDatabaseName("IX_Users_TenantId");
+
+        // ✅ Index on TenantId + SchoolId for filtering users by school
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId");
+
+        // ✅ Index on UserType within tenant and school context
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId, e.UserType })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId_UserType");
+
+        // ✅ Index on IsActive for active users
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId, e.IsActive })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId_IsActive");
+
+        // ✅ Composite index for active, non-deleted users
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId, e.IsActive, e.IsDeleted })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId_IsActive_IsDeleted");
+
+        // ✅ Filtered index for student users (PostgreSQL syntax)
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId, e.StudentId, e.IsActive })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId_StudentId_IsActive")
+            .HasFilter("\"StudentId\" IS NOT NULL");
+
+        // ✅ Filtered index for employee users (PostgreSQL syntax)
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId, e.EmployeeId, e.IsActive })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId_EmployeeId_IsActive")
+            .HasFilter("\"EmployeeId\" IS NOT NULL");
+
+        // ✅ Index on LastLoginAt for recent activity queries
+        builder.HasIndex(e => new { e.TenantId, e.SchoolId, e.LastLoginAt })
+            .HasDatabaseName("IX_Users_TenantId_SchoolId_LastLoginAt");
+
+        // ===== QUERY FILTERS =====
+
+        // ✅ Global query filter for soft delete
+        builder.HasQueryFilter(u => !u.IsDeleted);
+
+        // ===== IGNORE COMPUTED PROPERTIES =====
+
+        builder.Ignore(u => u.IsLockedOut);
+        builder.Ignore(u => u.CanLogin);
+        builder.Ignore(u => u.HasVerifiedEmail);
+        builder.Ignore(u => u.HasVerifiedPhone);
+        builder.Ignore(u => u.IsFullyVerified);
+        builder.Ignore(u => u.DomainEvents);
     }
 }

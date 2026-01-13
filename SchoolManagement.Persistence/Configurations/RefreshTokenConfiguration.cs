@@ -9,54 +9,64 @@ namespace SchoolManagement.Persistence.Configurations
         public void Configure(EntityTypeBuilder<RefreshToken> entity)
         {
             entity.ToTable("RefreshTokens");
-
             entity.HasKey(rt => rt.Id);
 
-            // ✅ Token value (hashed or plain depending on your implementation)
+            // Multi-tenant properties
+            entity.Property(rt => rt.TenantId)
+                  .IsRequired();
+
+            entity.Property(rt => rt.SchoolId)
+                  .IsRequired();
+
+            // Token properties
             entity.Property(rt => rt.Token)
                   .IsRequired()
                   .HasMaxLength(500);
 
-            // ✅ Token Family for rotation tracking (SECURITY FEATURE)
             entity.Property(rt => rt.TokenFamily)
                   .IsRequired()
                   .HasMaxLength(500);
 
-            // ✅ User relationship
             entity.Property(rt => rt.UserId)
                   .IsRequired();
 
-            // ✅ Expiry date
             entity.Property(rt => rt.ExpiryDate)
                   .IsRequired()
-                  .HasColumnType("timestamptz");
+                  .HasColumnType("timestamp with time zone");
 
-            // ✅ Revocation tracking
+            // Revocation tracking
             entity.Property(rt => rt.IsRevoked)
                   .IsRequired()
                   .HasDefaultValue(false);
 
             entity.Property(rt => rt.RevokedAt)
-                  .HasColumnType("timestamptz");
+                  .HasColumnType("timestamp with time zone");
 
             entity.Property(rt => rt.RevokedByIp)
                   .HasMaxLength(50);
 
+            entity.Property(rt => rt.RevokedBy)
+                  .HasMaxLength(100);
+
             entity.Property(rt => rt.ReasonRevoked)
                   .HasMaxLength(500);
 
-            // ✅ Token replacement tracking
             entity.Property(rt => rt.ReplacedByToken)
                   .HasMaxLength(500);
 
-            // ✅ IP address tracking for security
             entity.Property(rt => rt.CreatedIP)
                   .HasMaxLength(50);
 
-            // ✅ Indexes for performance and security queries
-            entity.HasIndex(rt => rt.Token)
+            entity.Property(rt => rt.UpdatedIP)
+                  .HasMaxLength(50);
+
+            // Multi-tenant indexes (CRITICAL)
+            entity.HasIndex(rt => new { rt.TenantId, rt.Token })
                   .IsUnique()
-                  .HasDatabaseName("IX_RefreshTokens_Token");
+                  .HasDatabaseName("IX_RefreshTokens_TenantId_Token");
+
+            entity.HasIndex(rt => new { rt.TenantId, rt.SchoolId })
+                  .HasDatabaseName("IX_RefreshTokens_TenantId_SchoolId");
 
             entity.HasIndex(rt => rt.TokenFamily)
                   .HasDatabaseName("IX_RefreshTokens_TokenFamily");
@@ -64,57 +74,60 @@ namespace SchoolManagement.Persistence.Configurations
             entity.HasIndex(rt => rt.UserId)
                   .HasDatabaseName("IX_RefreshTokens_UserId");
 
-            // ✅ Composite index for common security queries
-            entity.HasIndex(rt => new { rt.UserId, rt.IsRevoked, rt.ExpiryDate })
-                  .HasDatabaseName("IX_RefreshTokens_UserId_IsRevoked_ExpiryDate");
+            entity.HasIndex(rt => new { rt.TenantId, rt.SchoolId, rt.UserId, rt.IsRevoked, rt.ExpiryDate })
+                  .HasDatabaseName("IX_RefreshTokens_TenantId_SchoolId_UserId_IsRevoked_ExpiryDate");
 
-            // ✅ Index for token reuse detection (critical for security)
-            entity.HasIndex(rt => new { rt.Token, rt.IsRevoked })
-                  .HasDatabaseName("IX_RefreshTokens_Token_IsRevoked");
+            entity.HasIndex(rt => new { rt.TenantId, rt.Token, rt.IsRevoked })
+                  .HasDatabaseName("IX_RefreshTokens_TenantId_Token_IsRevoked");
 
-            // ✅ Index for cleanup operations
-            entity.HasIndex(rt => new { rt.ExpiryDate, rt.IsRevoked, rt.IsDeleted })
-                  .HasDatabaseName("IX_RefreshTokens_ExpiryDate_IsRevoked_IsDeleted");
+            entity.HasIndex(rt => new { rt.TenantId, rt.ExpiryDate, rt.IsRevoked, rt.IsDeleted })
+                  .HasDatabaseName("IX_RefreshTokens_TenantId_ExpiryDate_IsRevoked_IsDeleted");
 
-            // ✅ Relationship with User
+            // Relationships
             entity.HasOne(rt => rt.User)
                   .WithMany(u => u.RefreshTokens)
                   .HasForeignKey(rt => rt.UserId)
                   .OnDelete(DeleteBehavior.Cascade)
                   .IsRequired();
 
-            // ✅ Audit fields from BaseEntity (using CreatedDate not CreatedAt)
+            entity.HasOne(rt => rt.Tenant)
+                  .WithMany()
+                  .HasForeignKey(rt => rt.TenantId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            entity.HasOne(rt => rt.School)
+                  .WithMany()
+                  .HasForeignKey(rt => rt.SchoolId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            // Audit fields
             entity.Property(rt => rt.CreatedAt)
                   .IsRequired()
-                  .HasColumnType("timestamptz")
+                  .HasColumnType("timestamp with time zone")
                   .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity.Property(rt => rt.CreatedBy)
                   .HasMaxLength(100);
 
-            entity.Property(rt => rt.CreatedIP)
-                  .HasMaxLength(50);
-
             entity.Property(rt => rt.UpdatedAt)
-                  .HasColumnType("timestamptz");
+                  .HasColumnType("timestamp with time zone");
 
             entity.Property(rt => rt.UpdatedBy)
                   .HasMaxLength(100);
 
-            entity.Property(rt => rt.CreatedIP)
-                  .HasMaxLength(50);
-
-            // ✅ Soft delete
+            // Soft delete
             entity.Property(rt => rt.IsDeleted)
                   .IsRequired()
                   .HasDefaultValue(false);
 
-            // ✅ Concurrency control
+            // Concurrency control
             entity.Property(rt => rt.RowVersion)
                   .IsRowVersion()
                   .IsConcurrencyToken();
 
-            // ✅ Soft delete query filter
+            // Query filter
             entity.HasQueryFilter(rt => !rt.IsDeleted);
         }
     }

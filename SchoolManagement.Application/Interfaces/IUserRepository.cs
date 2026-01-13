@@ -1,60 +1,185 @@
-﻿using SchoolManagement.Domain.Entities;
+﻿// Application/Interfaces/IUserRepository.cs - MULTI-TENANT REFACTORED
+using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Enums;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Interfaces
 {
-    public interface IUserRepository: IRepository<User>
+    /// <summary>
+    /// User repository with multi-tenant support (TenantId + SchoolId filtering)
+    /// Inherits IRepository for CRUD operations
+    /// </summary>
+    public interface IUserRepository : IRepository<User>
     {
-        // Query Methods
-        IQueryable<User> GetQueryable();
-        Task<User> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-        Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default);
-        Task<User> GetByIdWithTokensAsync(Guid id, CancellationToken cancellationToken = default);
+        #region QUERY - Single User (Tenant/School Scoped)
 
         /// <summary>
-        /// Get user by email - uses AsNoTracking for concurrency safety
+        /// Get tenant-aware queryable with auto SchoolId filter
         /// </summary>
-        Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+        IQueryable<User> GetQueryable(Guid? schoolId = null);
 
         /// <summary>
-        /// Get user by email with roles
+        /// Get user by ID within tenant/school context
         /// </summary>
-        Task<User> GetByEmailWithRolesAsync(string email, CancellationToken cancellationToken = default);
+        Task<User?> GetByIdAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
         /// <summary>
-        /// Get user by email with pessimistic lock - prevents concurrent modifications
-        /// Use this for login operations to avoid concurrency conflicts
+        /// Get by ID with roles (tenant-isolated)
         /// </summary>
-        Task<User> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default);
+        Task<User?> GetByIdWithRolesAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
-        Task<User> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Get by ID with tokens (security operations)
+        /// </summary>
+        Task<User?> GetByIdWithTokensAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
-        // Command Methods
-        Task AddAsync(User user, CancellationToken cancellationToken = default);
-        Task UpdateAsync(User user, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Get by ID with school details
+        /// </summary>
+        Task<User?> GetByIdWithSchoolAsync(Guid id, Guid tenantId, CancellationToken ct = default);
 
-        // Validation Methods
-        Task<bool> ExistsAsync(string email, CancellationToken cancellationToken = default);
-        Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default);
+        #endregion
 
-        // Additional Query Methods
+        #region QUERY - Email/Username (TENANT ISOLATED - CRITICAL)
+
+        /// <summary>
+        /// Get by email WITHIN TENANT (login/registration)
+        /// </summary>
+        Task<User?> GetByEmailAsync(string email, Guid tenantId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Get by email with roles (authorization)
+        /// </summary>
+        Task<User?> GetByEmailWithRolesAsync(string email, Guid tenantId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Get by email with pessimistic lock (login - prevents race conditions)
+        /// </summary>
+        Task<User?> GetByEmailWithLockAsync(string email, Guid tenantId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Get by username within tenant
+        /// </summary>
+        Task<User?> GetByUsernameAsync(string username, Guid tenantId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Get by email with tokens (refresh token validation)
+        /// </summary>
+        Task<User?> GetByEmailWithTokensAsync(string email, Guid tenantId,
+            CancellationToken ct = default);
+
+        #endregion
+
+        #region QUERY - Collections (TENANT-SCOPED)
+
+        /// <summary>
+        /// Get all users in tenant/school (paginated)
+        /// </summary>
         Task<(IEnumerable<User> Users, int TotalCount)> GetPagedAsync(
-            int pageNumber,
-            int pageSize,
-            CancellationToken cancellationToken = default);
+            Guid tenantId, Guid? schoolId, int pageNumber, int pageSize,
+            CancellationToken ct = default);
 
-        Task<IEnumerable<User>> GetActiveUsersAsync(CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> GetUsersWithExpiringRolesAsync(DateTime expiryDate, CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> GetLockedOutUsersAsync(CancellationToken cancellationToken = default);
-        Task<IEnumerable<User>> GetUnverifiedEmailUsersAsync(CancellationToken cancellationToken = default);
-        Task<User> GetByEmailWithTokensAsync(string email, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Get users by type within tenant
+        /// </summary>
+        Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType, Guid tenantId,
+            Guid? schoolId = null, CancellationToken ct = default);
+
+        /// <summary>
+        /// Get active users (tenant-scoped)
+        /// </summary>
+        Task<IEnumerable<User>> GetActiveUsersAsync(Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Search users (tenant + school filtered)
+        /// </summary>
+        Task<IEnumerable<User>> SearchAsync(Guid tenantId, string searchTerm, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Get users by IDs (all must belong to same tenant)
+        /// </summary>
+        Task<IEnumerable<User>> GetByIdsAsync(Guid tenantId, IEnumerable<Guid> ids,
+            CancellationToken ct = default);
+
+        #endregion
+
+        #region QUERY - Admin/Reports (TENANT-SCOPED)
+
+        /// <summary>
+        /// Get users with expiring roles
+        /// </summary>
+        Task<IEnumerable<User>> GetUsersWithExpiringRolesAsync(Guid tenantId, DateTime expiryDate,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Get locked out users
+        /// </summary>
+        Task<IEnumerable<User>> GetLockedOutUsersAsync(Guid tenantId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Get unverified email users
+        /// </summary>
+        Task<IEnumerable<User>> GetUnverifiedEmailUsersAsync(Guid tenantId, CancellationToken ct = default);
+
+        #endregion
+
+        #region COMMANDS (TENANT-AWARE)
+
+        /// <summary>
+        /// Add user (sets TenantId/SchoolId automatically)
+        /// </summary>
+        Task AddAsync(User user, Guid tenantId, Guid schoolId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Update user (validates tenant/school match)
+        /// </summary>
+        Task UpdateAsync(User user, Guid tenantId, Guid? schoolId = null, CancellationToken ct = default);
+
+        /// <summary>
+        /// Gets user by refresh token (includes school and tenant navigation)
+        /// </summary>
+        /// <param name="refreshToken">The refresh token string</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>User with school and tenant loaded, or null if not found</returns>
+        Task<User> GetByRefreshTokenAsync(
+            string refreshToken,
+            CancellationToken cancellationToken = default);
+    
+        #endregion
+
+        #region VALIDATION (TENANT ISOLATED)
+
+        /// <summary>
+        /// Check email exists within tenant
+        /// </summary>
+        Task<bool> EmailExistsAsync(string email, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Check username exists within tenant
+        /// </summary>
+        Task<bool> UsernameExistsAsync(string username, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Check user exists by ID within tenant
+        /// </summary>
+        Task<bool> ExistsAsync(Guid userId, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        #endregion
     }
 }

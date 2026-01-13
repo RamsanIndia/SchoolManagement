@@ -29,7 +29,7 @@ namespace SchoolManagement.Application.Teachers.Validators
                 .NotEmpty().WithMessage("Phone number is required")
                 .Matches(@"^\d{10,15}$").WithMessage("Phone number must be 10-15 digits");
 
-            RuleFor(x => x.EmployeeId)
+            RuleFor(x => x.EmployeeCode)
                 .NotEmpty().WithMessage("Employee ID is required")
                 .MaximumLength(20).WithMessage("Employee ID cannot exceed 20 characters");
 
@@ -41,24 +41,24 @@ namespace SchoolManagement.Application.Teachers.Validators
                 .NotEmpty().WithMessage("Qualification is required")
                 .MaximumLength(200).WithMessage("Qualification cannot exceed 200 characters");
 
-            RuleFor(x => x.Experience)
+            RuleFor(x => x.PriorExperience)
                 .GreaterThanOrEqualTo(0).WithMessage("Experience cannot be negative")
                 .LessThanOrEqualTo(50).WithMessage("Experience cannot exceed 50 years");
 
             // Address validation
-            RuleFor(x => x.Street)
+            RuleFor(x => x.Address.Street)
                 .NotEmpty().WithMessage("Street is required");
 
-            RuleFor(x => x.City)
+            RuleFor(x => x.Address.City)
                 .NotEmpty().WithMessage("City is required");
 
-            RuleFor(x => x.State)
+            RuleFor(x => x.Address.State)
                 .NotEmpty().WithMessage("State is required");
 
-            RuleFor(x => x.PostalCode)
+            RuleFor(x => x.Address.ZipCode)
                 .NotEmpty().WithMessage("Postal code is required");
 
-            RuleFor(x => x.Country)
+            RuleFor(x => x.Address.Country)
                 .NotEmpty().WithMessage("Country is required");
 
             RuleFor(x => x.DepartmentId)

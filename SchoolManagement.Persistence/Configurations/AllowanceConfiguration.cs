@@ -48,10 +48,10 @@ namespace SchoolManagement.Persistence.Configurations
 
             // BaseEntity inherited properties
             builder.Property(a => a.CreatedAt)
-                .IsRequired(); // PostgreSQL: timestamp without time zone
+                .IsRequired(); // PostgreSQL: timestamp with time zone
 
             builder.Property(a => a.UpdatedAt)
-                .IsRequired(false); // PostgreSQL: timestamp without time zone (nullable)
+                .IsRequired(false); // PostgreSQL: timestamp with time zone (nullable)
 
             builder.Property(a => a.CreatedBy)
                 .IsRequired()

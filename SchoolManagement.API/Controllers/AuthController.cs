@@ -39,28 +39,26 @@ namespace SchoolManagement.API.Controllers
             var command = new LoginCommand
             {
                 Email = request.Email,
-                Password = request.Password
+                Password = request.Password,
+                
             };
 
             var result = await _mediator.Send(command);
-            return Ok(result);
+            return Ok(result);  // ✅ .Value for Result<T>
         }
 
         /// <summary>
         /// Registers a new user
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("register")]
         [ProducesResponseType(typeof(AuthResponseDto), 200)]
         [ProducesResponseType(400)]
         public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto request)
         {
-            // Input validation (defense-in-depth)
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
-                       
-            // Map DTO → Command (use AutoMapper in production)
+
             var command = new RegisterCommand
             {
                 Username = request.Username,
@@ -68,13 +66,14 @@ namespace SchoolManagement.API.Controllers
                 Password = request.Password,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                UserType = (UserType)request.Role,  //  Enum casting
-                PhoneNumber = request.PhoneNumber ?? null, // Optional
-                ConfirmPassword = request.Password  // For validation
+                UserType = (UserType)request.Role,
+                PhoneNumber = request.PhoneNumber,
+                ConfirmPassword = request.Password,
+                SchoolId = request.SchoolId  // ✅ ADD THIS
             };
 
             var result = await _mediator.Send(command);
-            return Ok(result);
+            return Ok(result);  // ✅ .Value
         }
 
         /// <summary>

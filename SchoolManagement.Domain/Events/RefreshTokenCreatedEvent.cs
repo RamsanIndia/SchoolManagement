@@ -9,6 +9,8 @@ namespace SchoolManagement.Domain.Events
         public Guid EventId { get; set; } = Guid.NewGuid();
         public Guid UserId { get; set; }
         public Guid TokenId { get; set; }
+        public Guid TenantId { get; set; }
+        public Guid SchoolId { get; set; }
         public DateTime OccurredOn { get; set; }
 
         // Parameterless constructor for deserialization
@@ -18,12 +20,14 @@ namespace SchoolManagement.Domain.Events
             OccurredOn = DateTime.UtcNow;
         }
 
-        // main constructor
-        public RefreshTokenCreatedEvent(Guid userId, Guid tokenId)
-            : this() // Call parameterless constructor
+        // Main constructor
+        public RefreshTokenCreatedEvent(Guid userId, Guid tokenId, Guid tenantId, Guid schoolId)
+            : this()
         {
             UserId = userId;
             TokenId = tokenId;
+            TenantId = tenantId;
+            SchoolId = schoolId;
         }
     }
 }

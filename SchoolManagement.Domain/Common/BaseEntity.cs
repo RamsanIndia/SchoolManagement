@@ -12,6 +12,12 @@ namespace SchoolManagement.Domain.Common
 
         public Guid Id { get; protected set; }
 
+        // 🔐 Security boundary
+        public Guid? TenantId { get; protected internal set; }
+
+        // 🏫 Domain (optional)
+        public Guid? SchoolId { get; protected internal set; }
+
         // Audit properties - CreatedAt is required, others are optional
         public DateTime CreatedAt { get; set; }  // NOT nullable - every entity must have creation date
         public string? CreatedBy { get; set; }
@@ -43,6 +49,17 @@ namespace SchoolManagement.Domain.Common
             CreatedAt = DateTime.UtcNow;
             IsDeleted = false;
             IsActive = true;
+            SchoolId = Guid.Empty; // Default for global entities
+        }
+
+        protected BaseEntity(Guid tenantId, Guid? schoolId = null)
+        {
+            Id = Guid.NewGuid();
+            CreatedAt = DateTime.UtcNow;
+            IsDeleted = false;
+            IsActive = true;
+            TenantId = tenantId;
+            SchoolId = schoolId;
         }
 
         // Domain event management

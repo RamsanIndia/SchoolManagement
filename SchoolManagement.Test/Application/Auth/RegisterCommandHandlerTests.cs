@@ -561,6 +561,7 @@ namespace SchoolManagement.Test.Application.Auth
             var fullName = new FullName("Existing", "User");
 
             return User.Create(
+                new Guid(),
                 "existinguser",
                 existingEmail,
                 fullName,

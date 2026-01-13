@@ -23,8 +23,10 @@ using SchoolManagement.Infrastructure.BackgroundServices;
 using SchoolManagement.Infrastructure.Data;
 using SchoolManagement.Infrastructure.Events;
 using SchoolManagement.Infrastructure.Services;
+using SchoolManagement.Infrastructure.Swagger;
 using SchoolManagement.Persistence;
 using SchoolManagement.Persistence.Behaviors;
+using SchoolManagement.Persistence.Middleware;
 using Serilog;
 using Serilog.Events;
 using System.Reflection;
@@ -739,6 +741,7 @@ static void ConfigureSwagger(WebApplicationBuilder builder)
 
         c.EnableAnnotations();
         c.CustomSchemaIds(type => type.FullName);
+        //c.OperationFilter<AddRequiredHeadersFilter>();
     });
 
     Log.Information("✅ Swagger configured");
@@ -844,7 +847,7 @@ static void ValidateAutoMapperConfiguration(WebApplication app)
 
 static void ConfigureMiddleware(WebApplication app)
 {
-    // 1. Correlation ID (first)
+    // 1. Correlation ID (first – tracing)
     app.UseMiddleware<CorrelationIdMiddleware>();
 
     // 2. Response compression
@@ -853,10 +856,10 @@ static void ConfigureMiddleware(WebApplication app)
     // 3. Security headers
     app.UseSecurityHeaders();
 
-    // 4. Exception handling
+    // 4. Global exception handling
     if (app.Environment.IsDevelopment())
     {
-        // In dev, use developer exception page for detailed errors
+        // Developer exception page (optional)
     }
     app.UseExceptionHandler();
 
@@ -865,13 +868,13 @@ static void ConfigureMiddleware(WebApplication app)
         app.UseHsts();
     }
 
-    // 5. HTTP logging (development only)
+    // 5. HTTP logging (dev only)
     if (app.Environment.IsDevelopment())
     {
         app.UseHttpLogging();
     }
 
-    // 6. Swagger (always available for API documentation)
+    // 6. Swagger (OK before auth)
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -891,22 +894,27 @@ static void ConfigureMiddleware(WebApplication app)
     // 8. HTTPS redirection
     app.UseHttpsRedirection();
 
-    // 9. CORS (must be before routing)
+    // 9. CORS (before routing)
     app.UseCors("AllowReactApp");
 
-    // 10. Rate limiting
+    // 10. Rate limiting (before routing)
     app.UseRateLimiter();
 
     // 11. Routing
     app.UseRouting();
 
-    // 12. Authentication
+    
+
+    // 13. Authentication (now tenant-aware)
     app.UseAuthentication();
 
-    // 13. Authorization
+    // 14. Authorization
     app.UseAuthorization();
 
-    Log.Information("✅ Middleware pipeline configured");
+    // 🔐 12. TENANT RESOLUTION (CRITICAL POSITION)
+    app.UseMiddleware<TenantMiddleware>();
+
+    Log.Information("✅ Middleware pipeline configured (Tenant-aware)");
 }
 
 static void ConfigureEndpoints(WebApplication app)

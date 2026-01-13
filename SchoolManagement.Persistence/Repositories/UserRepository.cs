@@ -1,4 +1,4 @@
-﻿// Infrastructure/Persistence/Repositories/UserRepository.cs
+﻿// Infrastructure/Persistence/Repositories/UserRepository.cs - MULTI-TENANT IMPLEMENTATION
 using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Domain.Entities;
@@ -9,6 +9,7 @@ using SchoolManagement.Persistence.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,332 +17,327 @@ namespace SchoolManagement.Infrastructure.Persistence.Repositories
 {
     public class UserRepository : Repository<User>, IUserRepository
     {
-        public UserRepository(SchoolManagementDbContext context) : base(context)
+        public UserRepository(SchoolManagementDbContext context) : base(context) { }
+
+        #region QUERY - Single User (TENANT ISOLATED)
+
+        /// <summary>
+        /// Get tenant-aware queryable with global filters
+        /// </summary>
+        public IQueryable<User> GetQueryable(Guid? schoolId = null)
         {
+            var query = _context.Users.IgnoreQueryFilters().Where(u => !u.IsDeleted);
+
+            if (schoolId.HasValue)
+                query = query.Where(u => u.SchoolId == schoolId.Value);
+
+            return query;
         }
 
-
-
-        #region Query Methods
-
-        public IQueryable<User> GetQueryable()
+        public async Task<User?> GetByIdAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
         {
-            return _context.Users.Where(u => !u.IsDeleted);
+            var query = GetQueryable(schoolId).Where(u => u.Id == id && u.TenantId == tenantId);
+            return await query.AsNoTracking().FirstOrDefaultAsync(ct);
         }
 
-        public async Task<User> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByIdWithRolesAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
         {
-            return await _context.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+            var query = GetQueryable(schoolId)
+                .Where(u => u.Id == id && u.TenantId == tenantId)
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role);
+
+            return await query.AsNoTrackingWithIdentityResolution().FirstOrDefaultAsync(ct);
         }
 
-        //public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByIdWithTokensAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
+        {
+            var query = GetQueryable(schoolId)
+                .Where(u => u.Id == id && u.TenantId == tenantId)
+                .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted));
+
+            return await query.AsNoTracking().FirstOrDefaultAsync(ct);
+        }
+
+        public async Task<User?> GetByIdWithSchoolAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+        {
+            var query = GetQueryable()
+                .Where(u => u.Id == id && u.TenantId == tenantId)
+                .Include(u => u.School);
+
+            return await query.FirstOrDefaultAsync(ct);
+        }
+
+        #endregion
+
+        #region QUERY - Email/Username (TENANT CRITICAL)
+
+        /// <summary>
+        /// Login/registration - tenant isolated
+        /// </summary>
+        //public async Task<User?> GetByEmailAsync(string email, Guid tenantId, Guid? schoolId = null,
+        //    CancellationToken ct = default)
         //{
-        //    return await _context.Users
-        //        .Include(u => u.UserRoles)
-        //            .ThenInclude(ur => ur.Role)
-        //        .AsNoTracking()
-        //        .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+        //    if (string.IsNullOrWhiteSpace(email)) return null;
+
+        //    var emailVo = new Email(email.ToLower().Trim());
+        //    var query = GetQueryable(schoolId)
+        //        .Where(u => u.Email == emailVo && u.TenantId == tenantId)
+        //        .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted));
+
+        //    return await query.AsNoTracking().FirstOrDefaultAsync(ct);
         //}
 
-        public async Task<User> GetByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByEmailAsync(string email, Guid tenantId,  CancellationToken ct = default)
         {
-            return await _context.Users
-                .AsSingleQuery()  // ADDED: Force single query to bypass split query cache
-                .Include(u => u.UserRoles)
-                    .ThenInclude(ur => ur.Role)
-                .AsNoTrackingWithIdentityResolution()
-                .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
-        }
+            if (string.IsNullOrWhiteSpace(email)) return null;
 
+            var emailVo = new Email(email.ToLower().Trim());
 
-        public async Task<User> GetByIdWithTokensAsync(Guid id, CancellationToken cancellationToken = default)
-        {
-            return await _context.Users
-                .Include(u => u.RefreshTokens)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
-        }
+            // ✅ CRITICAL FIX: Ignore tenant filter for login - user's tenant is discovered FROM the user record
+            // Login is "tenant discovery" not "tenant validation"
+            var query = _context.Users
+                .IgnoreQueryFilters()  // Bypass global tenant filter
+                .Where(u => u.Email == emailVo && u.IsActive && !u.IsDeleted)  // Only email + status checks
+                .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted));
 
-        /// <summary>
-        /// Get user by email for authentication
-        /// </summary>
-        public async Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return null;
-
-            var normalizedEmail = email.ToLower().Trim();
-            var emailValueObject = new Email(normalizedEmail);
-
-            return await _context.Users
-                .Include(u => u.RefreshTokens)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
-        }
-
-        /// <summary>
-        /// Get user by email with roles
-        /// </summary>
-        public async Task<User> GetByEmailWithRolesAsync(string email, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return null;
-
-            var normalizedEmail = email.ToLower().Trim();
-            var emailValueObject = new Email(normalizedEmail);
-
-            return await _context.Users
-                .Include(u => u.UserRoles)
-                    .ThenInclude(ur => ur.Role)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
-        }
-
-        /// <summary>
-        /// ✅ FIXED: Get user by email with pessimistic lock for login operations
-        /// CRITICAL FIXES:
-        /// 1. Create Email value object for proper comparison
-        /// 2. Include RefreshTokens collection for tracking
-        /// 3. Do NOT use AsNoTracking() - we need change tracking for updates
-        /// </summary>
-        public async Task<User?> GetByEmailWithLockAsync(string email, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return null;
-
-            var normalizedEmail = email.ToLower().Trim();
-
-            // ✅ FIX #1: Create Email value object for proper comparison
-            var emailValueObject = new Email(normalizedEmail);
-
-            // ✅ FIX #2: Include RefreshTokens AND remove AsNoTracking()
-            var user = await _context.Users
-                .Include(u => u.RefreshTokens)  // MUST include for collection tracking
-                                                // NO AsNoTracking() here - we need change tracking for login operations!
-                .FirstOrDefaultAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
+            var user = await query.AsNoTracking().FirstOrDefaultAsync(ct);
 
             return user;
         }
 
-        public async Task<User> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+
+        public async Task<User?> GetByEmailWithRolesAsync(string email, Guid tenantId, CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(username))
-                return null;
+            if (string.IsNullOrWhiteSpace(email)) return null;
 
-            var normalizedUsername = username.Trim();
+            var emailVo = new Email(email.ToLower().Trim());
+            var query = GetQueryable()
+                .Where(u => u.Email == emailVo && u.TenantId == tenantId)
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role);
 
-            return await _context.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    u => u.Username == normalizedUsername && !u.IsDeleted,
-                    cancellationToken);
+            return await query.AsNoTrackingWithIdentityResolution().FirstOrDefaultAsync(ct);
         }
 
-        public async Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Pessimistic lock for login (change-tracked)
+        /// </summary>
+        public async Task<User?> GetByEmailWithLockAsync(string email, Guid tenantId, CancellationToken ct = default)
         {
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => !u.IsDeleted)
-                .OrderBy(u => u.Username)
-                .ToListAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(email)) return null;
+
+            var emailVo = new Email(email.ToLower().Trim());
+            var query = GetQueryable()
+                .Where(u => u.Email == emailVo && u.TenantId == tenantId)
+                .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted));
+
+            // NO AsNoTracking - need change tracking for login updates
+            return await query.FirstOrDefaultAsync(ct);
         }
 
-        public async Task<IEnumerable<User>> GetByUserTypeAsync(
-            UserType userType,
-            CancellationToken cancellationToken = default)
+        public async Task<User?> GetByUsernameAsync(string username, Guid tenantId,  CancellationToken ct = default)
         {
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => u.UserType == userType && !u.IsDeleted)
-                .OrderBy(u => u.Username)
-                .ToListAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(username)) return null;
+
+            var normalized = username.Trim();
+            var query = GetQueryable() 
+                .Where(u => u.Username == normalized && u.TenantId == tenantId);
+
+            return await query.AsNoTracking().FirstOrDefaultAsync(ct);
+        }
+
+
+
+        public async Task<User?> GetByEmailWithTokensAsync(string email, Guid tenantId, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return null;
+
+            var emailVo = new Email(email.ToLower().Trim());
+            var query = GetQueryable()
+                .Where(u => u.Email == emailVo && u.TenantId == tenantId)
+                .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted));
+
+            return await query.FirstOrDefaultAsync(ct);
         }
 
         #endregion
 
-        #region Command Methods
+        #region QUERY - Collections
 
-        public async Task AddAsync(User user, CancellationToken cancellationToken = default)
+        public async Task<(IEnumerable<User> Users, int TotalCount)> GetPagedAsync(
+            Guid tenantId, Guid? schoolId, int pageNumber, int pageSize, CancellationToken ct = default)
         {
-            if (user == null)
-                throw new ArgumentNullException(nameof(user));
+            var query = GetQueryable(schoolId)
+                .Where(u => u.TenantId == tenantId)
+                .OrderBy(u => u.Username);
 
-            await _context.Users.AddAsync(user, cancellationToken);
+            var total = await query.CountAsync(ct);
+            var users = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            return (users, total);
         }
 
-        /// <summary>
-        /// ✅ SIMPLIFIED: Update user - EF tracks changes automatically
-        /// </summary>
-        public Task UpdateAsync(User user, CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<User>> GetByUserTypeAsync(UserType userType, Guid tenantId,
+            Guid? schoolId = null, CancellationToken ct = default)
         {
-            if (user == null)
-                throw new ArgumentNullException(nameof(user));
+            var query = GetQueryable(schoolId)
+                .Where(u => u.TenantId == tenantId && u.UserType == userType);
 
-            // EF Core automatically tracks changes to entities loaded with Include()
-            // No need to call Update() explicitly if entity is already tracked
+            return await query.AsNoTracking().OrderBy(u => u.Username).ToListAsync(ct);
+        }
+
+        public async Task<IEnumerable<User>> GetActiveUsersAsync(Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
+        {
+            var query = GetQueryable(schoolId)
+                .Where(u => u.TenantId == tenantId && u.IsActive);
+
+            return await query.AsNoTracking().OrderBy(u => u.Username).ToListAsync(ct);
+        }
+
+        public async Task<IEnumerable<User>> SearchAsync(Guid tenantId, string searchTerm, Guid? schoolId = null,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm)) return [];
+
+            var query = GetQueryable(schoolId)
+                .Where(u => u.TenantId == tenantId &&
+                    (EF.Functions.Like(u.Username, $"%{searchTerm}%") ||
+                     EF.Functions.Like(u.Email.Value, $"%{searchTerm}%")));
+
+            return await query.AsNoTracking().OrderBy(u => u.Username).Take(50).ToListAsync(ct);
+        }
+
+        public async Task<IEnumerable<User>> GetByIdsAsync(Guid tenantId, IEnumerable<Guid> ids, CancellationToken ct = default)
+        {
+            if (!ids?.Any() == true) return [];
+
+            var query = GetQueryable()
+                .Where(u => u.TenantId == tenantId && ids.Contains(u.Id));
+
+            return await query.AsNoTracking().ToListAsync(ct);
+        }
+
+        #endregion
+
+        #region ADMIN/REPORTS
+
+        public async Task<IEnumerable<User>> GetUsersWithExpiringRolesAsync(Guid tenantId, DateTime expiryDate,
+            CancellationToken ct = default)
+        {
+            var query = GetQueryable()
+                .Where(u => u.TenantId == tenantId &&
+                    u.UserRoles.Any(ur => ur.IsActive && ur.ExpiresAt <= expiryDate))
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role);
+
+            return await query.AsNoTracking().ToListAsync(ct);
+        }
+
+        public async Task<IEnumerable<User>> GetLockedOutUsersAsync(Guid tenantId, CancellationToken ct = default)
+        {
+            var now = DateTime.UtcNow;
+            var query = GetQueryable()
+                .Where(u => u.TenantId == tenantId &&
+                    u.LockedUntil > now);
+
+            return await query.AsNoTracking().ToListAsync(ct);
+        }
+
+        public async Task<IEnumerable<User>> GetUnverifiedEmailUsersAsync(Guid tenantId, CancellationToken ct = default)
+        {
+            var query = GetQueryable()
+                .Where(u => u.TenantId == tenantId && u.IsActive && !u.EmailVerified);
+
+            return await query.AsNoTracking().OrderBy(u => u.CreatedAt).ToListAsync(ct);
+        }
+
+        #endregion
+
+        #region COMMANDS
+
+        public async Task AddAsync(User user, Guid tenantId, Guid schoolId, CancellationToken ct = default)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+
+            // Enforce tenant context
+            if (user.TenantId != tenantId || user.SchoolId != schoolId)
+                throw new InvalidOperationException("Tenant/School mismatch");
+
+            await _context.Users.AddAsync(user, ct);
+        }
+
+        public Task UpdateAsync(User user, Guid tenantId, Guid? schoolId = null, CancellationToken ct = default)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+
+            // Validate tenant context
+            if (user.TenantId != tenantId ||
+                (schoolId.HasValue && user.SchoolId != schoolId.Value))
+                throw new InvalidOperationException("Tenant/School mismatch");
+
             var entry = _context.Entry(user);
-
             if (entry.State == EntityState.Detached)
-            {
                 _context.Users.Update(user);
-            }
 
             return Task.CompletedTask;
         }
 
-        #endregion
-
-        #region Validation Methods
-
-        public async Task<bool> ExistsAsync(string email, CancellationToken cancellationToken = default)
+        public async Task<User> GetByRefreshTokenAsync(
+            string refreshToken,
+            CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(email))
-                return false;
-
-            var normalizedEmail = email.ToLower().Trim();
-            var emailValueObject = new Email(normalizedEmail);
-
             return await _context.Users
-                .AsNoTracking()
-                .AnyAsync(u => u.Email == emailValueObject && !u.IsDeleted, cancellationToken);
-        }
-
-        public async Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(username))
-                return false;
-
-            var normalizedUsername = username.Trim();
-
-            return await _context.Users
-                .AsNoTracking()
-                .AnyAsync(
-                    u => u.Username == normalizedUsername && !u.IsDeleted,
+                .Include(u => u.RefreshTokens)
+                .Include(u => u.School)
+                    .ThenInclude(s => s.Tenant)
+                .FirstOrDefaultAsync(u =>
+                    u.RefreshTokens.Any(rt => rt.Token == refreshToken && rt.IsActive),
                     cancellationToken);
         }
 
         #endregion
 
-        #region Additional Query Methods
+        #region VALIDATION
 
-        public async Task<(IEnumerable<User> Users, int TotalCount)> GetPagedAsync(
-            int pageNumber,
-            int pageSize,
-            CancellationToken cancellationToken = default)
+        public async Task<bool> EmailExistsAsync(string email, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
         {
-            var query = _context.Users
-                .AsNoTracking()
-                .Where(u => !u.IsDeleted);
+            if (string.IsNullOrWhiteSpace(email)) return false;
 
-            var totalCount = await query.CountAsync(cancellationToken);
+            var emailVo = new Email(email.ToLower().Trim());
+            var query = GetQueryable(schoolId)
+                .Where(u => u.TenantId == tenantId && u.Email == emailVo);
 
-            var users = await query
-                .OrderBy(u => u.Username)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(cancellationToken);
-
-            return (users, totalCount);
+            return await query.AnyAsync(ct);
         }
 
-        public async Task<IEnumerable<User>> GetActiveUsersAsync(CancellationToken cancellationToken = default)
+        public async Task<bool> UsernameExistsAsync(string username, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
         {
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => u.IsActive && !u.IsDeleted)
-                .OrderBy(u => u.Username)
-                .ToListAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(username)) return false;
+
+            var normalized = username.Trim();
+            var query = GetQueryable(schoolId)
+                .Where(u => u.TenantId == tenantId && u.Username == normalized);
+
+            return await query.AnyAsync(ct);
         }
 
-        public async Task<IEnumerable<User>> GetByIdsAsync(
-            IEnumerable<Guid> ids,
-            CancellationToken cancellationToken = default)
+        public async Task<bool> ExistsAsync(Guid userId, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default)
         {
-            if (ids == null || !ids.Any())
-                return Enumerable.Empty<User>();
+            var query = GetQueryable(schoolId)
+                .Where(u => u.Id == userId && u.TenantId == tenantId);
 
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => ids.Contains(u.Id) && !u.IsDeleted)
-                .ToListAsync(cancellationToken);
+            return await query.AnyAsync(ct);
         }
-
-        public async Task<IEnumerable<User>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(searchTerm))
-                return Enumerable.Empty<User>();
-
-            var normalizedSearchTerm = searchTerm.ToLower().Trim();
-
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => !u.IsDeleted &&
-                    (u.Username.ToLower().Contains(normalizedSearchTerm) ||
-                     EF.Property<string>(u, "Email").Contains(normalizedSearchTerm) ||
-                     EF.Property<string>(u.FullName, "FirstName").ToLower().Contains(normalizedSearchTerm) ||
-                     EF.Property<string>(u.FullName, "LastName").ToLower().Contains(normalizedSearchTerm)))
-                .OrderBy(u => u.Username)
-                .Take(50)
-                .ToListAsync(cancellationToken);
-        }
-
-        public async Task<IEnumerable<User>> GetUsersWithExpiringRolesAsync(
-            DateTime expiryDate,
-            CancellationToken cancellationToken = default)
-        {
-            return await _context.Users
-                .AsNoTracking()
-                .Include(u => u.UserRoles)
-                    .ThenInclude(ur => ur.Role)
-                .Where(u => !u.IsDeleted &&
-                    u.UserRoles.Any(ur =>
-                        ur.IsActive &&
-                        ur.ExpiresAt.HasValue &&
-                        ur.ExpiresAt.Value <= expiryDate))
-                .ToListAsync(cancellationToken);
-        }
-
-        public async Task<IEnumerable<User>> GetLockedOutUsersAsync(CancellationToken cancellationToken = default)
-        {
-            var now = DateTime.UtcNow;
-
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => !u.IsDeleted &&
-                    u.LockedUntil.HasValue &&
-                    u.LockedUntil.Value > now)
-                .ToListAsync(cancellationToken);
-        }
-
-        public async Task<IEnumerable<User>> GetUnverifiedEmailUsersAsync(CancellationToken cancellationToken = default)
-        {
-            return await _context.Users
-                .AsNoTracking()
-                .Where(u => !u.IsDeleted && u.IsActive && !u.EmailVerified)
-                .OrderBy(u => u.CreatedAt)
-                .ToListAsync(cancellationToken);
-        }
-
-        //public async Task<User> GetByEmailWithTokensAsync(string email, CancellationToken cancellationToken = default)
-        //{
-        //    return await _context.Users
-        //        .Include(u => u.RefreshTokens) // Load all refresh tokens
-        //        .FirstOrDefaultAsync(u => u.Email.Value == email && !u.IsDeleted, cancellationToken);
-        //}
-
-        public async Task<User?> GetByEmailWithTokensAsync(string email, CancellationToken cancellationToken = default)
-        {
-            var emailVo = new Email(email);
-
-            return await _context.Users
-                .Include(u => u.RefreshTokens.Where(rt => !rt.IsDeleted))
-                .FirstOrDefaultAsync(
-                    u => u.Email == emailVo.Value,
-                    cancellationToken);
-        }
-
 
         #endregion
     }

@@ -44,12 +44,12 @@ namespace SchoolManagement.Application.Teachers.Handlers.Queries
                 FullName = teacher.FullName,
                 Email = teacher.Email.Value,
                 PhoneNumber = teacher.PhoneNumber.Value,
-                EmployeeId = teacher.EmployeeId,
+                EmployeeId = teacher.EmployeeCode,
                 DateOfJoining = teacher.DateOfJoining,
                 DateOfLeaving = teacher.DateOfLeaving,
                 Qualification = teacher.Qualification,
-                Experience = teacher.Experience,
-                TotalExperience = teacher.GetTotalYearsOfExperience(),
+                Experience = teacher.PriorExperience,
+                TotalExperience = teacher.TotalYearsOfExperience,
                 DepartmentId = teacher.DepartmentId,
                 DepartmentName = teacher.Department?.Name,
                 IsActive = teacher.IsActive,
@@ -60,7 +60,7 @@ namespace SchoolManagement.Application.Teachers.Handlers.Queries
                 Country = teacher.Address.Country,
                 TotalTeachingAssignments = teacher.GetTotalTeachingAssignments(),
                 TotalWeeklyPeriods = teacher.GetTotalWeeklyPeriods(),
-                IsSenior = teacher.IsSeniorTeacher()
+                IsSenior = teacher.IsSeniorTeacher
             };
 
             return Result<TeacherDto>.Success(teacherDto);

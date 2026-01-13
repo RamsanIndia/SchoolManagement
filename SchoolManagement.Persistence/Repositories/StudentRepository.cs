@@ -31,7 +31,7 @@ namespace SchoolManagement.Persistence.Repositories
             return await _context.Students
                 .Include(s => s.Class)
                 .Include(s => s.Section)
-                .FirstOrDefaultAsync(s => s.StudentId == studentId && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.StudentCode == studentId && !s.IsDeleted);
         }
 
         public async Task<IEnumerable<Student>> GetByClassAsync(Guid classId, CancellationToken cancellationToken)
@@ -76,7 +76,7 @@ namespace SchoolManagement.Persistence.Repositories
                 .Where(s => !s.IsDeleted &&
                            (s.FirstName.Contains(searchTerm) ||
                             s.LastName.Contains(searchTerm) ||
-                            s.StudentId.Contains(searchTerm) ||
+                            s.StudentCode.Contains(searchTerm) ||
                             s.Email.Contains(searchTerm)))
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)

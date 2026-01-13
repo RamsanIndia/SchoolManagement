@@ -13,13 +13,17 @@ namespace SchoolManagement.Domain.Events
         public string Username { get; }
         public string Email { get; }
         public UserType UserType { get; }
+        public Guid SchoolId { get; set; }
+        public Guid TenantId { get; set; }
 
-        public UserCreatedEvent(Guid userId, string username, string email, UserType userType)
+        public UserCreatedEvent(Guid userId, string username, string email, UserType userType,Guid tenantId, Guid schoolId)
         {
             UserId = userId;
             Username = username;
             Email = email;
             UserType = userType;
+            SchoolId = schoolId;
+            TenantId = tenantId;
         }
     }
 }

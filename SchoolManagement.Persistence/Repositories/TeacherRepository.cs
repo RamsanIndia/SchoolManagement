@@ -169,7 +169,7 @@ namespace SchoolManagement.Persistence.Repositories
             CancellationToken cancellationToken = default)
         {
             var query = _context.Teachers
-                .Where(t => t.EmployeeId == employeeId.ToUpper());
+                .Where(t => t.EmployeeCode == employeeId.ToUpper());
 
             if (excludeTeacherId.HasValue)
             {

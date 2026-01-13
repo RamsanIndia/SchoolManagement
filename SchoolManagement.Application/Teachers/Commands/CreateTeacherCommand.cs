@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Application.DTOs;
 using SchoolManagement.Domain.Common;
 using System;
 using System.Collections.Generic;
@@ -13,22 +14,23 @@ namespace SchoolManagement.Application.Teachers.Commands
     /// </summary>
     public class CreateTeacherCommand : IRequest<Result<Guid>>
     {
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Email { get; set; }
-        public string PhoneNumber { get; set; }
-        public string EmployeeId { get; set; }
+        public Guid TenantId { get; set; }
+        public Guid SchoolId { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public string EmployeeCode { get; set; } = string.Empty;
         public DateTime DateOfJoining { get; set; }
-        public string Qualification { get; set; }
-        public decimal Experience { get; set; }
-
-        // Address details
-        public string Street { get; set; }
-        public string City { get; set; }
-        public string State { get; set; }
-        public string PostalCode { get; set; }
-        public string Country { get; set; }
-
+        public DateTime DateOfBirth { get; set; }
+        public string? Gender { get; set; }
+        public string Qualification { get; set; } = string.Empty;
+        public decimal PriorExperience { get; set; }
+        public AddressDto? Address { get; set; }
+        public string? Specialization { get; set; }
+        public decimal Salary { get; set; }
+        public string? EmploymentType { get; set; } = "Full-time";
         public Guid? DepartmentId { get; set; }
     }
+
 }

@@ -1,4 +1,4 @@
-﻿// Infrastructure/Data/DataSeeder.cs
+﻿// Infrastructure/Data/DataSeeder.cs - COMPLETE CORRECTED VERSION
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Domain.Entities;
@@ -8,16 +8,24 @@ using SchoolManagement.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Infrastructure.Data
 {
     public static class DataSeeder
     {
+        // Fixed GUIDs matching your PostgreSQL inserts
+        public static readonly Guid GlobalTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        public static readonly Guid GreenValleySchoolId = Guid.Parse("a1b2c3d4-5678-90ab-cdef-111111111111");
+        public static readonly Guid EliteAcademySchoolId = Guid.Parse("a1b2c3d4-5678-90ab-cdef-222222222222");
+
         public static async Task SeedAsync(SchoolManagementDbContext context, ILogger logger)
         {
             try
             {
+                await SeedTenantsAsync(context, logger);
+                await SeedSchoolsAsync(context, logger);
                 await SeedRolesAsync(context, logger);
                 await SeedPermissionsAsync(context, logger);
                 await SeedRolePermissionsAsync(context, logger);
@@ -32,6 +40,84 @@ namespace SchoolManagement.Infrastructure.Data
                 logger.LogError(ex, "❌ Error seeding data");
                 throw;
             }
+        }
+
+        // Reflection helper to set protected properties
+        private static void SetProtectedProperty(object entity, string propertyName, object value)
+        {
+            var property = entity.GetType()
+                .GetProperty(propertyName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (property != null && property.CanWrite)
+            {
+                property.SetValue(entity, value);
+            }
+        }
+
+        private static async Task SeedTenantsAsync(SchoolManagementDbContext context, ILogger logger)
+        {
+            var exists = await context.Tenants
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Code == "GLOBAL");
+
+            if (exists)
+            {
+                logger.LogInformation("GLOBAL tenant already exists");
+                return;
+            }
+
+            // ✅ FIXED: Include ALL required columns (TenantId + all BaseEntity fields)
+            var sql = @"
+        INSERT INTO public.""Tenants"" 
+        (""Id"", ""TenantId"", ""Code"", ""Name"", ""IsActive"", ""CreatedAt"", ""CreatedBy"", 
+         ""CreatedIP"", ""UpdatedAt"", ""UpdatedBy"", ""UpdatedIP"", ""IsDeleted"", ""DeletedAt"", ""DeletedBy"")
+        VALUES 
+        ('11111111-1111-1111-1111-111111111111', 
+         '11111111-1111-1111-1111-111111111111',  -- ✅ TenantId (self-reference)
+         'GLOBAL', 
+         'Global Tenant', 
+         true, 
+         NOW(), 
+         'SYSTEM SEED', 
+         '127.0.0.1', 
+         NULL, NULL, NULL, 
+         false, NULL, NULL);";
+
+            await context.Database.ExecuteSqlRawAsync(sql);
+            logger.LogInformation("✅ Seeded GLOBAL tenant (full columns)");
+        }
+
+        private static async Task SeedSchoolsAsync(SchoolManagementDbContext context, ILogger logger)
+        {
+            if (await context.Schools.AnyAsync(s => !s.IsDeleted))
+            {
+                logger.LogInformation("Schools already seeded");
+                return;
+            }
+
+            // Use raw SQL to bypass protected setters
+            var sql = @"
+                INSERT INTO school.""Schools"" 
+                (""Id"", ""Name"", ""Code"", ""Type"", ""Address"", ""ContactPhone"", ""ContactEmail"", 
+                 ""MaxStudentCapacity"", ""Status"", ""FoundedDate"", ""IsActive"", ""TenantId"", ""SchoolId"", 
+                 ""CreatedAt"", ""CreatedBy"", ""CreatedIP"", ""UpdatedAt"", ""UpdatedBy"", ""UpdatedIP"", 
+                 ""IsDeleted"", ""DeletedAt"", ""DeletedBy"")
+                VALUES 
+                ('a1b2c3d4-5678-90ab-cdef-111111111111', 'Green Valley Public School', 'GVPS', 1, 
+                 '123 Education St, Dadri, UP 203207', '0120-1234567', 'contact@gvps.edu.in', 1200, 1, 
+                 '1985-03-15 00:00:00+00', true, '11111111-1111-1111-1111-111111111111', 
+                 'a1b2c3d4-5678-90ab-cdef-111111111111', NOW(), 'SYSTEM SEED', '127.0.0.1', 
+                 NULL, NULL, NULL, false, NULL, NULL),
+                
+                ('a1b2c3d4-5678-90ab-cdef-222222222222', 'Elite International Academy', 'EIA', 3, 
+                 '456 Learning Ave, Greater Noida, UP 201310', '0120-2345678', 'info@eia.ac.in', 800, 1, 
+                 '1992-07-22 00:00:00+00', true, '11111111-1111-1111-1111-111111111111', 
+                 'a1b2c3d4-5678-90ab-cdef-222222222222', NOW(), 'SYSTEM SEED', '127.0.0.1', 
+                 NULL, NULL, NULL, false, NULL, NULL)
+                ON CONFLICT (""Code"") DO NOTHING;";
+
+            await context.Database.ExecuteSqlRawAsync(sql);
+            logger.LogInformation("✅ Seeded 2 schools via SQL");
         }
 
         private static async Task SeedRolesAsync(SchoolManagementDbContext context, ILogger logger)
@@ -56,6 +142,18 @@ namespace SchoolManagement.Infrastructure.Data
             foreach (var role in roles)
             {
                 role.SetCreated("System", "127.0.0.1");
+
+                // SuperAdmin is global, others are school-specific
+                if (role.Name == "SuperAdmin")
+                {
+                    SetProtectedProperty(role, "TenantId", GlobalTenantId);
+                    SetProtectedProperty(role, "SchoolId", Guid.Empty);
+                }
+                else
+                {
+                    SetProtectedProperty(role, "TenantId", GlobalTenantId);
+                    SetProtectedProperty(role, "SchoolId", GreenValleySchoolId);
+                }
             }
 
             await context.Roles.AddRangeAsync(roles);
@@ -128,6 +226,10 @@ namespace SchoolManagement.Infrastructure.Data
             {
                 permission.SetCreated("System", "127.0.0.1");
                 permission.MarkAsSystemPermission();
+
+                // All permissions are global
+                SetProtectedProperty(permission, "TenantId", GlobalTenantId);
+                SetProtectedProperty(permission, "SchoolId", Guid.Empty);
             }
 
             await context.Permissions.AddRangeAsync(permissions);
@@ -159,6 +261,10 @@ namespace SchoolManagement.Infrastructure.Data
             {
                 var rolePermission = new RolePermission(superAdminRole.Id, permission.Id, true);
                 rolePermission.SetCreated("System", "127.0.0.1");
+
+                SetProtectedProperty(rolePermission, "TenantId", GlobalTenantId);
+                SetProtectedProperty(rolePermission, "SchoolId", Guid.Empty);
+
                 rolePermissions.Add(rolePermission);
             }
 
@@ -168,6 +274,7 @@ namespace SchoolManagement.Infrastructure.Data
             logger.LogInformation($"✅ Seeded {rolePermissions.Count} role permissions");
         }
 
+        // FIXED SeedAdminUserAsync - Use GreenValleySchoolId for admin (domain requires SchoolId != Empty)
         private static async Task SeedAdminUserAsync(SchoolManagementDbContext context, ILogger logger)
         {
             if (await context.Users.AnyAsync())
@@ -178,27 +285,24 @@ namespace SchoolManagement.Infrastructure.Data
 
             var superAdminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "SuperAdmin");
 
-            if (superAdminRole == null)
-            {
-                logger.LogWarning("⚠️ SuperAdmin role not found");
-                return;
-            }
+            // ✅ FIXED: Bypass query filter + use known GUID directly
+            var greenValleySchoolId = Guid.Parse("a1b2c3d4-5678-90ab-cdef-111111111111");
 
+            // Domain requires SchoolId != Empty - use GVPS directly
             var adminUser = User.Create(
+                tenantId: GlobalTenantId,
+                schoolId: greenValleySchoolId,  // ✅ Direct GUID - no query needed
                 username: "admin",
                 email: new Email("admin@sms.com"),
                 fullName: new FullName("System", "Administrator"),
                 passwordHash: BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                userType: UserType.Staff,
+                userType: UserType.SuperAdmin,
                 createdBy: "System",
-                createdIp: "127.0.0.1",
-                correlationId: Guid.NewGuid().ToString()
+                createdIp: "127.0.0.1"
             );
 
             adminUser.Activate("System");
             adminUser.UpdatePhoneNumber(new PhoneNumber("+919999999999"), "System");
-
-            // Clear domain events to skip outbox processing during seeding
             adminUser.ClearDomainEvents();
 
             await context.Users.AddAsync(adminUser);
@@ -206,17 +310,19 @@ namespace SchoolManagement.Infrastructure.Data
 
             var userRole = SchoolManagement.Domain.Entities.UserRole.Create(
                 adminUser.Id,
-                superAdminRole.Id,
+                superAdminRole!.Id,
                 "System"
             );
             userRole.SetCreated("System", "127.0.0.1");
-            userRole.ClearDomainEvents();  // Clear events from UserRole too
+            userRole.ClearDomainEvents();
 
             await context.UserRoles.AddAsync(userRole);
             await context.SaveChangesAsync();
 
-            logger.LogInformation("✅ Seeded admin user: admin@sms.com / Admin@123");
+            logger.LogInformation("✅ Seeded SuperAdmin: admin@sms.com / Admin@123 (GVPS)");
         }
+
+
 
         private static async Task SeedMenusAsync(SchoolManagementDbContext context, ILogger logger)
         {
@@ -241,6 +347,9 @@ namespace SchoolManagement.Infrastructure.Data
             {
                 menus[i].SetSortOrder(i + 1);
                 menus[i].SetCreated("System", "127.0.0.1");
+
+                SetProtectedProperty(menus[i], "TenantId", GlobalTenantId);
+                SetProtectedProperty(menus[i], "SchoolId", Guid.Empty);
             }
 
             await context.Menus.AddRangeAsync(menus);
@@ -268,6 +377,9 @@ namespace SchoolManagement.Infrastructure.Data
             {
                 subMenus[i].SetSortOrder(i + 1);
                 subMenus[i].SetCreated("System", "127.0.0.1");
+
+                SetProtectedProperty(subMenus[i], "TenantId", GlobalTenantId);
+                SetProtectedProperty(subMenus[i], "SchoolId", Guid.Empty);
             }
 
             await context.Menus.AddRangeAsync(subMenus);
@@ -311,6 +423,10 @@ namespace SchoolManagement.Infrastructure.Data
             {
                 var roleMenuPermission = new RoleMenuPermission(superAdminRole.Id, menu.Id, fullPermissions);
                 roleMenuPermission.SetCreated("System", "127.0.0.1");
+
+                SetProtectedProperty(roleMenuPermission, "TenantId", GlobalTenantId);
+                SetProtectedProperty(roleMenuPermission, "SchoolId", Guid.Empty);
+
                 roleMenuPermissions.Add(roleMenuPermission);
             }
 
