@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿// Persistence/SchoolManagementDbContextFactory.cs - MULTI-TENANT READY
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -6,233 +7,175 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Shared.Utilities;
+using SchoolManagement.Persistence.Interceptors;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace SchoolManagement.Persistence
 {
     /// <summary>
-    /// Design-time factory for EF Core migrations and database operations
+    /// Design-time factory for EF migrations (multi-tenant aware)
     /// </summary>
     public class SchoolManagementDbContextFactory : IDesignTimeDbContextFactory<SchoolManagementDbContext>
     {
         public SchoolManagementDbContext CreateDbContext(string[] args)
         {
-            // ✅ Determine environment
-            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
-            var isProduction = environment.Equals("Production", StringComparison.OrdinalIgnoreCase);
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+            var isProd = env.Equals("Production", StringComparison.OrdinalIgnoreCase);
 
-            Console.WriteLine($"🔧 Running in {environment} environment");
+            Console.WriteLine($"🔧 {env} mode - Multi-tenant migrations");
 
-            // ✅ Determine base path for configuration
+            // 🔧 BASE PATH (API project)
             var basePath = Path.Combine(Directory.GetCurrentDirectory(), "../SchoolManagement.API");
+            if (!Directory.Exists(basePath)) basePath = Directory.GetCurrentDirectory();
 
-            // Fallback to current directory if API project not found
-            if (!Directory.Exists(basePath))
-            {
-                basePath = Directory.GetCurrentDirectory();
-            }
-
-            // ✅ Build configuration (Environment variables take precedence)
-            var configuration = new ConfigurationBuilder()
+            // 🔧 CONFIG (env-aware)
+            var config = new ConfigurationBuilder()
                 .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json", optional: false)
-                .AddJsonFile($"appsettings.{environment}.json", optional: true)
-                .AddEnvironmentVariables() // This automatically prioritizes env vars
+                .AddJsonFile($"appsettings.{env}.json", optional: true)
+                .AddEnvironmentVariables()
                 .Build();
 
-            // ✅ Get connection string (automatically checks env vars first, then appsettings)
-            var connectionString = isProduction
+            // 🔧 CONNECTION STRING (secure fallback)
+            var connStr = isProd
                 ? Environment.GetEnvironmentVariable("ConnectionStrings__SchoolManagementDbConnectionString")
-                  ?? configuration.GetConnectionString("SchoolManagementDbConnectionString")
-                  ?? configuration.GetConnectionString("DefaultConnection")
-                : configuration.GetConnectionString("SchoolManagementDbConnectionString")
-                  ?? configuration.GetConnectionString("DefaultConnection");
+                : config.GetConnectionString("SchoolManagementDbConnectionString")
+                ?? config.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("❌ Connection string missing");
 
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                var errorMessage = isProduction
-                    ? "❌ Production: Connection string must be set as environment variable 'ConnectionStrings__SchoolManagementDbConnectionString'"
-                    : "❌ Connection string 'SchoolManagementDbConnectionString' or 'DefaultConnection' not found in configuration.";
+            Console.WriteLine($"✅ Conn: {MaskConnectionString(connStr)}");
 
-                throw new InvalidOperationException(errorMessage);
-            }
-
-            Console.WriteLine($"✅ Using connection string from: {(isProduction && Environment.GetEnvironmentVariable("ConnectionStrings__SchoolManagementDbConnectionString") != null ? "Environment Variable" : "appsettings.json")}");
-            Console.WriteLine($"   Masked: {MaskConnectionString(connectionString)}");
-
-            // ✅ Setup service collection for DI
+            // 🔧 SERVICES (design-time)
             var services = new ServiceCollection();
+            services.AddLogging(b => b.AddConsole().SetMinimumLevel(isProd ? LogLevel.Warning : LogLevel.Information));
+            services.AddSingleton<IHttpContextAccessor, DesignTimeHttpContextAccessor>();
 
-            // Register logging
-            services.AddLogging(builder =>
-            {
-                builder.AddConsole();
-                builder.SetMinimumLevel(isProduction ? LogLevel.Warning : LogLevel.Information);
-            });
-
-            // Register HttpContextAccessor (needed for IpAddressHelper)
-            services.AddHttpContextAccessor();
-
-            // ✅ Register design-time stub implementations
-            services.AddSingleton<ICorrelationIdService, DesignTimeCorrelationIdService>();
+            // ✅ MULTI-TENANT MOCKS
             services.AddSingleton<ICurrentUserService, DesignTimeCurrentUserService>();
+            services.AddSingleton<ICorrelationIdService, DesignTimeCorrelationIdService>();
+            services.AddSingleton<ITenantService, DesignTimeTenantService>();
             services.AddSingleton<IpAddressHelper>();
+            services.AddSingleton<AuditInterceptor>();
 
-            // Build service provider
-            var serviceProvider = services.BuildServiceProvider();
+            var sp = services.BuildServiceProvider();
 
-            // ✅ Configure DbContext options
-            var optionsBuilder = new DbContextOptionsBuilder<SchoolManagementDbContext>();
-
-            optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
+            // 🔧 EF OPTIONS (PostgreSQL optimized)
+            var options = new DbContextOptionsBuilder<SchoolManagementDbContext>();
+            options.UseNpgsql(connStr, pg =>
             {
-                // ✅ PostgreSQL retry configuration
-                npgsqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorCodesToAdd: null);
-
-                npgsqlOptions.CommandTimeout(60);
-                npgsqlOptions.MigrationsAssembly("SchoolManagement.Persistence");
+                pg.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null);
+                pg.CommandTimeout(60);
+                pg.MigrationsAssembly("SchoolManagement.Persistence");
             });
 
-            // ✅ Enable detailed errors only in non-production
-            if (!isProduction)
+            if (!isProd)
             {
-                optionsBuilder.EnableDetailedErrors();
-                optionsBuilder.EnableSensitiveDataLogging();
+                options.EnableDetailedErrors();
+                options.EnableSensitiveDataLogging();
             }
 
-            // ✅ Resolve services from DI container
-            var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
-            var logger = serviceProvider.GetRequiredService<ILogger<SchoolManagementDbContext>>();
-            var ipAddressHelper = serviceProvider.GetRequiredService<IpAddressHelper>();
-            var currentUserService = serviceProvider.GetRequiredService<ICurrentUserService>();
-            var correlationIdService = serviceProvider.GetRequiredService<ICorrelationIdService>();
+            options.AddInterceptors(sp.GetRequiredService<AuditInterceptor>());
 
-            Console.WriteLine("✅ Design-time DbContext created successfully");
-
+            // 🔧 RESOLVE DEPENDENCIES
             return new SchoolManagementDbContext(
-                optionsBuilder.Options,
-                httpContextAccessor,
-                logger,
-                ipAddressHelper,
-                currentUserService,
-                correlationIdService);
+                options.Options,
+                sp.GetRequiredService<IHttpContextAccessor>(),
+                sp.GetRequiredService<ILogger<SchoolManagementDbContext>>(),
+                sp.GetRequiredService<IpAddressHelper>(),
+                sp.GetRequiredService<ICurrentUserService>(),
+                sp.GetRequiredService<ICorrelationIdService>(),
+                sp.GetRequiredService<AuditInterceptor>(),
+                sp.GetRequiredService<ITenantService>());
         }
 
-        /// <summary>
-        /// Mask sensitive information in connection string for logging
-        /// </summary>
-        private string MaskConnectionString(string connectionString)
-        {
-            if (string.IsNullOrEmpty(connectionString))
-                return string.Empty;
-
-            // Mask password in connection string
-            var maskedString = System.Text.RegularExpressions.Regex.Replace(
-                connectionString,
-                @"Password=([^;]+)",
-                "Password=****",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            return maskedString;
-        }
+        private static string MaskConnectionString(string connStr) =>
+            Regex.Replace(connStr, @"(Password|Pwd)=([^;]+)", "$1=****", RegexOptions.IgnoreCase);
     }
 
+    #region DESIGN-TIME MOCKS (Multi-Tenant)
+
     /// <summary>
-    /// Design-time stub for ICorrelationIdService (used during migrations)
-    /// Returns a constant correlation ID for migration operations
+    /// HttpContext for design-time (migrations)
     /// </summary>
-    internal class DesignTimeCorrelationIdService : ICorrelationIdService
+    internal class DesignTimeHttpContextAccessor : IHttpContextAccessor
     {
-        public string GetCorrelationId()
-        {
-            return "migration-" + Guid.NewGuid().ToString("N").Substring(0, 8);
-        }
+        public HttpContext? HttpContext { get; set; } = new DefaultHttpContext();
     }
 
     /// <summary>
-    /// Design-time stub for ICurrentUserService (used during migrations)
-    /// Returns system user information for migration operations
+    /// System user for migrations/seeding
     /// </summary>
     internal class DesignTimeCurrentUserService : ICurrentUserService
     {
         public bool IsAuthenticated => false;
-
-        public Guid? UserId => Guid.Empty; // 00000000-0000-0000-0000-000000000000
-
-        public string Username => "System";
-
-        public string? Email => "system@migration.local";
-
+        public Guid? UserId => Guid.Empty;
+        public string Username => "MigrationSystem";
+        public string? Email => "migration@system.local";
         public string? FirstName => "System";
-
         public string? LastName => "Migration";
-
-        public string? FullName => "System Migration User";
-
+        public string? FullName => "System Migration";
         public string? UserType => "System";
-
         public string IpAddress => "127.0.0.1";
+        public string UserAgent => "EF Core Migrations";
 
-        public string UserAgent => "EF Core Migration";
-
-        public string? GetClaim(string claimType)
-        {
-            return claimType switch
+        public string? GetClaim(string claimType) =>
+            claimType switch
             {
                 ClaimTypes.NameIdentifier => UserId.ToString(),
                 ClaimTypes.Name => Username,
                 ClaimTypes.Email => Email,
-                ClaimTypes.GivenName => FirstName,
-                ClaimTypes.Surname => LastName,
                 ClaimTypes.Role => UserType,
                 _ => null
             };
-        }
 
-        public IEnumerable<string> GetRoles()
-        {
-            return new[] { "System" };
-        }
+        public IEnumerable<string> GetRoles() => new[] { "System", "Migration" };
+        public bool IsInRole(string role) => role == "System";
+        public bool HasPermission(string permission) => true;
 
-        public bool IsInRole(string role)
+        public IEnumerable<Claim> GetAllClaims() => new[]
         {
-            return role?.Equals("System", StringComparison.OrdinalIgnoreCase) ?? false;
-        }
+            new Claim(ClaimTypes.NameIdentifier, UserId.ToString()),
+            new Claim(ClaimTypes.Name, Username),
+            new Claim(ClaimTypes.Role, "System")
+        };
 
-        public bool HasPermission(string permission)
-        {
-            // System user has all permissions during migrations
-            return true;
-        }
-
-        public IEnumerable<Claim> GetAllClaims()
-        {
-            return new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, UserId.ToString()),
-                new Claim(ClaimTypes.Name, Username),
-                new Claim(ClaimTypes.Email, Email),
-                new Claim(ClaimTypes.GivenName, FirstName),
-                new Claim(ClaimTypes.Surname, LastName),
-                new Claim(ClaimTypes.Role, UserType),
-                new Claim("fullName", FullName)
-            };
-        }
-
-        public string GetRequestPath()
-        {
-            return "/migrations";
-        }
-
-        public string GetRequestMethod()
-        {
-            return "MIGRATION";
-        }
+        public string GetRequestPath() => "/ef-migrations";
+        public string GetRequestMethod() => "MIGRATE";
     }
+
+    /// <summary>
+    /// Correlation ID generator (design-time)
+    /// </summary>
+    internal class DesignTimeCorrelationIdService : ICorrelationIdService
+    {
+        public string GetCorrelationId() => $"migration-{Guid.NewGuid():N}[0..16]";
+    }
+
+    /// <summary>
+    /// ✅ FIXED: Multi-tenant mock for migrations
+    /// System tenant + default school for seeding
+    /// </summary>
+    internal class DesignTimeTenantService : ITenantService
+    {
+        private static readonly Guid SystemTenantId = Guid.Parse("00000000-0000-0000-0000-000000000000");
+        private static readonly Guid DefaultSchoolId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        public Guid TenantId => SystemTenantId;
+        public Guid? SchoolId => DefaultSchoolId;
+        public string? SchoolName => "Migration Default School";
+        public string? TenantCode => "MIGRATION";
+        public bool IsTenantSet => true;
+        public bool IsSchoolSet => true;
+
+        // Explicit interface impl for legacy
+        Guid SchoolManagement.Application.Interfaces.ITenantService.TenantId => TenantId;
+        bool SchoolManagement.Application.Interfaces.ITenantService.IsSchoolSet => IsSchoolSet;
+    }
+
+    #endregion
 }

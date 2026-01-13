@@ -19,7 +19,7 @@ export default function Settings() {
   const [schoolName, setSchoolName] = useState("Modern School Management System");
   const [timeZone, setTimeZone] = useState("UTC");
 
-  if (!user || user.role !== "admin") {
+  if (!user || !user.roles.includes("Admin")) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Access denied. This page is only available to administrators.</p>

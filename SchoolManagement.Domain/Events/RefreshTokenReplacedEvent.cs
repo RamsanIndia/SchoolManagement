@@ -6,19 +6,30 @@ namespace SchoolManagement.Domain.Events
 {
     public class RefreshTokenReplacedEvent : IDomainEvent
     {
-        public Guid UserId { get; }
-        public Guid OldTokenId { get; }
-        public string NewToken { get; }
-        public DateTime OccurredOn { get; }
+        public Guid EventId { get; set; } = Guid.NewGuid();
+        public Guid UserId { get; set; }
+        public Guid OldTokenId { get; set; }
+        public string NewToken { get; set; }
+        public Guid TenantId { get; set; }
+        public Guid SchoolId { get; set; }
+        public DateTime OccurredOn { get; set; }
 
-        public Guid EventId => throw new NotImplementedException();
+        // Parameterless constructor for deserialization
+        public RefreshTokenReplacedEvent()
+        {
+            EventId = Guid.NewGuid();
+            OccurredOn = DateTime.UtcNow;
+        }
 
-        public RefreshTokenReplacedEvent(Guid userId, Guid oldTokenId, string newToken)
+        // Main constructor
+        public RefreshTokenReplacedEvent(Guid userId, Guid oldTokenId, string newToken, Guid tenantId, Guid schoolId)
+            : this()
         {
             UserId = userId;
             OldTokenId = oldTokenId;
             NewToken = newToken;
-            OccurredOn = DateTime.UtcNow;
+            TenantId = tenantId;
+            SchoolId = schoolId;
         }
     }
 }

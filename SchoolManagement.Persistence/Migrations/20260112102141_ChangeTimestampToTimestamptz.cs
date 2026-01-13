@@ -5,7 +5,7 @@
 namespace SchoolManagement.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddDefaultValueToIsRevoked : Migration
+    public partial class ChangeTimestampToTimestamptz : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

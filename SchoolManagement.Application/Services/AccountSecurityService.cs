@@ -16,6 +16,7 @@ namespace SchoolManagement.Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<AccountSecurityService> _logger;
+        private readonly ICurrentUserService _currentUserService;
 
         private const int MaxLoginAttempts = 5;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -24,17 +25,19 @@ namespace SchoolManagement.Application.Services
             IPasswordService passwordService,
             IUserRepository userRepository,
             IUnitOfWork unitOfWork,
-            ILogger<AccountSecurityService> logger)
+            ILogger<AccountSecurityService> logger,
+            ICurrentUserService currentUserService)
         {
             _passwordService = passwordService;
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _currentUserService = currentUserService;
         }
 
         public Task<Result> ValidateAccountStatusAsync(User user)
         {
-            if (user.IsLockedOut())
+            if (user.IsLockedOut)
             {
                 _logger.LogWarning("Login attempt for locked account: {UserId}", user.Id);
                 return Task.FromResult(Result.Failure("Account is locked. Please try again later."));
@@ -62,7 +65,7 @@ namespace SchoolManagement.Application.Services
 
         public async Task HandleFailedLoginAsync(User user, CancellationToken cancellationToken)
         {
-            user.RecordFailedLogin(MaxLoginAttempts, LockoutDuration);
+            user.RecordFailedLogin(MaxLoginAttempts, LockoutDuration, _currentUserService.IpAddress);
             await _userRepository.UpdateAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }

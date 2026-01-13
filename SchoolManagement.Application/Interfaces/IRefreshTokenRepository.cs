@@ -1,4 +1,4 @@
-﻿// Application/Interfaces/IRefreshTokenRepository.cs
+﻿// Application/Interfaces/IRefreshTokenRepository.cs - MULTI-TENANT VERSION
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Domain.Entities;
 using System;
@@ -8,63 +8,115 @@ using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Interfaces
 {
+    /// <summary>
+    /// Refresh token repository with tenant isolation
+    /// All operations scoped to TenantId + SchoolId
+    /// </summary>
     public interface IRefreshTokenRepository
     {
-        // Basic CRUD operations
-        Task<RefreshToken> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-        Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default);
-        Task UpdateAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default);
-
-        // Token retrieval methods
-        /// <summary>
-        /// Gets an ACTIVE refresh token by token value
-        /// </summary>
-        Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
+        #region BASIC CRUD (TENANT-SCOPED)
 
         /// <summary>
-        /// 🔒 SECURITY: Gets a REVOKED token to detect replay attacks
+        /// Get token by ID within tenant context
         /// </summary>
-        Task<RefreshToken?> GetRevokedTokenAsync(string token, CancellationToken cancellationToken = default);
+        Task<RefreshToken?> GetByIdAsync(Guid id, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
         /// <summary>
-        /// 🔒 SECURITY: Gets all tokens in a token family
+        /// Add token (sets TenantId/SchoolId)
         /// </summary>
-        Task<List<RefreshToken>> GetTokenFamilyAsync(string tokenFamily, CancellationToken cancellationToken = default);
+        Task AddAsync(RefreshToken token, Guid tenantId, Guid schoolId, CancellationToken ct = default);
 
         /// <summary>
-        /// Gets all tokens for a user (including revoked)
+        /// Update token (validates tenant)
         /// </summary>
-        Task<IEnumerable<RefreshToken>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task UpdateAsync(RefreshToken token, Guid tenantId, Guid? schoolId = null, CancellationToken ct = default);
+
+        #endregion
+
+        #region TOKEN LOOKUP (SECURITY CRITICAL)
 
         /// <summary>
-        /// Gets all active tokens for a user
+        /// 🔑 Get ACTIVE token by value (login/refresh)
         /// </summary>
-        Task<IEnumerable<RefreshToken>> GetActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<RefreshToken?> GetByTokenAsync(string token, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
         /// <summary>
-        /// 🔒 SECURITY: Gets active tokens count for session limiting
+        /// 🔒 Detect replay attacks (revoked tokens)
         /// </summary>
-        Task<List<RefreshToken>> GetActiveTokensByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
-
-        // Token management methods
-        /// <summary>
-        /// Deletes expired tokens older than retention period
-        /// </summary>
-        Task DeleteExpiredTokensAsync(int retentionDays = 30, CancellationToken cancellationToken = default);
+        Task<RefreshToken?> GetRevokedTokenAsync(string token, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
         /// <summary>
-        /// 🔒 SECURITY: Revokes all tokens for a user (logout all devices)
+        /// 🔒 Get all tokens in family (security breach)
         /// </summary>
-        Task RevokeAllTokensForUserAsync(Guid userId, string revokedByIp, string reason = "Logout all devices", CancellationToken cancellationToken = default);
+        Task<List<RefreshToken>> GetTokenFamilyAsync(Guid tenantId, string tokenFamily, Guid? schoolId = null,
+            CancellationToken ct = default);
 
         /// <summary>
-        /// 🔒 SECURITY: Revokes entire token family (security breach response)
+        /// Get all tokens for user (tenant-isolated)
         /// </summary>
-        Task RevokeTokenFamilyAsync(string tokenFamily, string revokedByIp, string reason = "Token family compromised", CancellationToken cancellationToken = default);
+        Task<IEnumerable<RefreshToken>> GetByUserIdAsync(Guid userId, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
 
         /// <summary>
-        /// Gets token statistics for monitoring
+        /// Get ACTIVE tokens for user (session count)
         /// </summary>
-        Task<RefreshTokenStatisticsDto> GetStatisticsAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<IEnumerable<RefreshToken>> GetActiveByUserIdAsync(Guid userId, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        #endregion
+
+        #region BULK OPERATIONS (TENANT-SCOPED)
+
+        /// <summary>
+        /// 🔄 Cleanup expired tokens (tenant-wide)
+        /// </summary>
+        Task DeleteExpiredTokensAsync(Guid tenantId, int retentionDays = 30, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// 🔒 Logout all devices (tenant-validated)
+        /// </summary>
+        Task RevokeAllTokensForUserAsync(Guid userId, Guid tenantId, string revokedByIp,
+            string reason = "Logout all devices", Guid? schoolId = null, CancellationToken ct = default);
+
+        /// <summary>
+        /// 🔒 Revoke token family (breach response)
+        /// </summary>
+        Task RevokeTokenFamilyAsync(Guid tenantId, string tokenFamily, string revokedByIp,
+            string reason = "Token family compromised", Guid? schoolId = null, CancellationToken ct = default);
+
+        #endregion
+
+        #region MONITORING
+
+        /// <summary>
+        /// Token statistics per user/tenant
+        /// </summary>
+        Task<RefreshTokenStatisticsDto> GetStatisticsAsync(Guid userId, Guid tenantId,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Active session count (rate limiting)
+        /// </summary>
+        Task<int> GetActiveSessionCountAsync(Guid userId, Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        #endregion
+
+        /// <summary>
+        /// Get all tokens in tenant (admin dashboard)
+        /// </summary>
+        Task<IEnumerable<RefreshToken>> GetAllTenantTokensAsync(Guid tenantId, Guid? schoolId = null,
+            CancellationToken ct = default);
+
+        /// <summary>
+        /// Revoke all tokens in tenant (emergency)
+        /// </summary>
+        Task RevokeAllTenantTokensAsync(Guid tenantId, string adminIp, string reason,
+            Guid? schoolId = null, CancellationToken ct = default);
     }
 }
+

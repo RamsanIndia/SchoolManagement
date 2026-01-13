@@ -17,5 +17,6 @@ namespace SchoolManagement.Application.DTOs
         public string LastName { get; set; } = string.Empty;
         public int Role { get; set; }  // int → UserType enum
         public string? PhoneNumber { get; set; }
+        public Guid SchoolId { get; set; }
     }
 }

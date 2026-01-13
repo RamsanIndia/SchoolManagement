@@ -9,9 +9,10 @@ namespace SchoolManagement.Domain.Enums
     public enum StudentStatus
     {
         Active = 1,
-        Inactive = 2,
-        Transferred = 3,
-        Graduated = 4,
-        Suspended = 5
+        Suspended = 2,
+        Expelled = 3,
+        Withdrawn = 4,
+        Graduated = 5,
+        Transferred = 6
     }
 }

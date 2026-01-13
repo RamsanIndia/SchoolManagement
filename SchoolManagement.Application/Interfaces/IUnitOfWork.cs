@@ -27,6 +27,7 @@ namespace SchoolManagement.Application.Interfaces
         IDepartmentRepository DepartmentRepository { get; }
         IAcademicYearRepository AcademicYearRepository { get; }
         IAuditLogRepository AuditLogRepository { get; }
+        ISchoolRepository SchoolRepository { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

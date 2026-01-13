@@ -7,7 +7,11 @@ namespace SchoolManagement.Domain.Entities
 {
     public class RefreshToken : BaseEntity
     {
-        // Properties
+        // Multi-tenant properties
+        public Guid TenantId { get; private set; }
+        public Guid SchoolId { get; private set; }
+
+        // Token properties
         public string Token { get; private set; }
         public DateTime ExpiryDate { get; private set; }
         public bool IsRevoked { get; private set; } = false;
@@ -18,11 +22,13 @@ namespace SchoolManagement.Domain.Entities
         public string? ReasonRevoked { get; private set; }
         public Guid UserId { get; private set; }
 
-        // NEW: Token family tracking for rotation and security
+        // Token family tracking for rotation and security
         public string TokenFamily { get; private set; }
 
-        // Navigation property
+        // Navigation properties
         public virtual User User { get; private set; }
+        public virtual Tenant Tenant { get; private set; }
+        public virtual School School { get; private set; }
 
         // Computed properties
         public bool IsExpired => DateTime.UtcNow >= ExpiryDate;
@@ -32,10 +38,12 @@ namespace SchoolManagement.Domain.Entities
         private RefreshToken() : base() { }
 
         /// <summary>
-        /// Creates a new refresh token
+        /// Creates a new refresh token with multi-tenant support
         /// </summary>
         public static RefreshToken Create(
             Guid userId,
+            Guid tenantId,
+            Guid schoolId,
             string token,
             DateTime expiresAt,
             string createdByIp,
@@ -43,6 +51,12 @@ namespace SchoolManagement.Domain.Entities
         {
             if (userId == Guid.Empty)
                 throw new ArgumentException("User ID cannot be empty", nameof(userId));
+
+            if (tenantId == Guid.Empty)
+                throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
+            if (schoolId == Guid.Empty)
+                throw new ArgumentException("School ID cannot be empty", nameof(schoolId));
 
             if (string.IsNullOrWhiteSpace(token))
                 throw new ArgumentException("Token cannot be null or empty", nameof(token));
@@ -56,6 +70,8 @@ namespace SchoolManagement.Domain.Entities
             var refreshToken = new RefreshToken
             {
                 UserId = userId,
+                TenantId = tenantId,
+                SchoolId = schoolId,
                 Token = token,
                 ExpiryDate = expiresAt,
                 CreatedIP = createdByIp,
@@ -69,10 +85,12 @@ namespace SchoolManagement.Domain.Entities
             refreshToken.SetCreated("SYSTEM", createdByIp);
 
             // Raise domain event
-            refreshToken.AddDomainEvent(new RefreshTokenCreatedEvent(userId, refreshToken.Id));
+            refreshToken.AddDomainEvent(new RefreshTokenCreatedEvent(userId, refreshToken.Id, tenantId, schoolId));
 
             return refreshToken;
         }
+
+
 
         /// <summary>
         /// Revokes the token with reason and IP tracking
@@ -94,7 +112,7 @@ namespace SchoolManagement.Domain.Entities
             SetUpdated("SYSTEM", revokedByIp);
 
             // Raise domain event
-            AddDomainEvent(new RefreshTokenRevokedEvent(UserId, Id, ReasonRevoked));
+            AddDomainEvent(new RefreshTokenRevokedEvent(UserId, Id, ReasonRevoked, TenantId, SchoolId));
         }
 
         /// <summary>
@@ -113,10 +131,10 @@ namespace SchoolManagement.Domain.Entities
                     "Cannot replace an already revoked token. Possible token reuse attack.");
 
             ReplacedByToken = newToken;
-            Revoke(replacedByIp, "Replaced by new token during rotation");
+            Revoke(replacedByIp, "SYSTEM", "Replaced by new token during rotation");
 
             // Raise domain event
-            AddDomainEvent(new RefreshTokenReplacedEvent(UserId, Id, newToken));
+            AddDomainEvent(new RefreshTokenReplacedEvent(UserId, Id, newToken, TenantId, SchoolId));
         }
 
         /// <summary>
@@ -147,6 +165,20 @@ namespace SchoolManagement.Domain.Entities
 
                 throw new InvalidOperationException("Refresh token is not active");
             }
+        }
+
+        /// <summary>
+        /// Validates token belongs to the specified tenant and school
+        /// </summary>
+        public void ValidateTenantAndSchool(Guid tenantId, Guid schoolId)
+        {
+            if (TenantId != tenantId)
+                throw new InvalidOperationException(
+                    $"Token belongs to different tenant. Expected: {tenantId}, Actual: {TenantId}");
+
+            if (SchoolId != schoolId)
+                throw new InvalidOperationException(
+                    $"Token belongs to different school. Expected: {schoolId}, Actual: {SchoolId}");
         }
 
         /// <summary>

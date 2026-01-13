@@ -1,9 +1,10 @@
 ﻿// Application/Auth/Validators/RegisterCommandValidator.cs
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.Interfaces;
+using SchoolManagement.Application.Services;
 using SchoolManagement.Domain.Enums;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading;
@@ -15,8 +16,9 @@ namespace SchoolManagement.Application.Auth.Validators
     {
         private readonly IUserRepository _userRepository;
         private readonly ILogger<RegisterCommandValidator> _logger;
+        private readonly ITenantService _tenantService;
 
-        public RegisterCommandValidator(IUserRepository userRepository, ILogger<RegisterCommandValidator> logger)
+        public RegisterCommandValidator(IUserRepository userRepository, ILogger<RegisterCommandValidator> logger, ITenantService tenantService)
         {
             _userRepository = userRepository;
             _logger = logger;
@@ -78,6 +80,7 @@ namespace SchoolManagement.Application.Auth.Validators
                 .Must(x => string.IsNullOrWhiteSpace(x.PhoneNumber) || x.PhoneNumber.Length >= 10)
                 .WithMessage("Phone number must be at least 10 digits")
                 .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
+            _tenantService = tenantService;
         }
 
         private async Task<bool> BeUniqueEmail(string email, CancellationToken cancellationToken)
@@ -87,8 +90,8 @@ namespace SchoolManagement.Application.Auth.Validators
                 if (string.IsNullOrWhiteSpace(email))
                     return true;
 
-                // ✅ FIX: Pass raw string - Repository handles EF.Property bypass
-                var exists = await _userRepository.ExistsAsync(email, cancellationToken);
+                // FIX: Use EmailExistsAsync instead of ExistsAsync, as it matches the signature (string email, Guid tenantId, Guid? schoolId, CancellationToken)
+                var exists = await _userRepository.EmailExistsAsync(email, _tenantService.TenantId, _tenantService.SchoolId, cancellationToken);
                 return !exists;
             }
             catch (Exception ex)
@@ -105,7 +108,7 @@ namespace SchoolManagement.Application.Auth.Validators
                 if (string.IsNullOrWhiteSpace(username))
                     return true;
 
-                var exists = await _userRepository.UsernameExistsAsync(username, cancellationToken);
+                var exists = await _userRepository.UsernameExistsAsync(username, _tenantService.TenantId, _tenantService.SchoolId, cancellationToken);
                 return !exists;
             }
             catch (Exception ex)

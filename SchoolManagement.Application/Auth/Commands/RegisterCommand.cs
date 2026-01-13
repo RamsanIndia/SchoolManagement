@@ -20,6 +20,7 @@ namespace SchoolManagement.Application.Auth.Commands
         public string ConfirmPassword { get; set; }
         public string? PhoneNumber { get; set; }
         public UserType UserType { get; set; }
+        public Guid SchoolId { get; set; }
 
     }
 }

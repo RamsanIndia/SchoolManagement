@@ -20,6 +20,7 @@ namespace SchoolManagement.Domain.Enums
         DepartmentHead = 10,
         Staff = 11,
         Guest = 12,
+        SchoolAdmin=13,
         None = 0
     }
 }

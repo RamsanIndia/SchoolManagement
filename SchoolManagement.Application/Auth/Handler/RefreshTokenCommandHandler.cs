@@ -1,255 +1,250 @@
-﻿// Application/Auth/Handler/RefreshTokenCommandHandler.cs
+﻿// Application/Auth/Handlers/RefreshTokenCommandHandler.cs - MULTI-TENANT COMPLETE
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Auth.Commands;
 using SchoolManagement.Application.DTOs;
 using SchoolManagement.Application.Interfaces;
-using SchoolManagement.Domain.Common;
 using SchoolManagement.Application.Shared.Utilities;
+using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities;
-using SchoolManagement.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SchoolManagement.Application.Auth.Handler
+namespace SchoolManagement.Application.Auth.Handlers
 {
     public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, Result<AuthResponseDto>>
     {
         private readonly IUserRepository _userRepository;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
+        private readonly ISchoolRepository _schoolRepository;  // ✅ Added
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITokenService _tokenService;
         private readonly ILogger<RefreshTokenCommandHandler> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IpAddressHelper _ipAddressHelper;
+        private readonly ITenantService _tenantService;
+        private readonly ICurrentUserService _currentUserService;
 
         public RefreshTokenCommandHandler(
             IUserRepository userRepository,
             IRefreshTokenRepository refreshTokenRepository,
+            ISchoolRepository schoolRepository,  // ✅ Added
             IUnitOfWork unitOfWork,
             ITokenService tokenService,
             ILogger<RefreshTokenCommandHandler> logger,
             IHttpContextAccessor httpContextAccessor,
-            IpAddressHelper ipAddressHelper)
+            IpAddressHelper ipAddressHelper,
+            ICurrentUserService currentUserService,
+            ITenantService tenantService)
         {
-            _userRepository = userRepository;
-            _refreshTokenRepository = refreshTokenRepository;
-            _unitOfWork = unitOfWork;
-            _tokenService = tokenService;
-            _logger = logger;
-            _httpContextAccessor = httpContextAccessor;
-            _ipAddressHelper = ipAddressHelper;
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
+            _schoolRepository = schoolRepository ?? throw new ArgumentNullException(nameof(schoolRepository));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _ipAddressHelper = ipAddressHelper ?? throw new ArgumentNullException(nameof(ipAddressHelper));
+            _currentUserService = currentUserService ?? throw new ArgumentNullException(nameof(currentUserService));
+            _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
         }
 
-        public async Task<Result<AuthResponseDto>> Handle(
-            RefreshTokenCommand request,
-            CancellationToken cancellationToken)
+        public async Task<Result<AuthResponseDto>> Handle(RefreshTokenCommand request, CancellationToken ct)
         {
             try
             {
-                // Validate input
+                // ✅ RESOLVE CONTEXT
+                var tenantId = _tenantService.TenantId;
+                var schoolId = _tenantService.SchoolId ?? Guid.Empty;
+                var clientIp = _currentUserService.IpAddress;
+
+                _logger.LogInformation("🔄 Refresh attempt. Token: {TokenHash}, Tenant: {TenantId}, School: {SchoolId}",
+                    request.RefreshToken[..8], tenantId, schoolId);
+
+                // ✅ VALIDATE INPUT
                 if (string.IsNullOrWhiteSpace(request.RefreshToken))
                 {
-                    _logger.LogWarning("Refresh token request with empty token");
-                    return Result<AuthResponseDto>.Failure("Refresh token is required");
+                    _logger.LogWarning("Empty refresh token");
+                    return Result<AuthResponseDto>.Failure("Refresh token required");
                 }
 
-                var clientIp = _ipAddressHelper.GetIpAddress();
-
-                // Get refresh token from repository
+                // ✅ TENANT-ISOLATED TOKEN LOOKUP
                 var refreshToken = await _refreshTokenRepository.GetByTokenAsync(
-                    request.RefreshToken,
-                    cancellationToken);
+                    request.RefreshToken, tenantId, schoolId, ct);
 
                 if (refreshToken == null)
                 {
-                    _logger.LogWarning("Refresh token not found: {Token}", request.RefreshToken);
+                    _logger.LogWarning("Token not found. Tenant: {TenantId}, School: {SchoolId}", tenantId, schoolId);
 
-                    // 🔒 CRITICAL SECURITY: Check if token was previously used (replay attack detection)
+                    // 🔒 SECURITY: Check revoked tokens
                     var revokedToken = await _refreshTokenRepository.GetRevokedTokenAsync(
-                        request.RefreshToken,
-                        cancellationToken);
+                        request.RefreshToken, tenantId, schoolId, ct);
 
                     if (revokedToken != null)
                     {
-                        _logger.LogError(
-                            "🚨 SECURITY ALERT: Revoked token reuse detected! UserId: {UserId}, TokenId: {TokenId}, IP: {IP}",
-                            revokedToken.UserId,
-                            revokedToken.Id,
-                            clientIp);
+                        _logger.LogError("🚨 REUSE DETECTED! Token: {TokenId}, Tenant: {TenantId}",
+                            revokedToken.Id, tenantId);
 
-                        // Get user and revoke entire token family
-                        var compromisedUser = await _userRepository.GetByIdWithTokensAsync(
-                            revokedToken.UserId,
-                            cancellationToken);
-
-                        if (compromisedUser != null)
-                        {
-                            // Revoke all tokens in the same family (security breach response)
-                            compromisedUser.RevokeTokenFamily(
-                                revokedToken.TokenFamily,
-                                clientIp,
-                                "Security breach - revoked token reused (possible replay attack)");
-
-                            await _userRepository.UpdateAsync(compromisedUser, cancellationToken);
-                            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                            _logger.LogError(
-                                "🔒 All tokens in family {TokenFamily} have been revoked for user {UserId}",
-                                revokedToken.TokenFamily,
-                                revokedToken.UserId);
-                        }
-
-                        return Result<AuthResponseDto>.Failure(
-                            "Security violation detected. All sessions have been terminated for your safety. Please login again.");
+                        await HandleSecurityBreachAsync(revokedToken.UserId, tenantId, schoolId, clientIp, ct);
+                        return Result<AuthResponseDto>.Failure("Security violation. Login again.");
                     }
 
                     return Result<AuthResponseDto>.Failure("Invalid refresh token");
                 }
 
-                // Validate token is active using domain logic
-                try
-                {
-                    refreshToken.ValidateActive();
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(
-                        "Inactive refresh token used: {TokenId}, Reason: {Reason}",
-                        refreshToken.Id,
-                        ex.Message);
-                    return Result<AuthResponseDto>.Failure("Invalid or expired refresh token");
-                }
+                // ✅ VALIDATE TOKEN STATE
+                refreshToken.ValidateActive();
 
-                // Get user (with all refresh tokens for management)
+                // ✅ LOAD USER WITH TOKENS (tenant-scoped)
                 var user = await _userRepository.GetByIdWithTokensAsync(
-                    refreshToken.UserId,
-                    cancellationToken);
+                    refreshToken.UserId, tenantId, schoolId, ct);
 
-                if (user == null)
+                if (user == null || user.TenantId != tenantId || user.SchoolId != schoolId)
                 {
-                    _logger.LogError("User not found for refresh token: {UserId}", refreshToken.UserId);
-                    return Result<AuthResponseDto>.Failure("User not found");
+                    _logger.LogWarning("User mismatch. TokenUser: {UserId}, Expected Tenant: {TenantId}",
+                        refreshToken.UserId, tenantId);
+                    return Result<AuthResponseDto>.Failure("Invalid token");
                 }
 
-                // Check if user account is active
+                // ✅ ACCOUNT STATUS
                 if (!user.IsActive)
                 {
-                    _logger.LogWarning(
-                        "Refresh token used for inactive user: {UserId}",
-                        user.Id);
-                    return Result<AuthResponseDto>.Failure("Account is deactivated");
+                    _logger.LogWarning("Inactive user refresh. User: {UserId}", user.Id);
+                    return Result<AuthResponseDto>.Failure("Account deactivated");
                 }
 
-                // Check if account is locked
-                if (user.IsLockedOut())
+                if (user.IsLockedOut)
                 {
-                    _logger.LogWarning(
-                        "Refresh token used for locked account: {UserId}",
-                        user.Id);
-                    return Result<AuthResponseDto>.Failure("Account is locked");
+                    _logger.LogWarning("Locked user refresh. User: {UserId}", user.Id);
+                    return Result<AuthResponseDto>.Failure("Account locked");
                 }
 
-                // 🔒 SECURITY: Check for too many active sessions
-                if (user.HasTooManySessions(maxSessions: 5))
+                // ✅ SESSION LIMIT
+                if (user.HasTooManySessions(5))
+                    _logger.LogWarning("⚠️ High sessions. User: {UserId}, Count: {Count}",
+                        user.Id, user.GetActiveTokenCount());
+
+                // ✅ GET SCHOOL WITH TENANT INFO
+                var schoolInfo = await _schoolRepository.GetSchoolWithTenantAsync(schoolId, ct);
+
+                if (schoolInfo == null)
                 {
-                    _logger.LogWarning(
-                        "⚠️ User {UserId} has {Count} active sessions (limit: 5). Consider security review.",
-                        user.Id,
-                        user.GetActiveTokenCount());
-
-                    // Optional: You can enforce the limit by revoking oldest tokens
-                    // var oldestTokens = user.GetActiveRefreshTokens()
-                    //     .OrderBy(t => t.CreatedDate)
-                    //     .Take(user.GetActiveTokenCount() - 5);
-                    // foreach (var token in oldestTokens)
-                    // {
-                    //     user.RevokeRefreshToken(token.Id, clientIp, "Session limit exceeded");
-                    // }
+                    _logger.LogError("❌ School not found: {SchoolId}", schoolId);
+                    return Result<AuthResponseDto>.Failure("School information not found");
                 }
 
-                // Generate new tokens
-                var newAccessToken = _tokenService.GenerateAccessToken(user);
+                _logger.LogInformation(
+                    "🎫 Generating tokens - User: {UserId}, Tenant: {TenantCode}, School: {SchoolCode}",
+                    user.Id, schoolInfo.TenantCode, schoolInfo.SchoolCode);
+
+                // ✅ ROTATE TOKENS (with tenant/school codes)
+                var newAccessToken = _tokenService.GenerateAccessToken(
+                    user,
+                    tenantId,
+                    schoolId,
+                    schoolInfo.TenantCode,   // ✅ Added
+                    schoolInfo.SchoolCode);  // ✅ Added
+
                 var newRefreshTokenValue = _tokenService.GenerateRefreshToken();
 
-                // 🔒 FIXED: Revoke old token with IP address
-                user.RevokeRefreshToken(
-                    refreshToken.Id,
-                    clientIp,
-                    "Replaced by new token during rotation");
+                // Revoke old
+                user.RevokeRefreshToken(refreshToken.Id, clientIp, "Rotated");
 
-                // 🔒 FIXED: Create new token with same token family for rotation tracking
+                // Add new (same family)
                 var newRefreshToken = user.AddRefreshToken(
+                    tenantId,
+                    schoolId,
                     newRefreshTokenValue,
                     DateTime.UtcNow.AddDays(7),
                     clientIp,
-                    tokenFamily: refreshToken.TokenFamily // Maintain token family chain
-                );
+                    refreshToken.TokenFamily);
 
-                // Update last login
-                user.RecordSuccessfulLogin();
-
-                // Clean up expired tokens (only tokens older than 30 days)
+                // Update state
+                user.RecordSuccessfulLogin(_currentUserService.IpAddress);
                 user.RemoveExpiredRefreshTokens();
 
-                // Save changes
-                await _userRepository.UpdateAsync(user, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                // Domain events are automatically dispatched by UnitOfWork
-                // Events: RefreshTokenRevoked, RefreshTokenCreated, UserLoggedIn
-                // Potential SecurityViolationDetectedEvent if family compromised
+                // ✅ PERSIST (tenant-validated)
+                await _userRepository.UpdateAsync(user, tenantId, schoolId, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
 
                 _logger.LogInformation(
-                    "✅ Successfully refreshed token for user: {UserId}, TokenFamily: {TokenFamily}, IP: {IP}",
-                    user.Id,
-                    refreshToken.TokenFamily,
-                    clientIp);
+                    "🟢 Refresh success - User: {UserId}, Tenant: {TenantCode}, School: {SchoolCode}",
+                    user.Id, schoolInfo.TenantCode, schoolInfo.SchoolCode);
 
-                // Build response DTO
-                var response = new AuthResponseDto
-                {
-                    AccessToken = newAccessToken,
-                    RefreshToken = newRefreshTokenValue,
-                    ExpiresIn = 900, // 15 minutes in seconds
-                    TokenType = "Bearer",
-                    User = new UserDto
-                    {
-                        Id = user.Id.ToString(),
-                        Email = user.Email.Value,
-                        FirstName = user.FullName.FirstName,
-                        LastName = user.FullName.LastName,
-                        PhoneNumber = user.PhoneNumber?.Value,
-                        IsEmailVerified = user.EmailVerified,
-                        IsPhoneVerified = user.PhoneVerified,
-                        Roles = new List<string> { user.UserType.ToString() }
-                    }
-                };
-
-                return Result<AuthResponseDto>.Success(response);
+                // ✅ RESPONSE (with tenant/school codes)
+                return Result<AuthResponseDto>.Success(
+                    BuildResponse(user, newAccessToken, newRefreshTokenValue, schoolInfo));
             }
             catch (InvalidOperationException ex)
             {
-                // Domain-specific exceptions (e.g., token validation failures)
-                _logger.LogWarning(
-                    ex,
-                    "Domain validation error during token refresh: {Token}",
-                    request.RefreshToken);
+                _logger.LogWarning(ex, "Domain error refresh");
                 return Result<AuthResponseDto>.Failure(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(
-                    ex,
-                    "💥 Unexpected error refreshing token: {Token}",
-                    request.RefreshToken);
-                return Result<AuthResponseDto>.Failure(
-                    "An error occurred while refreshing token. Please try again.");
+                _logger.LogError(ex, "Refresh error");
+                return Result<AuthResponseDto>.Failure("Refresh failed. Login again.");
             }
+        }
+
+        /// <summary>
+        /// 🔒 Handle security breach (token reuse)
+        /// </summary>
+        private async Task HandleSecurityBreachAsync(
+            Guid userId,
+            Guid tenantId,
+            Guid schoolId,
+            string clientIp,
+            CancellationToken ct)
+        {
+            var compromisedUser = await _userRepository.GetByIdWithTokensAsync(userId, tenantId, schoolId, ct);
+            if (compromisedUser != null)
+            {
+                // Revoke entire token family
+                compromisedUser.RevokeTokenFamily(null, clientIp, "Security breach detected");
+                await _userRepository.UpdateAsync(compromisedUser, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+        }
+
+        /// <summary>
+        /// Build auth response with tenant/school information
+        /// </summary>
+        private static AuthResponseDto BuildResponse(
+            User user,
+            string accessToken,
+            string refreshToken,
+            SchoolWithTenantDto schoolInfo)
+        {
+            return new()
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                ExpiresIn = 900, // 15min
+                TokenType = "Bearer",
+
+                // ✅ Add tenant/school codes
+                TenantCode = schoolInfo.TenantCode,
+                SchoolCode = schoolInfo.SchoolCode,
+                SchoolName = schoolInfo.SchoolName,
+
+                User = new UserDto
+                {
+                    Id = user.Id.ToString(),
+                    Email = user.Email.Value,
+                    FirstName = user.FullName.FirstName,
+                    LastName = user.FullName.LastName,
+                    PhoneNumber = user.PhoneNumber?.Value,
+                    IsEmailVerified = user.EmailVerified,
+                    IsPhoneVerified = user.PhoneVerified,
+                    SchoolId = user.SchoolId.ToString(),
+                    Roles = new List<string> { user.UserType.ToString() }
+                }
+            };
         }
     }
 }

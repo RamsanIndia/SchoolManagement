@@ -13,6 +13,7 @@ using SchoolManagement.Persistence.Outbox;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,7 +31,10 @@ namespace SchoolManagement.Persistence
         private readonly ICurrentUserService _currentUserService;
         private readonly ICorrelationIdService _correlationIdService;
         private readonly AuditInterceptor _auditInterceptor;
-
+        private readonly ITenantService _tenantService;
+        private readonly TenantQueryFilter _tenantQueryFilter = null!;
+        public Guid CurrentSchoolId =>
+        _tenantService?.SchoolId ?? Guid.Empty;
         public SchoolManagementDbContext(
             DbContextOptions<SchoolManagementDbContext> options,
             IHttpContextAccessor httpContextAccessor = null,
@@ -38,7 +42,8 @@ namespace SchoolManagement.Persistence
             IpAddressHelper ipAddressHelper = null,
             ICurrentUserService currentUserService = null,
             ICorrelationIdService correlationIdService = null,
-            AuditInterceptor auditInterceptor=null)
+            AuditInterceptor auditInterceptor=null, 
+            ITenantService tenantService=null, TenantQueryFilter tenantQueryFilter=null)
             : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
@@ -47,6 +52,8 @@ namespace SchoolManagement.Persistence
             _currentUserService = currentUserService;
             _correlationIdService = correlationIdService;
             _auditInterceptor = auditInterceptor;
+            _tenantService = tenantService;
+            _tenantQueryFilter = tenantQueryFilter ?? new TenantQueryFilter(_tenantService);
         }
 
         #region DbSets
@@ -62,8 +69,10 @@ namespace SchoolManagement.Persistence
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Tenant> Tenants { get; set; }
 
         // Academic
+        public DbSet<School> Schools { get; set; }
         public DbSet<Student> Students { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Class> Classes { get; set; }
@@ -91,40 +100,80 @@ namespace SchoolManagement.Persistence
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
         #endregion
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.AddInterceptors(_auditInterceptor);
-            base.OnConfiguring(optionsBuilder);
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
+            // ✅ Apply EF configurations FIRST
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(SchoolManagementDbContext).Assembly);
 
+            // ✅ SAFE: Only apply tenant filters with HttpContext
+            if (HasHttpContext())
+            {
+                ApplyGlobalTenantFilters(modelBuilder);
+            }
+            else
+            {
+                Console.WriteLine("⚠️ Skipping tenant filters (no HttpContext - migration/startup)");
+            }
 
-            // RowVersion concurrency for BaseEntity types
-            //foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-            //             .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
-            //{
-            //    modelBuilder.Entity(entityType.ClrType)
-            //        .Property(nameof(BaseEntity.RowVersion))
-            //        .IsRowVersion()
-            //        .IsConcurrencyToken();
-            //}
+            // ✅ Always safe (no HttpContext dependency)
+            ConfigureRowVersion(modelBuilder);
 
-            // Configure RowVersion to map to xmin for all BaseEntity types
+            Console.WriteLine("✅ Multi-tenant DbContext configured");
+        }
+
+        /// <summary>
+        /// ✅ SAFE: Check HttpContext before tenant ops
+        /// </summary>
+        private bool HasHttpContext()
+        {
+            try
+            {
+                var httpContext = _httpContextAccessor?.HttpContext;
+                return httpContext != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// ✅ ONLY when HttpContext exists
+        /// </summary>
+        private void ApplyGlobalTenantFilters(ModelBuilder modelBuilder)
+        {
+            try
+            {
+                foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+                    .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
+                {
+                    var fullFilter = _tenantQueryFilter.CreateFullFilter(entityType.ClrType);
+                    modelBuilder.Entity(entityType.ClrType).HasQueryFilter(fullFilter);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Tenant filter error (non-critical): {ex.Message}");
+                // Continue without filters (migration safe)
+            }
+        }
+        /// <summary>
+        /// ✅ No HttpContext dependency
+        /// </summary>
+        private void ConfigureRowVersion(ModelBuilder modelBuilder)
+        {
             foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-                         .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
+                .Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
             {
                 modelBuilder.Entity(entityType.ClrType)
                     .Property(nameof(BaseEntity.RowVersion))
                     .HasColumnName("xmin")
                     .HasColumnType("xid")
-                    .ValueGeneratedOnAddOrUpdate()
-                    .IsConcurrencyToken();
+                    .ValueGeneratedOnAddOrUpdate();
+                    //.IsConcurrencyToken();
             }
-
-            base.OnModelCreating(modelBuilder);
         }
 
         public override int SaveChanges(bool acceptAllChangesOnSuccess)

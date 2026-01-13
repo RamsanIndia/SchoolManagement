@@ -44,6 +44,7 @@ namespace SchoolManagement.Persistence.Repositories
         private IDepartmentRepository? _departmentRepository;
         private IAcademicYearRepository? _academicYearRepository;
         private IAuditLogRepository _auditLogs;
+        private ISchoolRepository _schoolRepository;
 
         public UnitOfWork(
             SchoolManagementDbContext context,
@@ -113,6 +114,9 @@ namespace SchoolManagement.Persistence.Repositories
 
         public IAuditLogRepository AuditLogRepository =>
             _auditLogs ??= new AuditLogRepository(_context);
+
+        public ISchoolRepository SchoolRepository =>
+            _schoolRepository ??= new SchoolRepository(_context);
 
 
         #endregion

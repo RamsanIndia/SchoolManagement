@@ -46,7 +46,7 @@ namespace SchoolManagement.Application.Teachers.Handlers.Commands
                     );
                 }
 
-                teacher.Deactivate(_currentUserService.Username, request.LeavingDate);
+                teacher.Deactivate(_currentUserService.Username);
 
                 await _unitOfWork.TeachersRepository.UpdateAsync(teacher, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);

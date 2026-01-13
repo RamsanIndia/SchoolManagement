@@ -10,6 +10,7 @@ namespace SchoolManagement.Domain.Entities
     /// </summary>
     public class StudentParent : BaseEntity
     {
+        public Guid ParentId { get; private set; }
         public Guid StudentId { get; private set; }
         public string FirstName { get; private set; }
         public string LastName { get; private set; }

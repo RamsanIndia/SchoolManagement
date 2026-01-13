@@ -29,7 +29,7 @@ namespace SchoolManagement.Test.Domain.Entities
             var fullName = new FullName("John", "Doe");
 
             // Act
-            var user = User.Create(
+            var user = User.Create(new Guid(),
                 TestUsername,
                 email,
                 fullName,
@@ -61,6 +61,7 @@ namespace SchoolManagement.Test.Domain.Entities
 
             // Act
             var user = User.Create(
+                new Guid(),
                 TestUsername,
                 email,
                 fullName,
@@ -91,7 +92,7 @@ namespace SchoolManagement.Test.Domain.Entities
 
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
-                User.Create(
+                User.Create(new Guid(),
                     invalidUsername,
                     email,
                     fullName,
@@ -116,7 +117,7 @@ namespace SchoolManagement.Test.Domain.Entities
 
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
-                User.Create(
+                User.Create(new Guid(),
                     TestUsername,
                     email,
                     fullName,
@@ -138,6 +139,7 @@ namespace SchoolManagement.Test.Domain.Entities
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() =>
                 User.Create(
+                    new Guid(),
                     TestUsername,
                     null,
                     fullName,
@@ -157,6 +159,7 @@ namespace SchoolManagement.Test.Domain.Entities
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() =>
                 User.Create(
+                    new Guid(),
                     TestUsername,
                     email,
                     null,

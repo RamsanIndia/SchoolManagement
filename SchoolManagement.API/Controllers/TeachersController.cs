@@ -40,7 +40,7 @@ namespace SchoolManagement.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            _logger.LogInformation("Creating teacher with Employee ID: {EmployeeId}", command.EmployeeId);
+            _logger.LogInformation("Creating teacher with Employee ID: {EmployeeId}", command.EmployeeCode);
 
             var result = await _mediator.Send(command);
             return Ok(result);

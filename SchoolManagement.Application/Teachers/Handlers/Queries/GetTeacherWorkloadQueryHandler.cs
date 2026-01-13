@@ -49,7 +49,7 @@ namespace SchoolManagement.Application.Teachers.Handlers.Queries
                 {
                     TeacherId = teacher.Id,
                     TeacherName = teacher.FullName,
-                    EmployeeId = teacher.EmployeeId,
+                    EmployeeId = teacher.EmployeeCode,
                     DepartmentName = teacher.Department?.Name,
                     Email = teacher.Email.Value,
                     PhoneNumber = teacher.PhoneNumber.Value,

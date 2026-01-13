@@ -36,7 +36,7 @@ namespace SchoolManagement.Application.Teachers.Handlers.Queries
                     query = query.Where(t =>
                         t.Name.FirstName.ToLower().Contains(searchTerm) ||
                         t.Name.LastName.ToLower().Contains(searchTerm) ||
-                        t.EmployeeId.ToLower().Contains(searchTerm) ||
+                        t.EmployeeCode.ToLower().Contains(searchTerm) ||
                         t.Email.Value.ToLower().Contains(searchTerm) ||
                         t.PhoneNumber.Value.Contains(searchTerm));
                 }
@@ -60,14 +60,14 @@ namespace SchoolManagement.Application.Teachers.Handlers.Queries
                         ? query.OrderByDescending(t => t.Name.FirstName)
                         : query.OrderBy(t => t.Name.FirstName),
                     "employeeid" => request.SortDirection == "desc"
-                        ? query.OrderByDescending(t => t.EmployeeId)
-                        : query.OrderBy(t => t.EmployeeId),
+                        ? query.OrderByDescending(t => t.EmployeeCode)
+                        : query.OrderBy(t => t.EmployeeCode),
                     "dateofjoining" => request.SortDirection == "desc"
                         ? query.OrderByDescending(t => t.DateOfJoining)
                         : query.OrderBy(t => t.DateOfJoining),
                     "experience" => request.SortDirection == "desc"
-                        ? query.OrderByDescending(t => t.Experience)
-                        : query.OrderBy(t => t.Experience),
+                        ? query.OrderByDescending(t => t.TotalYearsOfExperience)
+                        : query.OrderBy(t => t.TotalYearsOfExperience),
                     _ => query.OrderBy(t => t.Name.LastName) // Default: sort by last name
                 };
 
@@ -89,11 +89,11 @@ namespace SchoolManagement.Application.Teachers.Handlers.Queries
                     FullName = t.FullName,
                     Email = t.Email.Value,
                     PhoneNumber = t.PhoneNumber.Value,
-                    EmployeeId = t.EmployeeId,
+                    EmployeeId = t.EmployeeCode,
                     DateOfJoining = t.DateOfJoining,
                     Qualification = t.Qualification,
-                    Experience = t.Experience,
-                    TotalExperience = t.GetTotalYearsOfExperience(),
+                    Experience = t.PriorExperience,
+                    TotalExperience = t.TotalYearsOfExperience,
                     DepartmentId = t.DepartmentId,
                     IsActive = t.IsActive,
                     TotalTeachingAssignments = t.GetTotalTeachingAssignments(),

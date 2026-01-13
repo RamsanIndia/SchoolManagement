@@ -7,9 +7,7 @@ using SchoolManagement.Domain.Entities;
 using SchoolManagement.Domain.Exceptions;
 using SchoolManagement.Domain.ValueObjects;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SchoolManagement.Application.Teachers.Handlers.Commands
@@ -19,114 +17,121 @@ namespace SchoolManagement.Application.Teachers.Handlers.Commands
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<CreateTeacherCommandHandler> _logger;
+        private readonly ITenantService _tenantService;
 
         public CreateTeacherCommandHandler(
             IUnitOfWork unitOfWork,
             ICurrentUserService currentUserService,
-            ILogger<CreateTeacherCommandHandler> logger)
+            ILogger<CreateTeacherCommandHandler> logger,
+            ITenantService tenantService)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _logger = logger;
+            _tenantService = tenantService;
         }
 
-        public async Task<Result<Guid>> Handle(
-            CreateTeacherCommand request,
-            CancellationToken cancellationToken)
+        public async Task<Result<Guid>> Handle(CreateTeacherCommand request, CancellationToken cancellationToken)
         {
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
             try
             {
-                // Business validation: Check if employee ID already exists
+                // ✅ Tenant/School from current user context
+                var tenantId = _tenantService.TenantId;
+                var schoolId = _tenantService.SchoolId;
+
+                // ✅ Business validation: Unique EmployeeCode in tenant/school
                 var existingTeacher = await _unitOfWork.TeachersRepository
-                    .FirstOrDefaultAsync(t => t.EmployeeId == request.EmployeeId.ToUpper(), cancellationToken);
+                    .FirstOrDefaultAsync(t => t.TenantId == tenantId
+                                           && t.SchoolId == schoolId
+                                           && t.EmployeeCode == request.EmployeeCode.ToUpperInvariant(),
+                                      cancellationToken);
 
                 if (existingTeacher != null)
                 {
-                    return Result<Guid>.Failure(
-                        "EmployeeIdExists",
-                        $"Employee ID '{request.EmployeeId}' is already in use"
-                    );
+                    return Result<Guid>.Failure("EmployeeCodeExists",
+                        $"Employee Code '{request.EmployeeCode}' already exists in this school");
                 }
 
-                // Business validation: Check if email already exists
+                // ✅ Unique Email in tenant/school
                 var existingEmail = await _unitOfWork.TeachersRepository
-                    .FirstOrDefaultAsync(t => t.Email.Value == request.Email.ToLower(), cancellationToken);
+                    .FirstOrDefaultAsync(t => t.TenantId == tenantId
+                                           && t.SchoolId == schoolId
+                                           && t.Email.Value == request.Email.ToLowerInvariant(),
+                                      cancellationToken);
 
                 if (existingEmail != null)
                 {
-                    return Result<Guid>.Failure(
-                        "EmailExists",
-                        $"Email '{request.Email}' is already registered"
-                    );
+                    return Result<Guid>.Failure("EmailExists",
+                        $"Email '{request.Email}' already registered in this school");
                 }
 
-                // Business validation: Verify department exists if provided
+                // ✅ Department exists
                 if (request.DepartmentId.HasValue)
                 {
                     var department = await _unitOfWork.DepartmentRepository
                         .GetByIdAsync(request.DepartmentId.Value, cancellationToken);
-
                     if (department == null)
                     {
-                        return Result<Guid>.Failure(
-                            "DepartmentNotFound",
-                            $"Department with ID '{request.DepartmentId}' not found"
-                        );
+                        return Result<Guid>.Failure("DepartmentNotFound",
+                            $"Department '{request.DepartmentId}' not found");
                     }
                 }
 
-                // Create address value object
-                var address = new Address(
-                    request.Street,
-                    request.City,
-                    request.State,
-                    request.PostalCode,
-                    request.Country
-                );
+                // ✅ Value Objects
+                var name = new FullName(request.FirstName.Trim(), request.LastName.Trim());
+                var email = new Email(request.Email.Trim().ToLowerInvariant());
+                var phone = new PhoneNumber(request.PhoneNumber?.Trim());
+                var address = request.Address != null
+                    ? new Address(request.Address.Street, request.Address.City,
+                                  request.Address.State, request.Address.ZipCode, request.Address.Country)
+                    : null;
 
-                // Create teacher using factory method
+                // ✅ Factory method - EXACT match
                 var teacher = Teacher.Create(
-                    request.FirstName,
-                    request.LastName,
-                    request.Email,
-                    request.PhoneNumber,
-                    request.EmployeeId,
-                    request.DateOfJoining,
-                    request.Qualification,
-                    request.Experience,
-                    address,
-                    request.DepartmentId
-                );
+                    tenantId: tenantId,
+                    schoolId: (Guid)schoolId,
+                    firstName: request.FirstName.Trim(),
+                    lastName: request.LastName.Trim(),
+                    email: request.Email.Trim().ToLowerInvariant(),
+                    phoneNumber: request.PhoneNumber?.Trim(),
+                    employeeCode: request.EmployeeCode.Trim().ToUpperInvariant(),
+                    dateOfJoining: request.DateOfJoining.Date,
+                    dateOfBirth: request.DateOfBirth.Date,
+                    gender: request.Gender?.Trim(),
+                    qualification: request.Qualification.Trim(),
+                    priorExperience: request.PriorExperience,
+                    address: address,
+                    specialization: request.Specialization?.Trim(),
+                    salary: request.Salary,
+                    employmentType: request.EmploymentType?.Trim() ?? "Full-time",
+                    departmentId: request.DepartmentId,
+                    createdBy: _currentUserService.Username ?? "System",
+                    createdIp: _currentUserService.IpAddress);
 
-                //teacher.CreatedBy = _currentUserService.Username;
-
-                // Persist to database
+                // ✅ Persist
                 await _unitOfWork.TeachersRepository.AddAsync(teacher, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                _logger.LogInformation(
-                    "Teacher created successfully. ID: {TeacherId}, EmployeeId: {EmployeeId}",
-                    teacher.Id,
-                    teacher.EmployeeId
-                );
+                _logger.LogInformation("Teacher created: ID={TeacherId}, Code={EmployeeCode}, School={SchoolId}",
+                    teacher.Id, teacher.EmployeeCode, schoolId);
 
-                return Result<Guid>.Success(
-                    teacher.Id,
-                    $"Teacher '{teacher.FullName}' created successfully"
-                );
+                return Result<Guid>.Success(teacher.Id,
+                    $"Teacher '{teacher.Name.FullNameString}' created successfully");
             }
             catch (DomainException ex)
             {
-                _logger.LogWarning(ex, "Domain validation failed while creating teacher");
-                return Result<Guid>.Failure("DomainValidationFailed", ex.Message);
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                _logger.LogWarning(ex, "Domain validation failed: {Message}", ex.Message);
+                return Result<Guid>.Failure("DomainValidationError", ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating teacher");
-                return Result<Guid>.Failure(
-                    "UnexpectedError",
-                    "An unexpected error occurred while creating the teacher"
-                );
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                _logger.LogError(ex, "Failed to create teacher");
+                return Result<Guid>.Failure("UnexpectedError", "Failed to create teacher");
             }
         }
     }

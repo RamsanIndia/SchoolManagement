@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using SchoolManagement.Application.Behaviors;
 using SchoolManagement.Application.Interfaces;
 using SchoolManagement.Application.Services;
 using SchoolManagement.Application.Shared.Correlation;
@@ -140,6 +141,7 @@ namespace SchoolManagement.API.Extensions
 
             services.AddScoped<IAcademicYearRepository, AcademicYearRepository>();
             services.AddScoped<ITeacherRepository, TeacherRepository>();
+            services.AddScoped<ISchoolRepository, SchoolRepository>();
 
             return services;
         }
@@ -172,7 +174,7 @@ namespace SchoolManagement.API.Extensions
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IAuditService, AuditService>();
             services.AddScoped<IChangeTrackerService, ChangeTrackerService>();
-            
+            services.AddScoped<ICacheService, HybridCacheService>();
             return services;
         }
 
@@ -251,6 +253,9 @@ namespace SchoolManagement.API.Extensions
 
             // Register MediatR Pipeline Behaviors
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ActivityLogBehavior<,>));
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TenantValidationBehavior<,>));
+            services.AddScoped<ITenantService, TenantService>();
+
 
             return services;
         }

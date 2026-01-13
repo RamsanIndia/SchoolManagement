@@ -12,8 +12,8 @@ using SchoolManagement.Persistence;
 namespace SchoolManagement.Persistence.Migrations
 {
     [DbContext(typeof(SchoolManagementDbContext))]
-    [Migration("20251229082724_FixAcademicConfiguration")]
-    partial class FixAcademicConfiguration
+    [Migration("20260112102141_ChangeTimestampToTimestamptz")]
+    partial class ChangeTimestampToTimestamptz
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -37,12 +37,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime>("EndDate")
@@ -75,11 +79,17 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<int>("StartYear")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -87,6 +97,9 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -135,6 +148,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(45)
                         .HasColumnType("character varying(45)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -165,6 +184,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
@@ -174,6 +199,9 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -200,15 +228,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -230,16 +262,25 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -255,46 +296,100 @@ namespace SchoolManagement.Persistence.Migrations
             modelBuilder.Entity("SchoolManagement.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Action")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
-                    b.Property<string>("Details")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<string>("ChangedFields")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<long?>("Duration")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("EntityId")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("EntityName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("IpAddress")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("NewValues")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("OldValues")
+                        .HasColumnType("jsonb");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("Timestamp");
 
                     b.Property<string>("UserAgent")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("UserEmail")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuditLogs");
+                    b.HasIndex("Action")
+                        .HasDatabaseName("IX_AuditLogs_Action");
+
+                    b.HasIndex("EntityName")
+                        .HasDatabaseName("IX_AuditLogs_EntityName");
+
+                    b.HasIndex("Timestamp")
+                        .IsDescending()
+                        .HasDatabaseName("IX_AuditLogs_Timestamp");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_AuditLogs_UserId");
+
+                    b.HasIndex("EntityName", "EntityId")
+                        .HasDatabaseName("IX_AuditLogs_EntityName_EntityId");
+
+                    b.HasIndex("UserId", "Timestamp")
+                        .IsDescending()
+                        .HasDatabaseName("IX_AuditLogs_UserId_Timestamp");
+
+                    b.HasIndex("EntityName", "Action", "Timestamp")
+                        .HasDatabaseName("IX_AuditLogs_EntityName_Action_Timestamp");
+
+                    b.ToTable("AuditLogs", null, t =>
+                        {
+                            t.HasComment("Audit log table - Consider partitioning by Timestamp for large datasets");
+                        });
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.BiometricDevice", b =>
@@ -307,11 +402,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("IpAddress")
@@ -344,10 +443,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -380,12 +488,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -415,12 +527,21 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -464,11 +585,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -497,6 +622,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
@@ -504,6 +635,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -526,12 +660,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -561,12 +699,21 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -591,11 +738,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -623,6 +774,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -631,6 +788,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -650,16 +810,20 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("DateOfBirth")
                         .HasColumnType("date");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("DepartmentId")
                         .HasColumnType("uuid");
@@ -730,6 +894,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -737,12 +904,18 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasDefaultValue("Active");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -795,15 +968,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
 
                     b.Property<string>("DeviceId")
                         .IsRequired()
@@ -837,13 +1014,22 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -864,11 +1050,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<Guid>("ExamId")
@@ -903,6 +1093,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -912,10 +1105,16 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<Guid>("SubjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -938,11 +1137,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<Guid>("FeeStructureId")
@@ -974,10 +1177,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("TransactionId")
@@ -988,6 +1197,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1018,11 +1230,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("DocumentPath")
@@ -1059,8 +1275,14 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("ToDate")
                         .HasColumnType("timestamp with time zone");
@@ -1069,6 +1291,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1094,11 +1319,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -1141,8 +1370,14 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
@@ -1151,6 +1386,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1181,11 +1419,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("DeliveredAt")
@@ -1230,16 +1472,25 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<DateTime?>("ScheduledAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("SentAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1260,11 +1511,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<Guid>("EmployeeId")
@@ -1300,8 +1555,14 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("TotalAllowances")
                         .HasColumnType("numeric");
@@ -1313,6 +1574,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.Property<int>("WorkingDays")
@@ -1348,11 +1612,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("EmployeeComments")
@@ -1397,13 +1665,22 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1430,11 +1707,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -1477,10 +1758,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1506,14 +1796,18 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("ExpiryDate")
                         .HasColumnType("timestamptz");
@@ -1542,6 +1836,9 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<string>("RevokedBy")
+                        .HasColumnType("text");
+
                     b.Property<string>("RevokedByIp")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -1551,6 +1848,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -1569,7 +1872,13 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId1")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -1583,6 +1892,8 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_RefreshTokens_UserId");
+
+                    b.HasIndex("UserId1");
 
                     b.HasIndex("Token", "IsRevoked")
                         .HasDatabaseName("IX_RefreshTokens_Token_IsRevoked");
@@ -1606,11 +1917,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Description")
@@ -1645,10 +1960,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1693,11 +2017,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
@@ -1718,10 +2046,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1744,11 +2081,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
@@ -1772,10 +2113,19 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -1786,6 +2136,136 @@ namespace SchoolManagement.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("RolePermissions");
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.School", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ContactPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("CreatedIP")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("FoundedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("MaxStudentCapacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1000);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasDefaultValue("Active");
+
+                    b.Property<Guid?>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasDefaultValue("Primary");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Schools_TenantId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Schools_TenantId_Code");
+
+                    b.HasIndex("TenantId", "IsActive")
+                        .HasDatabaseName("IX_Schools_TenantId_IsActive");
+
+                    b.HasIndex("TenantId", "Name")
+                        .HasDatabaseName("IX_Schools_TenantId_Name");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("IX_Schools_TenantId_Status");
+
+                    b.HasIndex("TenantId", "IsActive", "IsDeleted")
+                        .HasDatabaseName("IX_Schools_TenantId_IsActive_IsDeleted");
+
+                    b.ToTable("Schools", "school");
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Section", b =>
@@ -1806,12 +2286,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
@@ -1833,12 +2317,21 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -1877,12 +2370,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
@@ -1901,6 +2398,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("SectionId")
                         .HasColumnType("uuid");
@@ -1926,12 +2426,18 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.Property<int>("WeeklyPeriods")
                         .HasColumnType("integer");
@@ -1963,7 +2469,6 @@ namespace SchoolManagement.Persistence.Migrations
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Student", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("AdmissionDate")
@@ -1972,7 +2477,12 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<string>("AdmissionNumber")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("BloodGroup")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
 
                     b.Property<Guid>("ClassId")
                         .HasColumnType("uuid");
@@ -1980,66 +2490,95 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("DateOfBirth")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Gender")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("MiddleName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Nationality")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("PhotoUrl")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Religion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("RollNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SchoolId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("SectionId")
                         .HasColumnType("uuid");
@@ -2048,57 +2587,76 @@ namespace SchoolManagement.Persistence.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("varchar(20)")
                         .HasDefaultValue("Active");
 
-                    b.Property<string>("StudentId")
+                    b.Property<string>("StudentCode")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid?>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AdmissionDate")
-                        .HasDatabaseName("IX_Students_AdmissionDate");
+                    b.HasIndex("ClassId");
 
-                    b.HasIndex("AdmissionNumber")
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("SectionId");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Students_TenantId");
+
+                    b.HasIndex("TenantId", "SchoolId")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId");
+
+                    b.HasIndex("TenantId", "SchoolId", "AdmissionDate")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_AdmissionDate");
+
+                    b.HasIndex("TenantId", "SchoolId", "AdmissionNumber")
                         .IsUnique()
-                        .HasDatabaseName("IX_Students_AdmissionNumber");
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_AdmissionNumber");
 
-                    b.HasIndex("ClassId")
-                        .HasDatabaseName("IX_Students_Class");
+                    b.HasIndex("TenantId", "SchoolId", "ClassId")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_ClassId");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("TenantId", "SchoolId", "SectionId")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_SectionId");
+
+                    b.HasIndex("TenantId", "SchoolId", "Status")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_Status");
+
+                    b.HasIndex("TenantId", "SchoolId", "StudentCode")
                         .IsUnique()
-                        .HasDatabaseName("IX_Students_Email");
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_StudentCode");
 
-                    b.HasIndex("SectionId")
-                        .HasDatabaseName("IX_Students_Section");
+                    b.HasIndex("TenantId", "SchoolId", "ClassId", "SectionId")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_Class_Section");
 
-                    b.HasIndex("Status")
-                        .HasDatabaseName("IX_Students_Status");
+                    b.HasIndex("TenantId", "SchoolId", "ClassId", "Status")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_Class_Status");
 
-                    b.HasIndex("StudentId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Students_StudentId");
+                    b.HasIndex("TenantId", "SchoolId", "FirstName", "LastName")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_Name");
 
-                    b.HasIndex("ClassId", "SectionId")
-                        .HasDatabaseName("IX_Students_Class_Section");
+                    b.HasIndex("TenantId", "SchoolId", "IsActive", "IsDeleted")
+                        .HasDatabaseName("IX_Students_TenantId_SchoolId_IsActive_IsDeleted");
 
-                    b.HasIndex("ClassId", "Status")
-                        .HasDatabaseName("IX_Students_Class_Status");
-
-                    b.HasIndex("SectionId", "Status")
-                        .HasDatabaseName("IX_Students_Section_Status");
-
-                    b.ToTable("Students", null, t =>
+                    b.ToTable("Students", "dbo", t =>
                         {
                             t.HasCheckConstraint("CK_Students_AdmissionDate", "\"AdmissionDate\" <= CURRENT_DATE");
 
@@ -2120,12 +2678,16 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("Email")
@@ -2166,6 +2728,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid>("ParentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasMaxLength(15)
@@ -2182,7 +2747,13 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -2191,6 +2762,9 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -2228,22 +2802,28 @@ namespace SchoolManagement.Persistence.Migrations
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Teacher", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("BloodGroup")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("date");
 
                     b.Property<DateTime>("DateOfJoining")
                         .HasColumnType("date");
@@ -2251,17 +2831,40 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<DateTime?>("DateOfLeaving")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("EmployeeId")
+                    b.Property<string>("EmergencyContact")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("EmergencyContactPhone")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
-                    b.Property<decimal>("Experience")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("EmploymentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -2269,12 +2872,23 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PhotoUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<decimal>("PriorExperience")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("Qualification")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("varchar(200)");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -2282,34 +2896,190 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<decimal>("Salary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("SchoolId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Specialization")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid?>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DateOfJoining")
-                        .HasDatabaseName("IX_Teachers_DateOfJoining");
+                    b.HasIndex("DepartmentId");
 
-                    b.HasIndex("EmployeeId")
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Teachers_TenantId");
+
+                    b.HasIndex("TenantId", "SchoolId")
+                        .HasDatabaseName("IX_Teachers_TenantId_SchoolId");
+
+                    b.HasIndex("TenantId", "SchoolId", "DateOfJoining")
+                        .HasDatabaseName("IX_Teachers_TenantId_SchoolId_DateOfJoining");
+
+                    b.HasIndex("TenantId", "SchoolId", "EmployeeCode")
                         .IsUnique()
-                        .HasDatabaseName("IX_Teachers_EmployeeId");
+                        .HasDatabaseName("IX_Teachers_TenantId_SchoolId_EmployeeCode");
 
-                    b.HasIndex("IsActive")
-                        .HasDatabaseName("IX_Teachers_IsActive");
+                    b.HasIndex("TenantId", "SchoolId", "IsActive")
+                        .HasDatabaseName("IX_Teachers_TenantId_SchoolId_IsActive");
 
-                    b.HasIndex("DepartmentId", "IsActive")
-                        .HasDatabaseName("IX_Teachers_Department_IsActive");
+                    b.HasIndex("TenantId", "SchoolId", "DepartmentId", "IsActive")
+                        .HasDatabaseName("IX_Teachers_TenantId_SchoolId_Department_IsActive");
 
-                    b.ToTable("Teachers", null, t =>
+                    b.HasIndex("TenantId", "SchoolId", "IsActive", "IsDeleted")
+                        .HasDatabaseName("IX_Teachers_TenantId_SchoolId_IsActive_IsDeleted");
+
+                    b.ToTable("Teachers", "dbo", t =>
                         {
+                            t.HasCheckConstraint("CK_Teachers_DateOfBirth", "\"DateOfBirth\" < CURRENT_DATE");
+
                             t.HasCheckConstraint("CK_Teachers_DateOfLeaving", "\"DateOfLeaving\" IS NULL OR \"DateOfLeaving\" >= \"DateOfJoining\"");
 
-                            t.HasCheckConstraint("CK_Teachers_Experience", "\"Experience\" >= 0 AND \"Experience\" <= 50");
+                            t.HasCheckConstraint("CK_Teachers_MinimumAge", "EXTRACT(YEAR FROM AGE(CURRENT_DATE, \"DateOfBirth\")) >= 18");
+
+                            t.HasCheckConstraint("CK_Teachers_PriorExperience", "\"PriorExperience\" >= 0 AND \"PriorExperience\" <= 50");
+
+                            t.HasCheckConstraint("CK_Teachers_Salary", "\"Salary\" >= 0");
                         });
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.Tenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ConnectionString")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("CreatedIP")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("MaxSchools")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("MaxUsers")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(50);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasDefaultValue("Basic");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SubscriptionExpiryDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("UpdatedIP")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Tenants_Code");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("IX_Tenants_IsActive");
+
+                    b.HasIndex("IsDeleted")
+                        .HasDatabaseName("IX_Tenants_IsDeleted");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("IX_Tenants_Name");
+
+                    b.HasIndex("SubscriptionExpiryDate")
+                        .HasDatabaseName("IX_Tenants_SubscriptionExpiryDate");
+
+                    b.HasIndex("IsActive", "IsDeleted")
+                        .HasDatabaseName("IX_Tenants_IsActive_IsDeleted");
+
+                    b.ToTable("Tenants", "dbo");
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.TimeTableEntry", b =>
@@ -2322,11 +3092,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("DayOfWeek")
@@ -2334,8 +3102,11 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("interval");
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -2346,22 +3117,17 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<int>("PeriodNumber")
                         .HasColumnType("integer");
 
-                    b.Property<string>("RoomNumber")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
-                    b.Property<Guid>("SectionId")
+                    b.Property<Guid?>("SchoolId")
                         .HasColumnType("uuid");
 
-                    b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("interval");
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("SubjectId")
                         .HasColumnType("uuid");
@@ -2369,10 +3135,16 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<Guid>("TeacherId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UpdatedIP")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -2393,38 +3165,46 @@ namespace SchoolManagement.Persistence.Migrations
             modelBuilder.Entity("SchoolManagement.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamptz")
+                        .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
                         .HasColumnName("Email");
 
                     b.Property<bool>("EmailVerified")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<Guid?>("EmployeeId")
                         .HasColumnType("uuid");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -2432,10 +3212,10 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("timestamptz");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("LockedUntil")
-                        .HasColumnType("timestamptz");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("LoginAttempts")
                         .ValueGeneratedOnAdd()
@@ -2445,16 +3225,17 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("PhoneNumber")
-                        .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("varchar(20)")
                         .HasColumnName("PhoneNumber");
 
                     b.Property<bool>("PhoneVerified")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -2462,56 +3243,79 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("StudentId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamptz");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
-                    b.Property<int>("UserType")
+                    b.Property<string>("UpdatedIP")
                         .HasMaxLength(50)
-                        .HasColumnType("integer");
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("UserType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Users_Email");
 
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
-                    b.HasIndex("IsActive")
-                        .HasDatabaseName("IX_Users_IsActive");
+                    b.HasIndex("SchoolId");
 
                     b.HasIndex("StudentId")
                         .IsUnique();
 
-                    b.HasIndex("UserType")
-                        .HasDatabaseName("IX_Users_UserType");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Users_TenantId");
 
-                    b.HasIndex("Username")
+                    b.HasIndex("TenantId", "SchoolId")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId");
+
+                    b.HasIndex("TenantId", "Username")
                         .IsUnique()
-                        .HasDatabaseName("IX_Users_Username");
+                        .HasDatabaseName("IX_Users_TenantId_Username");
 
-                    b.HasIndex("EmployeeId", "IsActive")
-                        .HasDatabaseName("IX_Users_EmployeeId_IsActive")
+                    b.HasIndex("TenantId", "SchoolId", "IsActive")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId_IsActive");
+
+                    b.HasIndex("TenantId", "SchoolId", "LastLoginAt")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId_LastLoginAt");
+
+                    b.HasIndex("TenantId", "SchoolId", "UserType")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId_UserType");
+
+                    b.HasIndex("TenantId", "SchoolId", "EmployeeId", "IsActive")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId_EmployeeId_IsActive")
                         .HasFilter("\"EmployeeId\" IS NOT NULL");
 
-                    b.HasIndex("StudentId", "IsActive")
-                        .HasDatabaseName("IX_Users_StudentId_IsActive")
+                    b.HasIndex("TenantId", "SchoolId", "IsActive", "IsDeleted")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId_IsActive_IsDeleted");
+
+                    b.HasIndex("TenantId", "SchoolId", "StudentId", "IsActive")
+                        .HasDatabaseName("IX_Users_TenantId_SchoolId_StudentId_IsActive")
                         .HasFilter("\"StudentId\" IS NOT NULL");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users", "dbo");
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.UserRole", b =>
@@ -2532,11 +3336,15 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedIP")
-                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ExpiresAt")
@@ -2562,7 +3370,8 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("RoleId");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -2570,29 +3379,46 @@ namespace SchoolManagement.Persistence.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<Guid?>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("UpdatedIP")
+                        .HasColumnType("text");
 
-                    b.Property<Guid>("UserId1")
-                        .HasColumnType("uuid");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("UserId");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExpiresAt");
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_UserRoles_ExpiresAt")
+                        .HasFilter("\"ExpiresAt\" IS NOT NULL");
 
-                    b.HasIndex("IsActive");
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("IX_UserRoles_IsActive");
 
-                    b.HasIndex("RoleId");
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("IX_UserRoles_RoleId");
 
-                    b.HasIndex("UserId1");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_UserRoles_UserId");
 
-                    b.HasIndex("UserId", "RoleId", "IsActive");
+                    b.HasIndex("UserId", "IsActive")
+                        .HasDatabaseName("IX_UserRoles_UserId_IsActive");
+
+                    b.HasIndex("UserId", "RoleId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserRoles_UserId_RoleId_Unique");
 
                     b.ToTable("UserRoles", (string)null);
                 });
@@ -3032,9 +3858,15 @@ namespace SchoolManagement.Persistence.Migrations
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.RefreshToken", b =>
                 {
-                    b.HasOne("SchoolManagement.Domain.Entities.User", "User")
+                    b.HasOne("SchoolManagement.Domain.Entities.User", null)
                         .WithMany("RefreshTokens")
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolManagement.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -3077,6 +3909,15 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.School", b =>
+                {
+                    b.HasOne("SchoolManagement.Domain.Entities.Tenant", null)
+                        .WithMany("Schools")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Section", b =>
@@ -3175,6 +4016,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Students_Classes");
 
+                    b.HasOne("SchoolManagement.Domain.Entities.School", null)
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("SchoolManagement.Domain.Entities.Section", "Section")
                         .WithMany("Students")
                         .HasForeignKey("SectionId")
@@ -3190,36 +4037,36 @@ namespace SchoolManagement.Persistence.Migrations
                             b1.Property<string>("City")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("City");
 
                             b1.Property<string>("Country")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("Country");
 
                             b1.Property<string>("PostalCode")
                                 .IsRequired()
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("varchar(20)")
                                 .HasColumnName("PostalCode");
 
                             b1.Property<string>("State")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("State");
 
                             b1.Property<string>("Street")
                                 .IsRequired()
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("varchar(200)")
                                 .HasColumnName("Street");
 
                             b1.HasKey("StudentId");
 
-                            b1.ToTable("Students");
+                            b1.ToTable("Students", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("StudentId");
@@ -3233,11 +4080,11 @@ namespace SchoolManagement.Persistence.Migrations
                             b1.Property<string>("DeviceId")
                                 .IsRequired()
                                 .HasMaxLength(50)
-                                .HasColumnType("character varying(50)")
+                                .HasColumnType("varchar(50)")
                                 .HasColumnName("BiometricDeviceId");
 
                             b1.Property<DateTime>("EnrollmentDate")
-                                .HasColumnType("timestamp")
+                                .HasColumnType("timestamp with time zone")
                                 .HasColumnName("BiometricEnrollmentDate");
 
                             b1.Property<bool>("IsActive")
@@ -3249,12 +4096,12 @@ namespace SchoolManagement.Persistence.Migrations
                             b1.Property<string>("TemplateHash")
                                 .IsRequired()
                                 .HasMaxLength(500)
-                                .HasColumnType("character varying(500)")
+                                .HasColumnType("varchar(500)")
                                 .HasColumnName("BiometricTemplateHash");
 
                             b1.HasKey("StudentId");
 
-                            b1.ToTable("Students");
+                            b1.ToTable("Students", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("StudentId");
@@ -3337,6 +4184,12 @@ namespace SchoolManagement.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("FK_Teachers_Departments");
 
+                    b.HasOne("SchoolManagement.Domain.Entities.School", null)
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("SchoolManagement.Domain.ValueObjects.Address", "Address", b1 =>
                         {
                             b1.Property<Guid>("TeacherId")
@@ -3345,36 +4198,36 @@ namespace SchoolManagement.Persistence.Migrations
                             b1.Property<string>("City")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("City");
 
                             b1.Property<string>("Country")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("Country");
 
                             b1.Property<string>("PostalCode")
                                 .IsRequired()
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("varchar(20)")
                                 .HasColumnName("PostalCode");
 
                             b1.Property<string>("State")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("State");
 
                             b1.Property<string>("Street")
                                 .IsRequired()
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("varchar(200)")
                                 .HasColumnName("Street");
 
                             b1.HasKey("TeacherId");
 
-                            b1.ToTable("Teachers");
+                            b1.ToTable("Teachers", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeacherId");
@@ -3388,18 +4241,18 @@ namespace SchoolManagement.Persistence.Migrations
                             b1.Property<string>("FirstName")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("FirstName");
 
                             b1.Property<string>("LastName")
                                 .IsRequired()
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("LastName");
 
                             b1.HasKey("TeacherId");
 
-                            b1.ToTable("Teachers");
+                            b1.ToTable("Teachers", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeacherId");
@@ -3412,17 +4265,13 @@ namespace SchoolManagement.Persistence.Migrations
 
                             b1.Property<string>("Value")
                                 .IsRequired()
-                                .HasMaxLength(255)
-                                .HasColumnType("character varying(255)")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)")
                                 .HasColumnName("Email");
 
                             b1.HasKey("TeacherId");
 
-                            b1.HasIndex("Value")
-                                .IsUnique()
-                                .HasDatabaseName("IX_Teachers_Email");
-
-                            b1.ToTable("Teachers");
+                            b1.ToTable("Teachers", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeacherId");
@@ -3435,13 +4284,13 @@ namespace SchoolManagement.Persistence.Migrations
 
                             b1.Property<string>("Value")
                                 .IsRequired()
-                                .HasMaxLength(15)
-                                .HasColumnType("character varying(15)")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)")
                                 .HasColumnName("PhoneNumber");
 
                             b1.HasKey("TeacherId");
 
-                            b1.ToTable("Teachers");
+                            b1.ToTable("Teachers", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("TeacherId");
@@ -3471,7 +4320,53 @@ namespace SchoolManagement.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Sections_TimeTableEntries");
 
+                    b.OwnsOne("SchoolManagement.Domain.ValueObjects.RoomNumber", "RoomNumber", b1 =>
+                        {
+                            b1.Property<Guid>("TimeTableEntryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("RoomNumber");
+
+                            b1.HasKey("TimeTableEntryId");
+
+                            b1.ToTable("TimeTableEntries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TimeTableEntryId");
+                        });
+
+                    b.OwnsOne("SchoolManagement.Domain.ValueObjects.TimePeriod", "TimePeriod", b1 =>
+                        {
+                            b1.Property<Guid>("TimeTableEntryId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<TimeSpan>("EndTime")
+                                .HasColumnType("interval")
+                                .HasColumnName("EndTime");
+
+                            b1.Property<TimeSpan>("StartTime")
+                                .HasColumnType("interval")
+                                .HasColumnName("StartTime");
+
+                            b1.HasKey("TimeTableEntryId");
+
+                            b1.ToTable("TimeTableEntries");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TimeTableEntryId");
+                        });
+
+                    b.Navigation("RoomNumber")
+                        .IsRequired();
+
                     b.Navigation("Section");
+
+                    b.Navigation("TimePeriod")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.User", b =>
@@ -3480,6 +4375,11 @@ namespace SchoolManagement.Persistence.Migrations
                         .WithOne()
                         .HasForeignKey("SchoolManagement.Domain.Entities.User", "EmployeeId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SchoolManagement.Domain.Entities.School", "School")
+                        .WithMany("Users")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SchoolManagement.Domain.Entities.Student", "Student")
                         .WithOne()
@@ -3505,7 +4405,7 @@ namespace SchoolManagement.Persistence.Migrations
 
                             b1.HasKey("UserId");
 
-                            b1.ToTable("Users");
+                            b1.ToTable("Users", "dbo");
 
                             b1.WithOwner()
                                 .HasForeignKey("UserId");
@@ -3515,6 +4415,8 @@ namespace SchoolManagement.Persistence.Migrations
 
                     b.Navigation("FullName")
                         .IsRequired();
+
+                    b.Navigation("School");
 
                     b.Navigation("Student");
                 });
@@ -3527,15 +4429,9 @@ namespace SchoolManagement.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SchoolManagement.Domain.Entities.User", null)
+                    b.HasOne("SchoolManagement.Domain.Entities.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SchoolManagement.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -3598,6 +4494,11 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Navigation("UserRoles");
                 });
 
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.School", b =>
+                {
+                    b.Navigation("Users");
+                });
+
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Section", b =>
                 {
                     b.Navigation("SectionSubjects");
@@ -3623,6 +4524,11 @@ namespace SchoolManagement.Persistence.Migrations
                     b.Navigation("ClassTeacherSections");
 
                     b.Navigation("TeachingAssignments");
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.Tenant", b =>
+                {
+                    b.Navigation("Schools");
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.User", b =>

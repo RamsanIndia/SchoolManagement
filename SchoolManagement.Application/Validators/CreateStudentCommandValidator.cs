@@ -52,7 +52,7 @@ namespace SchoolManagement.Application.Validators
             // Address validation
             RuleFor(x => x.Address)
                 .NotNull().WithMessage("Address is required")
-                .SetValidator(new AddressDtoValidator());
+                .SetValidator(new AddressDtoValidator() as IValidator<AddressDto>);
 
             // Admission Number validation
             RuleFor(x => x.AdmissionNumber)

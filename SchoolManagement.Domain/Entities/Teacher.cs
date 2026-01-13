@@ -13,25 +13,53 @@ namespace SchoolManagement.Domain.Entities
     /// </summary>
     public class Teacher : BaseEntity
     {
-        // Value Objects for type safety and validation
+        // ===== VALUE OBJECTS =====
         public FullName Name { get; private set; }
         public Email Email { get; private set; }
         public PhoneNumber PhoneNumber { get; private set; }
         public Address Address { get; private set; }
 
-        // Primitive properties
-        public string EmployeeId { get; private set; }
+        // ===== IDENTITY PROPERTIES =====
+        public string EmployeeCode { get; private set; } // Unique teacher identifier
         public DateTime DateOfJoining { get; private set; }
         public DateTime? DateOfLeaving { get; private set; }
-        public string Qualification { get; private set; }
-        public decimal Experience { get; private set; } // In years
-        public Guid? DepartmentId { get; private set; }
-        public bool IsActive { get; private set; }
 
-        // Computed property
+        // ===== PROFESSIONAL PROPERTIES =====
+        public string Qualification { get; private set; }
+        public decimal PriorExperience { get; private set; } // Experience before joining (in years)
+        public Guid? DepartmentId { get; private set; }
+        public string Specialization { get; private set; }
+        public decimal Salary { get; private set; }
+        public string EmploymentType { get; private set; } // Full-time, Part-time, Contract
+
+        // ===== ADDITIONAL PROPERTIES =====
+        public string Gender { get; private set; }
+        public DateTime DateOfBirth { get; private set; }
+        public string BloodGroup { get; private set; }
+        public string EmergencyContact { get; private set; }
+        public string EmergencyContactPhone { get; private set; }
+        public string PhotoUrl { get; private set; }
+
+        // ===== COMPUTED PROPERTIES =====
         public string FullName => Name.FullNameString;
 
-        // Navigation Properties
+        public int TotalYearsOfExperience
+        {
+            get
+            {
+                var serviceYears = (DateTime.UtcNow - DateOfJoining).TotalDays / 365.25;
+                return (int)Math.Floor(PriorExperience + (decimal)serviceYears);
+            }
+        }
+
+        public bool IsCurrentlyEmployed => IsActive && !IsDeleted && !DateOfLeaving.HasValue;
+
+        public bool IsSeniorTeacher => TotalYearsOfExperience >= 10;
+
+        public int Age => DateTime.Today.Year - DateOfBirth.Year -
+            (DateTime.Today.DayOfYear < DateOfBirth.DayOfYear ? 1 : 0);
+
+        // ===== NAVIGATION PROPERTIES =====
         public virtual Department Department { get; private set; }
 
         // Teacher teaches subjects through SectionSubject (teaching assignments)
@@ -42,54 +70,87 @@ namespace SchoolManagement.Domain.Entities
         private readonly List<Section> _classTeacherSections = new();
         public virtual IReadOnlyCollection<Section> ClassTeacherSections => _classTeacherSections.AsReadOnly();
 
-        // EF Core constructor
-        private Teacher() { }
+        // ===== EF CORE CONSTRUCTOR =====
+        private Teacher() : base() { }
 
+        // ===== FACTORY METHOD =====
         /// <summary>
-        /// Factory Method - Creates a new teacher with validation
+        /// Creates a new teacher with validation
         /// </summary>
         public static Teacher Create(
+            Guid tenantId,
+            Guid schoolId,
             string firstName,
             string lastName,
             string email,
             string phoneNumber,
-            string employeeId,
+            string employeeCode,
             DateTime dateOfJoining,
+            DateTime dateOfBirth,
+            string gender,
             string qualification,
-            decimal experience,
+            decimal priorExperience,
             Address address,
-            Guid? departmentId = null)
+            string specialization = null,
+            decimal salary = 0,
+            string employmentType = "Full-time",
+            Guid? departmentId = null,
+            string createdBy = null,
+            string createdIp = null)
         {
-            ValidateExperience(experience);
+            // ✅ Validation
+            if (tenantId == Guid.Empty)
+                throw new ArgumentException("TenantId is required", nameof(tenantId));
+            if (schoolId == Guid.Empty)
+                throw new ArgumentException("SchoolId is required", nameof(schoolId));
+
+            ValidateEmployeeCode(employeeCode);
             ValidateQualification(qualification);
-            ValidateEmployeeId(employeeId);
+            ValidateExperience(priorExperience);
+            ValidateDateOfJoining(dateOfJoining);
+            ValidateDateOfBirth(dateOfBirth);
 
             var teacher = new Teacher
             {
                 Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                SchoolId = schoolId,
                 Name = new FullName(firstName, lastName),
                 Email = new Email(email),
                 PhoneNumber = new PhoneNumber(phoneNumber),
-                EmployeeId = employeeId.Trim().ToUpper(),
+                EmployeeCode = employeeCode.Trim().ToUpperInvariant(),
                 DateOfJoining = dateOfJoining,
+                DateOfBirth = dateOfBirth,
+                Gender = gender?.Trim(),
                 Qualification = qualification.Trim(),
-                Experience = experience,
+                PriorExperience = priorExperience,
                 Address = address,
+                Specialization = specialization?.Trim(),
+                Salary = salary,
+                EmploymentType = employmentType?.Trim() ?? "Full-time",
                 DepartmentId = departmentId,
-                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
 
-            teacher.AddDomainEvent(new TeacherCreatedEvent(
-                teacher.Id,
-                teacher.FullName,
-                teacher.Email.Value,
-                teacher.EmployeeId,
-                dateOfJoining
-            ));
+            // ✅ Set audit info
+            teacher.SetCreated(createdBy ?? "System", createdIp ?? "Unknown");
+            teacher.Activate(createdBy ?? "System");
+
+            // ✅ Domain event
+            //teacher.AddDomainEvent(new TeacherCreatedEvent(
+            //    teacher.Id,
+            //    teacher.TenantId,
+            //    teacher.SchoolId,
+            //    teacher.FullName,
+            //    teacher.Email.Value,
+            //    teacher.EmployeeCode,
+            //    dateOfJoining
+            //));
 
             return teacher;
         }
+
+        // ===== DOMAIN METHODS =====
 
         /// <summary>
         /// Updates teacher's personal information
@@ -99,19 +160,30 @@ namespace SchoolManagement.Domain.Entities
             string lastName,
             string phoneNumber,
             Address address,
-            string updatedBy)
+            string gender = null,
+            string bloodGroup = null,
+            string updatedBy = null,
+            string updatedIp = null)
         {
             Name = new FullName(firstName, lastName);
             PhoneNumber = new PhoneNumber(phoneNumber);
             Address = address;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = updatedBy;
 
-            AddDomainEvent(new TeacherPersonalDetailsUpdatedEvent(
-                Id,
-                Name.FullNameString,
-                phoneNumber
-            ));
+            if (!string.IsNullOrWhiteSpace(gender))
+                Gender = gender.Trim();
+
+            if (!string.IsNullOrWhiteSpace(bloodGroup))
+                BloodGroup = bloodGroup.Trim();
+
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherPersonalDetailsUpdatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    Name.FullNameDisplay,
+            //    phoneNumber
+            //));
         }
 
         /// <summary>
@@ -119,169 +191,272 @@ namespace SchoolManagement.Domain.Entities
         /// </summary>
         public void UpdateProfessionalDetails(
             string qualification,
-            decimal experience,
-            Guid? departmentId,
-            string updatedBy)
+            decimal priorExperience,
+            string specialization = null,
+            Guid? departmentId = null,
+            string updatedBy = null,
+            string updatedIp = null)
         {
             ValidateQualification(qualification);
-            ValidateExperience(experience);
+            ValidateExperience(priorExperience);
 
             var previousDepartment = DepartmentId;
 
             Qualification = qualification.Trim();
-            Experience = experience;
+            PriorExperience = priorExperience;
+            Specialization = specialization?.Trim();
             DepartmentId = departmentId;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = updatedBy;
 
-            AddDomainEvent(new TeacherProfessionalDetailsUpdatedEvent(
-                Id,
-                qualification,
-                experience,
-                previousDepartment,
-                departmentId
-            ));
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherProfessionalDetailsUpdatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    qualification,
+            //    priorExperience,
+            //    previousDepartment,
+            //    departmentId
+            //));
         }
 
         /// <summary>
         /// Updates teacher's email address
         /// </summary>
-        public void UpdateEmail(string newEmail, string updatedBy)
+        public void UpdateEmail(string newEmail, string updatedBy = null, string updatedIp = null)
         {
             var oldEmail = Email.Value;
             Email = new Email(newEmail);
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = updatedBy;
 
-            AddDomainEvent(new TeacherEmailUpdatedEvent(
-                Id,
-                oldEmail,
-                newEmail
-            ));
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherEmailUpdatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    oldEmail,
+            //    newEmail
+            //));
+        }
+
+        /// <summary>
+        /// Updates teacher's salary
+        /// </summary>
+        public void UpdateSalary(decimal newSalary, string updatedBy = null, string updatedIp = null)
+        {
+            if (newSalary < 0)
+                throw new ArgumentException("Salary cannot be negative", nameof(newSalary));
+
+            var oldSalary = Salary;
+            Salary = newSalary;
+
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherSalaryUpdatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    oldSalary,
+            //    newSalary
+            //));
+        }
+
+        /// <summary>
+        /// Updates emergency contact information
+        /// </summary>
+        public void UpdateEmergencyContact(
+            string contactName,
+            string contactPhone,
+            string updatedBy = null,
+            string updatedIp = null)
+        {
+            EmergencyContact = contactName?.Trim();
+            EmergencyContactPhone = contactPhone?.Trim();
+
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
+        }
+
+        /// <summary>
+        /// Updates profile photo
+        /// </summary>
+        public void UpdatePhoto(string photoUrl, string updatedBy = null, string updatedIp = null)
+        {
+            PhotoUrl = photoUrl?.Trim();
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
         }
 
         /// <summary>
         /// Assigns teacher to a department
         /// </summary>
-        public void AssignToDepartment(Guid departmentId, string assignedBy)
+        public void AssignToDepartment(Guid departmentId, string assignedBy = null, string assignedIp = null)
         {
+            if (departmentId == Guid.Empty)
+                throw new ArgumentException("Department ID is required", nameof(departmentId));
+
             if (DepartmentId == departmentId)
-                throw new DomainException("Teacher is already assigned to this department.");
+                throw new DomainException("Teacher is already assigned to this department");
 
             var previousDepartment = DepartmentId;
             DepartmentId = departmentId;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = assignedBy;
 
-            AddDomainEvent(new TeacherAssignedToDepartmentEvent(
-                Id,
-                previousDepartment,
-                departmentId
-            ));
+            SetUpdated(assignedBy ?? "System", assignedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherAssignedToDepartmentEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    previousDepartment,
+            //    departmentId
+            //));
         }
 
         /// <summary>
         /// Removes teacher from department
         /// </summary>
-        public void RemoveFromDepartment(string removedBy)
+        public void RemoveFromDepartment(string removedBy = null, string removedIp = null)
         {
             if (!DepartmentId.HasValue)
-                throw new DomainException("Teacher is not assigned to any department.");
+                throw new DomainException("Teacher is not assigned to any department");
 
             var previousDepartment = DepartmentId;
             DepartmentId = null;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = removedBy;
 
-            AddDomainEvent(new TeacherRemovedFromDepartmentEvent(
-                Id,
-                previousDepartment.Value
-            ));
+            SetUpdated(removedBy ?? "System", removedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherRemovedFromDepartmentEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    previousDepartment.Value
+            //));
         }
 
         /// <summary>
-        /// Increments teacher's experience
+        /// Increments teacher's prior experience
         /// </summary>
-        public void IncrementExperience(decimal years, string updatedBy)
+        public void IncrementPriorExperience(decimal years, string updatedBy = null, string updatedIp = null)
         {
             if (years <= 0)
-                throw new ArgumentException("Experience increment must be positive.", nameof(years));
+                throw new ArgumentException("Experience increment must be positive", nameof(years));
 
-            Experience += years;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = updatedBy;
+            PriorExperience += years;
+            SetUpdated(updatedBy ?? "System", updatedIp ?? "Unknown");
 
-            AddDomainEvent(new TeacherExperienceUpdatedEvent(
-                Id,
-                Experience
-            ));
+            //AddDomainEvent(new TeacherExperienceUpdatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    PriorExperience
+            //));
         }
 
         /// <summary>
-        /// Activates an inactive teacher
+        /// Activates an inactive teacher (overrides BaseEntity)
         /// </summary>
-        public void Activate(string activatedBy)
+        public new void Activate(string activatedBy = null, string activatedIp = null)
         {
-            if (IsActive)
-                throw new TeacherAlreadyActiveException($"Teacher {FullName} is already active.");
+            if (IsActive && !IsDeleted)
+                throw new TeacherAlreadyActiveException($"Teacher {FullName} is already active");
 
-            IsActive = true;
+            base.Activate(activatedBy ?? "System");
             DateOfLeaving = null;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = activatedBy;
+            SetUpdated(activatedBy ?? "System", activatedIp ?? "Unknown");
 
-            AddDomainEvent(new TeacherActivatedEvent(Id, activatedBy));
+            //AddDomainEvent(new TeacherActivatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    activatedBy ?? "System"
+            //));
         }
 
         /// <summary>
-        /// Deactivates a teacher - validates no active assignments
+        /// Deactivates a teacher - validates no active assignments (overrides BaseEntity)
         /// </summary>
-        public void Deactivate(string deactivatedBy, DateTime? leavingDate = null)
+        public new void Deactivate(string deactivatedBy = null, string deactivatedIp = null)
         {
             if (!IsActive)
-                throw new TeacherAlreadyInactiveException($"Teacher {FullName} is already inactive.");
+                throw new TeacherAlreadyInactiveException($"Teacher {FullName} is already inactive");
 
-            // Business Rule: Cannot deactivate if has teaching assignments
+            // ✅ Business Rule: Cannot deactivate if has teaching assignments
             if (HasActiveTeachingAssignments())
                 throw new TeacherHasActiveAssignmentsException(
                     $"Cannot deactivate teacher {FullName}. Remove all teaching assignments first.");
 
-            // Business Rule: Cannot deactivate if assigned as class teacher
+            // ✅ Business Rule: Cannot deactivate if assigned as class teacher
             if (HasClassTeacherAssignment())
                 throw new TeacherHasActiveAssignmentsException(
                     $"Cannot deactivate teacher {FullName}. Remove class teacher assignments first.");
 
-            IsActive = false;
-            DateOfLeaving = leavingDate ?? DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = deactivatedBy;
+            base.Deactivate(deactivatedBy ?? "System");
+            DateOfLeaving = DateTime.UtcNow;
+            SetUpdated(deactivatedBy ?? "System", deactivatedIp ?? "Unknown");
 
-            AddDomainEvent(new TeacherDeactivatedEvent(Id, deactivatedBy, DateOfLeaving.Value));
+            //AddDomainEvent(new TeacherDeactivatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    deactivatedBy ?? "System",
+            //    DateOfLeaving.Value
+            //));
         }
 
         /// <summary>
         /// Processes teacher resignation
         /// </summary>
-        public void Resign(DateTime resignationDate, string reason, string processedBy)
+        public void Resign(
+            DateTime resignationDate,
+            string reason,
+            string processedBy = null,
+            string processedIp = null)
         {
             if (!IsActive)
-                throw new TeacherInactiveException("Teacher is already inactive.");
+                throw new TeacherInactiveException("Teacher is already inactive");
 
             if (resignationDate < DateTime.UtcNow.Date)
-                throw new ArgumentException("Resignation date cannot be in the past.");
+                throw new ArgumentException("Resignation date cannot be in the past");
 
-            IsActive = false;
+            base.Deactivate(processedBy ?? "System");
             DateOfLeaving = resignationDate;
-            UpdatedAt = DateTime.UtcNow;
-            UpdatedBy = processedBy;
+            SetUpdated(processedBy ?? "System", processedIp ?? "Unknown");
 
-            AddDomainEvent(new TeacherResignedEvent(
-                Id,
-                FullName,
-                resignationDate,
-                reason
-            ));
+            //AddDomainEvent(new TeacherResignedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    FullName,
+            //    resignationDate,
+            //    reason
+            //));
         }
+
+        /// <summary>
+        /// Terminates teacher employment
+        /// </summary>
+        public void Terminate(
+            DateTime terminationDate,
+            string reason,
+            string terminatedBy = null,
+            string terminatedIp = null)
+        {
+            if (!IsActive)
+                throw new TeacherInactiveException("Teacher is already inactive");
+
+            base.Deactivate(terminatedBy ?? "System");
+            DateOfLeaving = terminationDate;
+            SetUpdated(terminatedBy ?? "System", terminatedIp ?? "Unknown");
+
+            //AddDomainEvent(new TeacherTerminatedEvent(
+            //    Id,
+            //    TenantId,
+            //    SchoolId,
+            //    FullName,
+            //    terminationDate,
+            //    reason
+            //));
+        }
+
+        // ===== QUERY METHODS =====
 
         /// <summary>
         /// Checks if teacher has any class teacher assignments
@@ -367,48 +542,56 @@ namespace SchoolManagement.Domain.Entities
             return _teachingAssignments.Where(ta => ta.SectionId == sectionId);
         }
 
-        /// <summary>
-        /// Calculates total years of experience including service time
-        /// </summary>
-        public int GetTotalYearsOfExperience()
-        {
-            var serviceYears = (DateTime.UtcNow - DateOfJoining).TotalDays / 365.25;
-            return (int)Math.Floor(Experience + (decimal)serviceYears);
-        }
-
-        /// <summary>
-        /// Checks if teacher qualifies as senior (based on experience)
-        /// </summary>
-        public bool IsSeniorTeacher(int seniorityThreshold = 10)
-        {
-            return GetTotalYearsOfExperience() >= seniorityThreshold;
-        }
+        // ===== PRIVATE VALIDATION METHODS =====
 
         private static void ValidateExperience(decimal experience)
         {
             if (experience < 0)
-                throw new ArgumentException("Experience cannot be negative.", nameof(experience));
+                throw new ArgumentException("Experience cannot be negative", nameof(experience));
 
             if (experience > 50)
-                throw new ArgumentException("Experience cannot exceed 50 years.", nameof(experience));
+                throw new ArgumentException("Experience cannot exceed 50 years", nameof(experience));
         }
 
         private static void ValidateQualification(string qualification)
         {
             if (string.IsNullOrWhiteSpace(qualification))
-                throw new ArgumentException("Qualification is required.", nameof(qualification));
+                throw new ArgumentException("Qualification is required", nameof(qualification));
 
             if (qualification.Length > 200)
-                throw new ArgumentException("Qualification cannot exceed 200 characters.", nameof(qualification));
+                throw new ArgumentException("Qualification cannot exceed 200 characters", nameof(qualification));
         }
 
-        private static void ValidateEmployeeId(string employeeId)
+        private static void ValidateEmployeeCode(string employeeCode)
         {
-            if (string.IsNullOrWhiteSpace(employeeId))
-                throw new ArgumentException("Employee ID is required.", nameof(employeeId));
+            if (string.IsNullOrWhiteSpace(employeeCode))
+                throw new ArgumentException("Employee code is required", nameof(employeeCode));
 
-            if (employeeId.Length > 20)
-                throw new ArgumentException("Employee ID cannot exceed 20 characters.", nameof(employeeId));
+            if (employeeCode.Length > 20)
+                throw new ArgumentException("Employee code cannot exceed 20 characters", nameof(employeeCode));
         }
+
+        private static void ValidateDateOfJoining(DateTime dateOfJoining)
+        {
+            if (dateOfJoining > DateTime.Today)
+                throw new ArgumentException("Date of joining cannot be in the future", nameof(dateOfJoining));
+        }
+
+        private static void ValidateDateOfBirth(DateTime dateOfBirth)
+        {
+            if (dateOfBirth >= DateTime.Today)
+                throw new ArgumentException("Date of birth must be in the past", nameof(dateOfBirth));
+
+            var age = DateTime.Today.Year - dateOfBirth.Year;
+            if (age < 18)
+                throw new ArgumentException("Teacher must be at least 18 years old", nameof(dateOfBirth));
+
+            if (age > 100)
+                throw new ArgumentException("Invalid date of birth", nameof(dateOfBirth));
+        }
+
+        // ===== EQUALITY =====
+        public override bool Equals(object obj) => obj is Teacher other && Id == other.Id;
+        public override int GetHashCode() => Id.GetHashCode();
     }
 }

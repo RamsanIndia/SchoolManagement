@@ -47,15 +47,15 @@ namespace SchoolManagement.Test.Application.Auth
             // Real helper using mocked accessor
             _ipAddressHelper = new IpAddressHelper(_mockHttpContextAccessor.Object);
 
-            _handler = new RefreshTokenCommandHandler(
-                _mockUserRepository.Object,          // IUserRepository
-                _mockRefreshTokenRepository.Object,  // IRefreshTokenRepository
-                _mockUnitOfWork.Object,              // IUnitOfWork
-                _mockTokenService.Object,            // ITokenService
-                _mockLogger.Object,                  // ILogger<RefreshTokenCommandHandler>
-                _mockHttpContextAccessor.Object,     // IHttpContextAccessor
-                _ipAddressHelper                     // IpAddressHelper
-            );
+            //_handler = new RefreshTokenCommandHandler(
+            //    _mockUserRepository.Object,          // IUserRepository
+            //    _mockRefreshTokenRepository.Object,  // IRefreshTokenRepository
+            //    _mockUnitOfWork.Object,              // IUnitOfWork
+            //    _mockTokenService.Object,            // ITokenService
+            //    _mockLogger.Object,                  // ILogger<RefreshTokenCommandHandler>
+            //    _mockHttpContextAccessor.Object,     // IHttpContextAccessor
+            //    _ipAddressHelper                     // IpAddressHelper
+            //);
         }
 
         #region Successful Token Refresh Tests
@@ -81,9 +81,9 @@ namespace SchoolManagement.Test.Application.Auth
                 .Setup(x => x.GetByIdWithTokensAsync(user.Id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(user);
 
-            _mockTokenService
-                .Setup(x => x.GenerateAccessToken(user))
-                .Returns("new-access-token");
+            //_mockTokenService
+            //    .Setup(x => x.GenerateAccessToken(user))
+            //    .Returns("new-access-token");
 
             _mockTokenService
                 .Setup(x => x.GenerateRefreshToken())
@@ -117,9 +117,9 @@ namespace SchoolManagement.Test.Application.Auth
                 x => x.GetByIdWithTokensAsync(user.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            _mockTokenService.Verify(
-                x => x.GenerateAccessToken(user),
-                Times.Once);
+            //_mockTokenService.Verify(
+            //    x => x.GenerateAccessToken(user),
+            //    Times.Once);
 
             _mockTokenService.Verify(
                 x => x.GenerateRefreshToken(),

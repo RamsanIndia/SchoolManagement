@@ -13,6 +13,8 @@ namespace SchoolManagement.Application.Interfaces
     /// </summary>
     public interface IAuthenticationTokenManager
     {
-        Task<TokenDto> GenerateTokensAsync(User user, string ipAddress, CancellationToken cancellationToken);
+        //Task<TokenDto> GenerateTokensAsync(User user, string ipAddress, CancellationToken cancellationToken);
+        Task<TokenDto> GenerateTokensAsync(User user, string clientIp, Guid tenantId, Guid schoolId, CancellationToken cancellationToken);
+
     }
 }

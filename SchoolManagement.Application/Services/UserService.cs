@@ -18,23 +18,26 @@ namespace SchoolManagement.Application.Services
         private readonly IPasswordService _passwordService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<UserService> _logger;
+        private readonly ITenantService _tenantService;
 
         public UserService(
             IUserRepository userRepository,
             IRoleRepository roleRepository,
             IPasswordService passwordService,
             IUnitOfWork unitOfWork,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            ITenantService tenantService)
         {
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
             _passwordService = passwordService ?? throw new ArgumentNullException(nameof(passwordService));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _tenantService = tenantService;
         }
 
         #region Query Methods
-
+         
         public async Task<User> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _userRepository.GetByIdAsync(id, cancellationToken);
@@ -42,12 +45,12 @@ namespace SchoolManagement.Application.Services
 
         public async Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            return await _userRepository.GetByEmailAsync(email, cancellationToken);
+            return await _userRepository.GetByEmailAsync(email, _tenantService.TenantId, cancellationToken);
         }
 
         public async Task<User> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
         {
-            return await _userRepository.GetByUsernameAsync(username, cancellationToken);
+            return await _userRepository.GetByUsernameAsync(username, _tenantService.TenantId,  cancellationToken);
         }
 
         public async Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -59,14 +62,14 @@ namespace SchoolManagement.Application.Services
             UserType userType,
             CancellationToken cancellationToken = default)
         {
-            return await _userRepository.GetByUserTypeAsync(userType, cancellationToken);
+            return await _userRepository.GetByUserTypeAsync(userType, _tenantService.TenantId,_tenantService.SchoolId, cancellationToken);
         }
 
         public async Task<IEnumerable<Role>> GetUserRolesAsync(
             Guid userId,
             CancellationToken cancellationToken = default)
         {
-            var user = await _userRepository.GetByIdWithRolesAsync(userId, cancellationToken);
+            var user = await _userRepository.GetByIdWithRolesAsync(userId, _tenantService.TenantId, _tenantService.SchoolId, cancellationToken);
             if (user == null)
                 throw new ArgumentException($"User not found with ID: {userId}");
 
@@ -96,11 +99,11 @@ namespace SchoolManagement.Application.Services
             try
             {
                 // Validate user doesn't already exist
-                var existingByEmail = await _userRepository.GetByEmailAsync(user.Email.Value, cancellationToken);
+                var existingByEmail = await _userRepository.GetByEmailAsync(user.Email.Value, _tenantService.TenantId, cancellationToken);
                 if (existingByEmail != null)
                     throw new InvalidOperationException($"User with email '{user.Email.Value}' already exists");
 
-                var existingByUsername = await _userRepository.GetByUsernameAsync(user.Username, cancellationToken);
+                var existingByUsername = await _userRepository.GetByUsernameAsync(user.Username, _tenantService.TenantId, cancellationToken);
                 if (existingByUsername != null)
                     throw new InvalidOperationException($"User with username '{user.Username}' already exists");
 
@@ -253,7 +256,7 @@ namespace SchoolManagement.Application.Services
         {
             try
             {
-                var user = await _userRepository.GetByIdWithRolesAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdWithRolesAsync(userId, _tenantService.TenantId, _tenantService.SchoolId, cancellationToken);
                 if (user == null)
                     throw new ArgumentException($"User not found with ID: {userId}");
 
@@ -312,7 +315,7 @@ namespace SchoolManagement.Application.Services
         {
             try
             {
-                var user = await _userRepository.GetByIdWithRolesAsync(userId, cancellationToken);
+                var user = await _userRepository.GetByIdWithRolesAsync(userId, _tenantService.TenantId, _tenantService.SchoolId, cancellationToken);
                 if (user == null)
                     throw new ArgumentException($"User not found with ID: {userId}");
 
