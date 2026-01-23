@@ -143,9 +143,9 @@ Specification (Planned)
 
 Domain Events
 
-Outbox Pattern (Planned)
+Outbox Pattern
 
-Azure Service Bus / RabbitMQ (Planned)
+Azure Service Bus
 
 Use cases:
 
