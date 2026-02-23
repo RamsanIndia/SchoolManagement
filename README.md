@@ -1,4 +1,4 @@
-🧩 Business Domains Covered
+🧩 Business Domains Covered (Modular Monolith)
 
 Student Management
 
@@ -16,19 +16,23 @@ Notification System (Email / SMS / Push)
 
 Tenant Management (SaaS)
 
-🏗️ System Architecture Overview
+🏗️ System Architecture Overview (Modular Monolith)
 Client (React / Mobile)
         ↓
-API Gateway (Planned – YARP/Ocelot)
+ASP.NET Core Web API (Single Deployable Application)
         ↓
 -------------------------------------------------
-| Microservices (Independent Deployment Units) |
+|            Modular Monolithic Core             |
 -------------------------------------------------
-| School Management | Attendance | Exams | Fees |
+| School | Students | Attendance | Exams | Fees |
 | HRMS | Users | Notifications | Tenant |
 -------------------------------------------------
         ↓
-Shared / Isolated Database (Tenant Aware)
+PostgreSQL Database (Tenant Aware)
+
+✅ Single deployment unit
+✅ Internally separated by business modules
+✅ Can evolve to microservices later
 
 🧠 Architectural Principles
 
@@ -36,11 +40,13 @@ Separation of Concerns
 
 Dependency Inversion
 
-Technology Independence
+Module Isolation (No tight coupling between modules)
 
 High Testability
 
-Loose Coupling via Events
+Internal Event-based Communication
+
+Future Microservices Extraction Ready
 
 🏢 Multi-Tenancy Design (SaaS Ready)
 Tenant Strategy
@@ -55,7 +61,7 @@ JWT Claim (tenant_id)
 
 HTTP Header (X-Tenant-Id)
 
-Subdomain-based support (Future)
+Subdomain-based (Future)
 
 Data Isolation
 
@@ -67,7 +73,6 @@ Zero cross-tenant data leakage
 
 modelBuilder.Entity<Student>()
     .HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
-
 🧱 Clean Architecture Structure
 ├── API Layer
 │   └── Controllers, Middleware, Authorization
@@ -80,9 +85,8 @@ modelBuilder.Entity<Student>()
 └── Persistence Layer
     └── EF Core, Repositories, Unit of Work
 
-
 ✔ Domain logic is framework-independent
-✔ Infrastructure can be replaced without breaking business rules
+✔ Infrastructure is replaceable without breaking business logic
 
 🔁 CQRS Implementation
 
@@ -92,7 +96,8 @@ Queries → Read operations (Optimized)
 
 MediatR used for request handling
 
-Improves scalability and maintainability
+✅ Improves maintainability
+✅ Supports future scaling
 
 🔐 Security Architecture
 Authentication
@@ -113,25 +118,35 @@ Action-based access (Read / Write / Delete)
 
 [MenuPermission("Students", "Write")]
 public async Task<IActionResult> CreateStudent()
+📦 Modular Monolith Modules Overview
+Module	Responsibility
+SchoolManagement	Core admin, menus, roles
+StudentManagement	Student lifecycle
+Attendance	Attendance & biometrics
+Examination	Exams & results
+FeeManagement	Fees & payments
+HRMS	Employees & payroll
+UserManagement	Authentication & users
+Notification	Email/SMS/Push
+TenantManagement	SaaS tenant control
 
-📡 Microservices Overview
-Service	Responsibility
-SchoolManagement.API	Core admin, roles, menus
-StudentManagement.API	Student lifecycle
-AttendanceService.API	Attendance & biometrics
-ExaminationService.API	Exams & results
-FeeManagement.API	Fees & payments
-HRMSService.API	Employees & payroll
-UserManagement.API	Authentication
-NotificationService.API	Email/SMS/Push
-TenantManagement.API	SaaS tenant control
+👉 Each module has its own:
+
+Domain
+
+Application
+
+Infrastructure
+
+Persistence layer (within the same solution)
+
 🗄️ Data Architecture
 
 Primary DB: PostgreSQL
 
 ORM: Entity Framework Core 8
 
-Patterns:
+Patterns Used
 
 Repository
 
@@ -139,33 +154,33 @@ Unit of Work
 
 Specification (Planned)
 
-📦 Event-Driven Ready
+📡 Event-Driven (Within Modular Monolith)
 
 Domain Events
 
-Outbox Pattern
+Outbox Pattern (Planned)
 
-Azure Service Bus
+Azure Service Bus (Future Integration)
 
-Use cases:
+Use Cases:
 
 Attendance marked → Notify parents
 
 Fee paid → Update student status
 
-Employee onboarded → Create user
+Employee onboarded → Auto create user
 
 ☁️ Cloud & DevOps Readiness
 
-Dockerized microservices
+Docker-ready (Single container now)
 
-Azure App Service ready
+Azure App Service deployment
 
 Azure Key Vault for secrets
 
 CI/CD via Azure DevOps / GitHub Actions
 
-Application Insights for monitoring
+Application Insights monitoring
 
 🧪 Quality & Best Practices
 
@@ -179,11 +194,11 @@ Structured logging (Serilog)
 
 SOLID principles
 
-Testable architecture
+High testability
 
 📈 Non-Functional Capabilities
 Aspect	Status
-Scalability	Horizontal
+Scalability	Modular scaling
 Availability	99.9% ready
 Security	Enterprise-grade
 Performance	Optimized
@@ -195,17 +210,19 @@ API Gateway
 
 Refresh Tokens
 
-Event-driven communication
+Internal event-driven communication
 
 Phase 2
 
 Redis caching
 
-Database per service
+Database per module
 
 Advanced reporting
 
 Phase 3
+
+Extract modules to Microservices
 
 Kubernetes deployment
 
@@ -218,9 +235,9 @@ Mobile application
 Naveen Kumar
 Senior Backend Developer | .NET Core | Azure | Clean Architecture
 
-📌 Expertise:
+📌 Expertise
 
-Microservices Architecture
+Modular Monolith & Microservices Architecture
 
 SaaS Multi-Tenant Systems
 
