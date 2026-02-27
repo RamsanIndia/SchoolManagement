@@ -130,7 +130,7 @@ UserManagement	Authentication & users
 Notification	Email/SMS/Push
 TenantManagement	SaaS tenant control
 
-👉 Each module has its own:
+👉 module has:
 
 Domain
 
@@ -152,15 +152,13 @@ Repository
 
 Unit of Work
 
-Specification (Planned)
-
 📡 Event-Driven (Within Modular Monolith)
 
 Domain Events
 
-Outbox Pattern (Planned)
+Outbox Pattern
 
-Azure Service Bus (Future Integration)
+Azure Service Bus
 
 Use Cases:
 
